@@ -121,3 +121,25 @@ export function saveProfile(profile) {
     // Session still works, it just won't persist.
   }
 }
+
+/**
+ * Copies the onboarding wizard's answers into the stored profile.
+ * The wizard's ids were already chosen to match this module's vocabulary,
+ * so this is a projection rather than a translation.
+ */
+export function applyOnboardingToProfile(form) {
+  if (!form) return loadProfile();
+  const next = {
+    ...loadProfile(),
+    ...(form.goal ? { goal: form.goal } : {}),
+    ...(form.gender ? { gender: form.gender } : {}),
+    ...(form.frequency ? { frequency: form.frequency } : {}),
+    ...(form.difficulty ? { difficulty: form.difficulty } : {}),
+    ...(form.dietType ? { dietType: form.dietType } : {}),
+    ...(Number.isFinite(+form.age) ? { age: +form.age } : {}),
+    ...(Number.isFinite(+form.height) ? { height: +form.height } : {}),
+    ...(Number.isFinite(+form.weight) ? { weight: +form.weight } : {}),
+  };
+  saveProfile(next);
+  return next;
+}

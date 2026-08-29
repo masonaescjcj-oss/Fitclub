@@ -1,7 +1,14 @@
 import React, { useState, useEffect } from "react";
+import { loadProfile, targetsFor } from "../lib/nutrition/profile";
 import { Sparkles, Flame, Dumbbell, Calendar, Activity, TrendingDown, Target, PieChart, ChevronRight, Rocket } from "lucide-react";
 
 export default function AiPlanSummaryPage({ onNavigate }) {
+  // The wizard just wrote these answers; show what they actually produce
+  // rather than a fixed number the diet tab would then contradict.
+  const planTargets = targetsFor(loadProfile());
+  const planKcal = planTargets.kcal.toLocaleString();
+  const planProtein = planTargets.protein;
+
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [isReady, setIsReady] = useState(false);
 
@@ -81,7 +88,7 @@ export default function AiPlanSummaryPage({ onNavigate }) {
                   <span>{isRtl ? "کالری روزانه" : "DAILY CALORIES"}</span>
                 </div>
                 <span className="text-xl font-black text-white tracking-tight" dir="ltr">
-                  2,350 <span className="text-xs font-bold text-gray-400">kcal</span>
+                  {planKcal} <span className="text-xs font-bold text-gray-400">kcal</span>
                 </span>
               </div>
 
@@ -91,7 +98,7 @@ export default function AiPlanSummaryPage({ onNavigate }) {
                   <span>{isRtl ? "پروتئین هدف" : "PROTEIN TARGET"}</span>
                 </div>
                 <span className="text-xl font-black text-white tracking-tight" dir="ltr">
-                  165 <span className="text-xs font-bold text-gray-400">g/day</span>
+                  {planProtein} <span className="text-xs font-bold text-gray-400">g/day</span>
                 </span>
               </div>
 
@@ -128,7 +135,7 @@ export default function AiPlanSummaryPage({ onNavigate }) {
                   </h3>
                 </div>
                 <span className="text-[11px] font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/30">
-                  2,350 kcal
+                  {planKcal} kcal
                 </span>
               </div>
 
@@ -192,7 +199,7 @@ export default function AiPlanSummaryPage({ onNavigate }) {
                     <div className="w-2.5 h-2.5 rounded-full bg-[#844783] shrink-0" />
                     <div>
                       <span className="text-xs font-black text-white">Protein (30%)</span>
-                      <span className="text-[10px] text-gray-400 block font-semibold">165g / day</span>
+                      <span className="text-[10px] text-gray-400 block font-semibold">{planProtein}g / day</span>
                     </div>
                   </div>
 

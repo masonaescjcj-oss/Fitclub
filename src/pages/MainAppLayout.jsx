@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import MainAppHeader from "../components/MainAppHeader";
 import { ChecklistProvider, useChecklistStore } from "../lib/checklistContext";
 import { NutritionProvider } from "../lib/nutrition/nutritionContext";
+import { loadSession } from "../lib/session";
 import { overallStreak } from "../lib/checklistModel";
 import BottomNavBar from "../components/BottomNavBar";
 
@@ -47,6 +48,7 @@ function MainAppShell({ onNavigate }) {
   const [isActiveWorkoutOpen, setIsActiveWorkoutOpen] = useState(false);
 
   const { lists } = useChecklistStore();
+  const userName = loadSession().name || "Isaac";
   // The header badge now reflects the real longest run across the athlete's lists.
   const streak = overallStreak(lists);
 
@@ -71,7 +73,7 @@ function MainAppShell({ onNavigate }) {
       {/* Top Header (Shown unless on sub-pages or Active Workout) */}
       {!subPage && !isActiveWorkoutOpen && (
         <MainAppHeader
-          userName="Isaac"
+          userName={userName}
           streak={streak}
           coins={450}
           onProfileClick={() => setSubPage("profile")}

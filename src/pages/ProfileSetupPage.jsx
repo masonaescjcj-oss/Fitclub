@@ -77,7 +77,7 @@ export default function ProfileSetupPage({ onNavigate }) {
       return;
     }
 
-    onNavigate("questionnaire");
+    onNavigate("questionnaire", { name: name.trim(), username: username.trim() });
   };
 
   return (

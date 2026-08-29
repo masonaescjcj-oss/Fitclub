@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { applyOnboardingToProfile } from "../lib/nutrition/profile";
 import { motion, AnimatePresence } from "framer-motion";
 import { Dumbbell, Home, Building2, Activity, Utensils, Leaf, Drumstick, WheatOff, Scan, ChevronDown, Scale, Flame, GraduationCap, Zap as Lightning, Footprints, Sparkles, Star } from "lucide-react";
 import Header from "../components/Header";
@@ -183,6 +184,10 @@ export default function OnboardingWizard({ onNavigate }) {
   const totalSteps = stepsData.length;
 
   const handleNext = () => {
+    if (stepIndex === totalSteps - 1) {
+      // The answers drove nothing before; the diet tab's targets read them now.
+      applyOnboardingToProfile(formData);
+    }
     if (stepIndex < totalSteps - 1) {
       setStepIndex((prev) => prev + 1);
     } else {

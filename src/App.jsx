@@ -10,76 +10,95 @@ import IntroHeroPage from './pages/IntroHeroPage';
 import OnboardingWizard from './pages/OnboardingWizard';
 import AiPlanSummaryPage from './pages/AiPlanSummaryPage';
 import MainAppLayout from './pages/MainAppLayout';
+import { clearSession, initialPage, loadSession, saveSession } from './lib/session';
 
 export default function App() {
-  const [currentPage, setCurrentPage] = useState('welcome');
-  const [userEmail, setUserEmail] = useState('dddddddd@dd.com');
+  // A returning athlete lands where they left off instead of signing up again.
+  const [currentPage, setCurrentPage] = useState(() => initialPage());
+  const [userEmail, setUserEmail] = useState(() => loadSession().email || 'dddddddd@dd.com');
+
+  /**
+   * Every navigation goes through here so the stored session stays in step
+   * with where the athlete actually is.
+   */
+  const navigate = (page) => {
+    if (page === 'welcome') clearSession();
+    else if (page === 'main-app') saveSession({ signedIn: true, onboarded: true });
+    else if (page === 'profile-setup' || page === 'intro-hero') saveSession({ signedIn: true });
+    setCurrentPage(page);
+  };
 
   return (
     <div className="w-full h-full min-h-[100dvh] bg-black text-[#844783] font-sans antialiased overflow-hidden">
       <AnimatePresence mode="wait">
         {currentPage === 'welcome' && (
-          <WelcomePage key="welcome" onNavigate={(page) => setCurrentPage(page)} />
+          <WelcomePage key="welcome" onNavigate={navigate} />
         )}
 
         {currentPage === 'login' && (
-          <LoginPage key="login" onNavigate={(page) => setCurrentPage(page)} />
+          <LoginPage key="login" onNavigate={(page, emailData) => {
+              if (emailData) { setUserEmail(emailData); saveSession({ email: emailData }); }
+              navigate(page);
+            }} />
         )}
 
         {currentPage === 'signup' && (
           <SignupPage
             key="signup"
             onNavigate={(page, emailData) => {
-              if (emailData) setUserEmail(emailData);
-              setCurrentPage(page);
+              if (emailData) { setUserEmail(emailData); saveSession({ email: emailData }); }
+              navigate(page);
             }}
           />
         )}
 
         {currentPage === 'forgot-password' && (
-          <ForgotPasswordPage key="forgot-password" onNavigate={(page) => setCurrentPage(page)} />
+          <ForgotPasswordPage key="forgot-password" onNavigate={navigate} />
         )}
 
         {currentPage === 'otp' && (
           <OtpPage
             key="otp"
             email={userEmail}
-            onNavigate={(page) => setCurrentPage(page === 'onboarding' ? 'profile-setup' : page)}
+            onNavigate={(page) => navigate(page === 'onboarding' ? 'profile-setup' : page)}
           />
         )}
 
         {currentPage === 'profile-setup' && (
           <ProfileSetupPage
             key="profile-setup"
-            onNavigate={(page) => setCurrentPage(page === 'questionnaire' ? 'intro-hero' : page)}
+            onNavigate={(page, details) => {
+              if (details?.name) saveSession({ name: details.name, username: details.username });
+              navigate(page === 'questionnaire' ? 'intro-hero' : page);
+            }}
           />
         )}
 
         {currentPage === 'intro-hero' && (
           <IntroHeroPage
             key="intro-hero"
-            onNavigate={(page) => setCurrentPage(page)}
+            onNavigate={navigate}
           />
         )}
 
         {currentPage === 'onboarding-questions' && (
           <OnboardingWizard
             key="onboarding-questions"
-            onNavigate={(page) => setCurrentPage(page)}
+            onNavigate={navigate}
           />
         )}
 
         {currentPage === 'ai-plan-summary' && (
           <AiPlanSummaryPage
             key="ai-plan-summary"
-            onNavigate={(page) => setCurrentPage(page === 'onboarding-wizard' ? 'onboarding-questions' : page)}
+            onNavigate={(page) => navigate(page === 'onboarding-wizard' ? 'onboarding-questions' : page)}
           />
         )}
 
         {currentPage === 'main-app' && (
           <MainAppLayout
             key="main-app"
-            onNavigate={(page) => setCurrentPage(page)}
+            onNavigate={navigate}
           />
         )}
       </AnimatePresence>

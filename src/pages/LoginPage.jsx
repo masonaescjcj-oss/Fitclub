@@ -60,7 +60,8 @@ export default function LoginPage({ onNavigate }) {
 
     setTimeout(() => {
       setIsLoading(false);
-      onNavigate("home");
+      // A returning athlete goes straight to the app, not back through signup.
+      onNavigate("main-app", email);
     }, 1000);
   };
 
