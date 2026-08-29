@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import MainAppHeader from "../components/MainAppHeader";
 import { ChecklistProvider, useChecklistStore } from "../lib/checklistContext";
 import { NutritionProvider } from "../lib/nutrition/nutritionContext";
+import { ChatProvider, useChatStore } from "../lib/chat/chatContext";
 import { loadSession } from "../lib/session";
 import { overallStreak } from "../lib/checklistModel";
 import BottomNavBar from "../components/BottomNavBar";
@@ -36,7 +37,9 @@ export default function MainAppLayout({ onNavigate }) {
   return (
     <ChecklistProvider>
       <NutritionProvider>
-        <MainAppShell onNavigate={onNavigate} />
+        <ChatProvider lang={(localStorage.getItem("language") || "en") === "fa" ? "fa" : "en"}>
+          <MainAppShell onNavigate={onNavigate} />
+        </ChatProvider>
       </NutritionProvider>
     </ChecklistProvider>
   );
@@ -48,6 +51,10 @@ function MainAppShell({ onNavigate }) {
   const [isActiveWorkoutOpen, setIsActiveWorkoutOpen] = useState(false);
 
   const { lists } = useChecklistStore();
+  // An open conversation takes the whole screen, the way a messenger does:
+  // the app header and tab bar step aside so the composer isn't buried.
+  const { openChatId } = useChatStore();
+  const immersive = isActiveWorkoutOpen || !!openChatId;
   const userName = loadSession().name || "Isaac";
   // The header badge now reflects the real longest run across the athlete's lists.
   const streak = overallStreak(lists);
@@ -71,7 +78,7 @@ function MainAppShell({ onNavigate }) {
       className="w-full md:max-w-lg mx-auto min-h-[100dvh] bg-black text-white flex flex-col justify-between overflow-x-hidden relative font-sans select-none"
     >
       {/* Top Header (Shown unless on sub-pages or Active Workout) */}
-      {!subPage && !isActiveWorkoutOpen && (
+      {!subPage && !immersive && (
         <MainAppHeader
           userName={userName}
           streak={streak}
@@ -123,7 +130,7 @@ function MainAppShell({ onNavigate }) {
       </AnimatePresence>
 
       {/* Floating Bottom Navigation (Only shown when not in sub-page) */}
-      {!subPage && !isActiveWorkoutOpen && (
+      {!subPage && !immersive && (
         <BottomNavBar
           activeTab={activeTab}
           setActiveTab={(tab) => {
