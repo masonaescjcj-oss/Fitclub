@@ -45,7 +45,7 @@ function Action({ icon: Icon, label, tone = "text-white", onClick }) {
 /** Long-press menu on a message, with the reaction strip on top. */
 export function MessageActionsSheet({
   message, chat, premium, isRtl, t, onReact, onReply, onForward, onEdit,
-  onCopy, onPin, onSelect, onDelete, onClose,
+  onCopy, onPin, onSelect, onDelete, onClose, onTranslate, onTranscribe,
 }) {
   const mine = isMine(message);
   const canEdit = mine && message.kind === "text" && !message.deleted;
@@ -88,6 +88,10 @@ export function MessageActionsSheet({
         <Action icon={Forward} label={t.forward} onClick={onForward} />
         {canEdit && <Action icon={Pencil} label={t.edit} onClick={onEdit} />}
         {message.kind === "text" && !message.deleted && <Action icon={Copy} label={t.copy} onClick={onCopy} />}
+        {onTranslate && (
+          <Action icon={Forward} label={message.showTranslation ? t.showOriginal : t.translate} onClick={onTranslate} />
+        )}
+        {onTranscribe && <Action icon={Copy} label={t.transcribe} onClick={onTranscribe} />}
         {chat.type !== "channel" && (
           <Action icon={Pin} label={chat.pinnedMessageId === message.id ? t.unpinMessage : t.pinMessage} onClick={onPin} />
         )}
@@ -150,7 +154,7 @@ export function PollSheet({ isRtl, t, onCreate, onClose }) {
             className="flex-1 h-12 rounded-2xl bg-white/5 border border-white/10 text-neutral-300 font-black text-sm">{t.cancel}</button>
           <button type="button" disabled={!valid}
             onClick={() => onCreate({ question: question.trim(), options: filled, multiple })}
-            className="flex-1 h-12 rounded-2xl bg-[#844783] text-white font-black text-sm disabled:opacity-40">{t.send}</button>
+            className="flex-1 h-12 rounded-2xl bg-[#3390ec] text-white font-black text-sm disabled:opacity-40">{t.send}</button>
         </>
       }>
       <div className="p-4 space-y-3">
@@ -170,7 +174,7 @@ export function PollSheet({ isRtl, t, onCreate, onClose }) {
         <button type="button" onClick={() => setMultiple((v) => !v)}
           className="w-full flex items-center justify-between py-2">
           <span className="text-xs font-black text-white">{t.multipleAnswers}</span>
-          <span className={`w-11 h-6 rounded-full p-0.5 transition-colors ${multiple ? "bg-[#844783]" : "bg-white/10"}`}>
+          <span className={`w-11 h-6 rounded-full p-0.5 transition-colors ${multiple ? "bg-[#3390ec]" : "bg-white/10"}`}>
             <span className={`block w-5 h-5 rounded-full bg-white transition-transform ${
               multiple ? (isRtl ? "-translate-x-5" : "translate-x-5") : ""
             }`} />

@@ -8,6 +8,7 @@ import { findUser } from "../../lib/chat/chatStore";
 import { Avatar, NameBadges } from "./ChatBits";
 import MessageBubble from "./MessageBubble";
 import Composer from "./Composer";
+import { TG } from "../../lib/chat/extras";
 import {
   ForwardSheet, MessageActionsSheet, PollSheet, ScheduleSheet,
 } from "./ChatSheets";
@@ -20,6 +21,7 @@ export default function ChatView({ store, chat, isRtl, t, onBack }) {
   const [actionsFor, setActionsFor] = useState(null);
   const [selection, setSelection] = useState([]);
   const [sheet, setSheet] = useState(null); // "forward" | "poll" | "schedule"
+  const [translateAll, setTranslateAll] = useState(false);
   const [toast, setToast] = useState("");
   const endRef = useRef(null);
 
@@ -71,7 +73,7 @@ export default function ChatView({ store, chat, isRtl, t, onBack }) {
   const attach = (kind) => {
     if (kind === "poll") { setSheet("poll"); return; }
     if (kind === "photo") {
-      store.send(chat.id, { kind: "photo", media: { emoji: "🏋️", gradient: "linear-gradient(135deg,#844783,#e0567d)" } });
+      store.send(chat.id, { kind: "photo", media: { emoji: "🏋️", gradient: "linear-gradient(135deg,#3390ec,#e0567d)" } });
     } else if (kind === "file") {
       store.send(chat.id, { kind: "file", media: { name: "training-notes.pdf", size: "184 KB" } });
     } else if (kind === "voice") {
@@ -88,9 +90,9 @@ export default function ChatView({ store, chat, isRtl, t, onBack }) {
   const selectionMode = selection.length > 0;
 
   return (
-    <div className="w-full min-h-[100dvh] bg-black text-white flex flex-col">
+    <div className="w-full min-h-[100dvh] text-white flex flex-col" style={{ background: TG.bg }}>
       {/* Header */}
-      <div className="sticky top-0 z-30 bg-black/95 backdrop-blur border-b border-white/10">
+      <div className="sticky top-0 z-30 border-b border-white/[0.07]" style={{ background: TG.surface }}>
         {selectionMode ? (
           <div className="flex items-center gap-2 px-3 h-14">
             <button type="button" onClick={() => setSelection([])} aria-label={t.cancel}
@@ -125,7 +127,7 @@ export default function ChatView({ store, chat, isRtl, t, onBack }) {
                 <NameBadges verified={chat.verified} premium={chat.premium || peer?.premium} size={13} />
               </span>
               <span className={`block text-[10px] font-bold truncate ${
-                typingUser ? "text-[#c07dbf]" : peer?.online ? "text-emerald-400" : "text-neutral-500"
+                typingUser ? "text-[#5eb5f7]" : peer?.online ? "text-emerald-400" : "text-neutral-500"
               }`}>
                 {subtitle}
               </span>
@@ -136,11 +138,19 @@ export default function ChatView({ store, chat, isRtl, t, onBack }) {
         {pinned && !selectionMode && (
           <button type="button" onClick={() => store.pinMessage(chat.id, pinned.id)}
             className="w-full flex items-center gap-2 px-3 py-2 border-t border-white/10 bg-black/50 text-start">
-            <Pin className="w-3.5 h-3.5 text-[#c07dbf] shrink-0" />
+            <Pin className="w-3.5 h-3.5 text-[#5eb5f7] shrink-0" />
             <span className="min-w-0">
-              <span className="block text-[9px] font-black text-[#c07dbf] uppercase tracking-wider">{t.pinnedMessage}</span>
+              <span className="block text-[9px] font-black text-[#5eb5f7] uppercase tracking-wider">{t.pinnedMessage}</span>
               <span className="block text-[11px] text-neutral-300 truncate">{pinned.text || t.photo}</span>
             </span>
+          </button>
+        )}
+
+        {messages.some((m) => m.translation && !m.deleted) && !selectionMode && (
+          <button type="button" onClick={() => setTranslateAll((v) => !v)}
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 border-t border-white/[0.07] text-xs font-black"
+            style={{ color: TG.accent, background: "rgba(51,144,236,0.07)" }}>
+            🌐 {translateAll ? t.showOriginal : t.translateBar}
           </button>
         )}
 
@@ -155,7 +165,7 @@ export default function ChatView({ store, chat, isRtl, t, onBack }) {
       </div>
 
       {/* Messages */}
-      <div className="flex-1 py-3">
+      <div className="flex-1 py-3 tg-wallpaper">
         {rows.map((row, i) => {
           if (row.separator) {
             return (
@@ -178,6 +188,7 @@ export default function ChatView({ store, chat, isRtl, t, onBack }) {
               isRtl={isRtl} t={t}
               selected={selection.includes(row.id)}
               selectionMode={selectionMode}
+              translateAll={translateAll}
               onSelect={toggleSelect}
               onLongPress={(m) => (selectionMode ? toggleSelect(m.id) : setActionsFor(m))}
               onReact={store.react}
@@ -190,7 +201,7 @@ export default function ChatView({ store, chat, isRtl, t, onBack }) {
         {typingUser && (
           <div className="flex items-center gap-2 px-4 py-2">
             <Avatar user={findUser(typingUser)} size={24} showStatus={false} />
-            <span className="flex gap-1 px-3 py-2 rounded-2xl bg-[#1c1c1f]">
+            <span className="flex gap-1 px-3 py-2 rounded-2xl bg-[#182533]">
               {[0, 1, 2].map((d) => (
                 <span key={d} className="w-1.5 h-1.5 rounded-full bg-neutral-500 animate-bounce"
                   style={{ animationDelay: `${d * 0.15}s` }} />
@@ -243,6 +254,10 @@ export default function ChatView({ store, chat, isRtl, t, onBack }) {
               navigator.clipboard?.writeText(actionsFor.text).catch(() => {});
               setToast(t.copied); setActionsFor(null);
             }}
+            onTranslate={actionsFor.translation ? () => { store.toggleTranslate(actionsFor.id); setActionsFor(null); } : null}
+            onTranscribe={actionsFor.kind === "voice" && !actionsFor.voice?.transcript
+              ? () => { store.transcribeVoice(actionsFor.id); setActionsFor(null); }
+              : null}
             onPin={() => { store.pinMessage(chat.id, actionsFor.id); setActionsFor(null); }}
             onSelect={() => { setSelection([actionsFor.id]); setActionsFor(null); }}
             onDelete={() => { store.deleteMessage(actionsFor.id, actionsFor.senderId === ME); setActionsFor(null); }}

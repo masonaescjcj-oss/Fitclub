@@ -113,7 +113,7 @@ export default function Composer({
         <button type="button" onClick={() => setPanel(panel === "attach" ? null : "attach")}
           aria-label={t.attach}
           className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
-            panel === "attach" ? "text-[#c07dbf]" : "text-neutral-500 hover:text-white"
+            panel === "attach" ? "text-[#5eb5f7]" : "text-neutral-500 hover:text-white"
           }`}>
           <Paperclip className="w-5 h-5" />
         </button>
@@ -122,7 +122,7 @@ export default function Composer({
           <button type="button" onClick={() => setPanel(panel === "emoji" ? null : "emoji")}
             aria-label={t.emoji}
             className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-              panel === "emoji" ? "text-[#c07dbf]" : "text-neutral-500 hover:text-white"
+              panel === "emoji" ? "text-[#5eb5f7]" : "text-neutral-500 hover:text-white"
             }`}>
             <Smile className="w-5 h-5" />
           </button>
@@ -142,7 +142,7 @@ export default function Composer({
           <button type="button" onClick={() => setPanel(panel === "stickers" ? null : "stickers")}
             aria-label={t.stickers}
             className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-              panel === "stickers" ? "text-[#c07dbf]" : "text-neutral-500 hover:text-white"
+              panel === "stickers" ? "text-[#5eb5f7]" : "text-neutral-500 hover:text-white"
             }`}>
             <Sticker className="w-5 h-5" />
           </button>
@@ -161,7 +161,7 @@ export default function Composer({
               <Clock className="w-4 h-4" />
             </button>
             <button type="button" onClick={submit} aria-label={t.send}
-              className="w-10 h-10 rounded-full bg-[#844783] flex items-center justify-center text-white hover:brightness-110 active:scale-95 transition-all">
+              className="w-10 h-10 rounded-full bg-[#3390ec] flex items-center justify-center text-white hover:brightness-110 active:scale-95 transition-all">
               <Send className={`w-4 h-4 ${isRtl ? "scale-x-[-1]" : ""}`} />
             </button>
           </div>

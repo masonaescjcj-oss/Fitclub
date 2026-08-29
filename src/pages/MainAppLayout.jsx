@@ -53,8 +53,9 @@ function MainAppShell({ onNavigate }) {
   const { lists } = useChecklistStore();
   // An open conversation takes the whole screen, the way a messenger does:
   // the app header and tab bar step aside so the composer isn't buried.
-  const { openChatId } = useChatStore();
-  const immersive = isActiveWorkoutOpen || !!openChatId;
+  const { openChatId, screen } = useChatStore();
+  const chatImmersive = activeTab === "chat" && !subPage && (!!openChatId || screen !== "list");
+  const immersive = isActiveWorkoutOpen || chatImmersive;
   const userName = loadSession().name || "Isaac";
   // The header badge now reflects the real longest run across the athlete's lists.
   const streak = overallStreak(lists);

@@ -21,6 +21,18 @@ export const PEOPLE = [
     verified: true, premium: true, emojiStatus: "💪", bio: "Head coach at FitClub", online: true }),
 ];
 
+/** The athlete's own messenger profile — editable from the Profile screen. */
+export const DEFAULT_ME = {
+  avatar: "🏋️",
+  emojiStatus: "⭐",
+  bio: "Be healthy. Be stronger.",
+  username: "fitclub_athlete",
+  phone: "+98 912 000 0000",
+  birthday: "2000-01-29",
+  stars: 2650,
+  prefs: {},
+};
+
 export const findUser = (id) =>
   id === ME
     ? createUser({ id: ME, name: "You", nameFa: "شما", avatar: "🏋️", color: "#844783", premium: true, online: true })
@@ -100,6 +112,9 @@ function seed() {
   push("sara", { senderId: ME, at: ago(495), status: "read", text: "Planning to. 10:00 works better for me." });
   push("sara", { senderId: "sara", at: ago(490), status: "read", text: "Same. See you there 🙌",
     reactions: { "👍": [ME] } });
+  push("sara", { senderId: "sara", at: ago(30), status: "sent",
+    text: "فردا ساعت ده باشگاه هستی؟ می‌خوام پرس سینه رو تست کنم",
+    translation: "Are you at the gym at ten tomorrow? I want to test my bench press" });
 
   const amir = createChat({
     id: "amir", type: "private", title: "Amir Reza", titleFa: "امیررضا",
@@ -117,7 +132,7 @@ function seed() {
   chats.push(yuki);
   push("yuki", { senderId: "yuki", at: ago(4300), status: "read", text: "Thanks for the mobility routine!" });
 
-  return { chats, messages, folder: "all" };
+  return { chats, messages, folder: "all", me: { ...DEFAULT_ME }, customUsers: [] };
 }
 
 function normalize(state) {
@@ -125,6 +140,8 @@ function normalize(state) {
     chats: (state.chats || []).map((c) => ({ ...createChat(), ...c })),
     messages: (state.messages || []).map((m) => ({ ...createMessage(), ...m })),
     folder: state.folder || "all",
+    me: { ...DEFAULT_ME, ...(state.me || {}) },
+    customUsers: state.customUsers || [],
   };
 }
 

@@ -7,7 +7,7 @@ import { findUser } from "../../lib/chat/chatStore";
 export function Avatar({ chat, user, size = 48, ring = "#000", showStatus = true }) {
   const source = user || chat;
   const label = source?.avatar || source?.emoji || "💬";
-  const color = source?.color || "#844783";
+  const color = source?.color || "#3390ec";
   const online = user?.online ?? false;
 
   return (
@@ -77,4 +77,4 @@ export const senderName = (userId, isRtl) => {
 };
 
 /** Stable colour per member, so a name reads the same throughout a group. */
-export const senderColor = (userId) => findUser(userId).color || "#844783";
+export const senderColor = (userId) => findUser(userId).color || "#3390ec";

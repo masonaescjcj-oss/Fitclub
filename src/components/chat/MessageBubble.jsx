@@ -50,7 +50,7 @@ function Poll({ message, t, onVote }) {
                 <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${
                   mine ? "bg-white border-white" : "border-white/40 group-hover:border-white/70"
                 }`}>
-                  {mine && <Check className="w-2.5 h-2.5 text-[#844783] stroke-[4]" />}
+                  {mine && <Check className="w-2.5 h-2.5 text-[#3390ec] stroke-[4]" />}
                 </span>
                 <span className="flex-1 text-xs font-bold text-white truncate">{opt.text}</span>
                 {voted && <span className="text-[10px] font-black text-white/70 tabular-nums shrink-0">{share}%</span>}
@@ -101,7 +101,7 @@ function Voice({ message, t }) {
 }
 
 export default function MessageBubble({
-  message, chat, replyTarget, grouped, isRtl, t, selected, selectionMode,
+  message, chat, replyTarget, grouped, isRtl, t, selected, selectionMode, translateAll,
   onSelect, onLongPress, onReact, onVote, onJumpToReply,
 }) {
   const mine = isMine(message);
@@ -133,7 +133,7 @@ export default function MessageBubble({
       layout="position"
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`flex ${align} px-3 ${grouped ? "mt-0.5" : "mt-2"} ${selected ? "bg-[#844783]/15 -mx-3 px-6 py-0.5" : ""}`}
+      className={`flex ${align} px-3 ${grouped ? "mt-0.5" : "mt-2"} ${selected ? "bg-[#3390ec]/15 -mx-3 px-6 py-0.5" : ""}`}
     >
       <div className="flex items-end gap-1.5 max-w-[85%]">
         <div
@@ -146,9 +146,12 @@ export default function MessageBubble({
             isSticker
               ? ""
               : mine && !isChannel
-                ? "bg-[#844783] text-white rounded-br-md"
-                : "bg-[#1c1c1f] text-white rounded-bl-md"
+                ? "text-white rounded-br-md"
+                : "bg-[#182533] text-white rounded-bl-md"
           } ${selectionMode ? "cursor-pointer" : ""}`}
+          style={!isSticker && mine && !isChannel
+            ? { background: "linear-gradient(135deg, #7b6ee0 0%, #3e7bdc 100%)" }
+            : undefined}
         >
           {showSender && (
             <span className="block text-[11px] font-black mb-0.5" style={{ color: senderColor(message.senderId) }}>
@@ -178,7 +181,7 @@ export default function MessageBubble({
           ) : message.kind === "photo" ? (
             <span
               className="block rounded-xl overflow-hidden"
-              style={{ width: 200, height: 140, background: message.media?.gradient || "linear-gradient(135deg,#844783,#38bdf8)" }}
+              style={{ width: 200, height: 140, background: message.media?.gradient || "linear-gradient(135deg,#3390ec,#38bdf8)" }}
             >
               <span className="w-full h-full flex items-center justify-center text-5xl">
                 {message.media?.emoji || "🏋️"}
@@ -195,7 +198,16 @@ export default function MessageBubble({
               </span>
             </span>
           ) : (
-            <p className="text-sm font-medium whitespace-pre-wrap break-words leading-snug">{message.text}</p>
+            <>
+              <p className="text-sm font-medium whitespace-pre-wrap break-words leading-snug">
+                {(translateAll || message.showTranslation) && message.translation
+                  ? message.translation
+                  : message.text}
+              </p>
+              {(translateAll || message.showTranslation) && message.translation && (
+                <span className="block text-[9px] font-bold text-white/50 mt-0.5">🌐 {t.translated}</span>
+              )}
+            </>
           )}
 
           {/* meta line */}
@@ -232,7 +244,7 @@ export default function MessageBubble({
 
         {selectionMode && (
           <span className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 mb-1 ${
-            selected ? "bg-[#844783] border-[#844783]" : "border-neutral-600"
+            selected ? "bg-[#3390ec] border-[#3390ec]" : "border-neutral-600"
           }`}>
             {selected && <Check className="w-3 h-3 text-white stroke-[4]" />}
           </span>

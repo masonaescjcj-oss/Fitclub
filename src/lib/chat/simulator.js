@@ -24,10 +24,10 @@ const REPLIES = {
 };
 
 /** Deterministic-ish pick so a given message always draws the same reply. */
-function pick(list, seed) {
+function pickIndex(list, seed) {
   let h = 0;
   for (let i = 0; i < seed.length; i += 1) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
-  return list[h % list.length];
+  return h % list.length;
 }
 
 /** Who answers in this chat: a private peer, or a random group member. */
@@ -53,7 +53,11 @@ export function scheduleReply(chat, sourceText, lang, { onTyping, onReply }) {
   const t1 = setTimeout(() => onTyping(responder, true), thinkMs);
   const t2 = setTimeout(() => {
     onTyping(responder, false);
-    onReply(responder, pick(REPLIES[lang] || REPLIES.en, sourceText || responder));
+    // The reply lists are parallel, so the counterpart index IS the translation.
+    const i = pickIndex(REPLIES.en, sourceText || responder);
+    const text = (REPLIES[lang] || REPLIES.en)[i];
+    const translation = (lang === "fa" ? REPLIES.en : REPLIES.fa)[i];
+    onReply(responder, text, translation === text ? null : translation);
   }, thinkMs + typeMs);
 
   return () => { clearTimeout(t1); clearTimeout(t2); };

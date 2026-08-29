@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Archive, MoreVertical, Pencil, Search, X } from "lucide-react";
+import { Archive, Menu, MoreVertical, Pencil, Search, X } from "lucide-react";
 import { ME, lastMessage, previewOf, relativeTime } from "../../lib/chat/chatModel";
 import { findUser } from "../../lib/chat/chatStore";
+import { TG } from "../../lib/chat/extras";
 import { Avatar, ChatFlags, NameBadges, Ticks, senderName } from "./ChatBits";
 
 const FOLDERS = [
@@ -26,48 +27,41 @@ function matchesFolder(chat, folder, unread) {
   }
 }
 
-/** One row in the chat list. Long-press (or the ⋮ button) opens its actions. */
+/** One row. The ⋮ affordance opens the chat's actions. */
 function Row({ chat, message, unread, typingUser, isRtl, t, onOpen, onMenu }) {
   const title = isRtl ? chat.titleFa || chat.title : chat.title;
   const peer = chat.type === "private" && chat.id !== "saved"
     ? findUser(chat.members.find((m) => m !== ME))
     : null;
 
-  const preview = typingUser
-    ? t.typing
-    : chat.draft
-      ? chat.draft
-      : previewOf(message, isRtl, t);
-
+  const preview = typingUser ? t.typing : chat.draft ? chat.draft : previewOf(message, isRtl, t);
   const showSenderPrefix =
     !typingUser && !chat.draft && message && chat.type !== "private" && message.kind !== "system";
 
   return (
     <button type="button" onClick={onOpen}
       className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/[0.04] active:bg-white/[0.07] transition-colors text-start">
-      <Avatar chat={chat} user={peer} size={52} />
+      <Avatar chat={chat} user={peer} size={54} ring={TG.bg} />
 
       <span className="flex-1 min-w-0">
         <span className="flex items-center gap-1.5">
-          <span className="text-sm font-black text-white truncate">{title}</span>
+          <span className="text-[15px] font-black text-white truncate">{title}</span>
           <NameBadges verified={chat.verified} premium={chat.premium || peer?.premium} />
           <span className="flex-1" />
           <ChatFlags chat={chat} />
           {message && (
             <span className="flex items-center gap-1 shrink-0">
               <Ticks message={message} />
-              <span className="text-[10px] font-bold text-neutral-500">{relativeTime(message.at, t)}</span>
+              <span className="text-[10px] font-bold text-[#6b7c8a]">{relativeTime(message.at, t)}</span>
             </span>
           )}
         </span>
 
         <span className="flex items-center gap-1.5 mt-0.5">
-          <span className={`flex-1 min-w-0 text-xs font-medium truncate ${
-            typingUser ? "text-[#c07dbf]" : "text-neutral-500"
-          }`}>
-            {chat.draft && !typingUser && (
-              <span className="text-rose-400 font-bold">{t.edit}: </span>
-            )}
+          <span className={`flex-1 min-w-0 text-[13px] font-medium truncate ${
+            typingUser ? "" : "text-[#7d8b99]"
+          }`} style={typingUser ? { color: TG.accent } : undefined}>
+            {chat.draft && !typingUser && <span className="text-rose-400 font-bold">{t.edit}: </span>}
             {showSenderPrefix && (
               <span className="text-neutral-400">
                 {message.senderId === ME ? `${isRtl ? "شما" : "You"}: ` : `${senderName(message.senderId, isRtl).split(" ")[0]}: `}
@@ -78,19 +72,15 @@ function Row({ chat, message, unread, typingUser, isRtl, t, onOpen, onMenu }) {
 
           {unread > 0 ? (
             <span className={`min-w-[20px] h-5 px-1.5 rounded-full text-[10px] font-black flex items-center justify-center shrink-0 ${
-              chat.muted ? "bg-neutral-700 text-neutral-300" : "bg-[#844783] text-white"
-            }`}>
+              chat.muted ? "bg-[#3d4a56] text-neutral-300" : "text-white"
+            }`} style={chat.muted ? undefined : { background: TG.accentDeep }}>
               {unread > 99 ? "99+" : unread}
             </span>
           ) : (
-            <span
-              role="button"
-              tabIndex={0}
-              aria-label={t.select}
+            <span role="button" tabIndex={0} aria-label={t.select}
               onClick={(e) => { e.stopPropagation(); onMenu(); }}
               onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); onMenu(); } }}
-              className="w-6 h-6 rounded-lg flex items-center justify-center text-neutral-700 hover:text-white shrink-0"
-            >
+              className="w-6 h-6 rounded-lg flex items-center justify-center text-neutral-700 hover:text-white shrink-0">
               <MoreVertical className="w-3.5 h-3.5" />
             </span>
           )}
@@ -100,7 +90,7 @@ function Row({ chat, message, unread, typingUser, isRtl, t, onOpen, onMenu }) {
   );
 }
 
-export default function ChatList({ store, isRtl, t, onOpen, onMenu, onCompose }) {
+export default function ChatList({ store, isRtl, t, onOpen, onMenu, onCompose, onOpenDrawer }) {
   const [query, setQuery] = useState("");
   const [searching, setSearching] = useState(false);
 
@@ -113,10 +103,7 @@ export default function ChatList({ store, isRtl, t, onOpen, onMenu, onCompose })
         unread: store.unreadOf(chat),
       }))
       .filter(({ chat, unread }) => {
-        if (q) {
-          const title = `${chat.title} ${chat.titleFa}`.toLowerCase();
-          return title.includes(q);
-        }
+        if (q) return `${chat.title} ${chat.titleFa}`.toLowerCase().includes(q);
         return matchesFolder(chat, store.folder, unread);
       });
   }, [store, query]);
@@ -124,49 +111,60 @@ export default function ChatList({ store, isRtl, t, onOpen, onMenu, onCompose })
   const archivedCount = store.chats.filter((c) => c.archived).length;
 
   return (
-    <div className="w-full min-h-[100dvh] bg-black text-white pb-28">
+    <div className="w-full min-h-[100dvh] text-white pb-28" style={{ background: TG.bg }}>
       {/* Header */}
-      <div className="sticky top-0 z-20 bg-black/95 backdrop-blur border-b border-white/10">
-        <div className="flex items-center gap-2 px-4 pt-5 pb-3">
-          <h1 className="text-2xl font-black text-white flex-1">{t.chats}</h1>
+      <div className="sticky top-0 z-20 border-b border-white/[0.06]" style={{ background: TG.surface }}>
+        <div className="flex items-center gap-2 px-3 pt-4 pb-2">
+          <button type="button" onClick={onOpenDrawer} aria-label={t.menu}
+            className="relative w-10 h-10 rounded-xl flex items-center justify-center text-neutral-300 hover:text-white shrink-0">
+            <Menu className="w-5 h-5" />
+            {store.unreadTotal > 0 && (
+              <span className="absolute top-1 ltr:right-0.5 rtl:left-0.5 min-w-[16px] h-4 px-1 rounded-full text-[9px] font-black text-white flex items-center justify-center"
+                style={{ background: TG.accentDeep }}>
+                {store.unreadTotal}
+              </span>
+            )}
+          </button>
+          <h1 className="text-xl font-black text-white flex-1">{t.chats}</h1>
           <button type="button" onClick={() => { setSearching((v) => !v); setQuery(""); }}
             aria-label={t.searchChats}
-            className={`w-9 h-9 rounded-xl border flex items-center justify-center transition-all ${
-              searching ? "bg-white/10 border-white/30 text-white" : "bg-[#141416] border-white/10 text-neutral-400"
-            }`}>
-            {searching ? <X className="w-4 h-4" /> : <Search className="w-4 h-4" />}
-          </button>
-          <button type="button" onClick={onCompose} aria-label={t.message}
-            className="w-9 h-9 rounded-xl bg-[#844783] flex items-center justify-center text-white">
-            <Pencil className="w-4 h-4" />
+            className="w-10 h-10 rounded-xl flex items-center justify-center text-neutral-300 hover:text-white">
+            {searching ? <X className="w-5 h-5" /> : <Search className="w-5 h-5" />}
           </button>
         </div>
 
-        {searching && (
+        {searching ? (
           <div className="px-4 pb-3">
             <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)}
               placeholder={t.searchChats}
-              className="w-full h-10 px-3 rounded-xl bg-[#141416] border border-white/10 text-sm font-bold text-white placeholder:text-neutral-600 focus:outline-none focus:border-white/30" />
+              className="w-full h-10 px-3 rounded-2xl bg-[#242f3d] border border-white/[0.07] text-sm font-bold text-white placeholder:text-neutral-500 focus:outline-none focus:border-white/25" />
           </div>
-        )}
-
-        {!searching && (
-          <div className="flex gap-1 px-3 pb-2 overflow-x-auto scrollbar-hide">
-            {FOLDERS.filter((f) => f.id !== "archived" || archivedCount > 0).map((f) => (
-              <button key={f.id} type="button" onClick={() => store.setFolder(f.id)}
-                className={`px-3 h-8 rounded-lg text-[11px] font-black whitespace-nowrap transition-all ${
-                  store.folder === f.id ? "bg-[#844783]/25 text-white" : "text-neutral-500 hover:text-neutral-300"
-                }`}>
-                {f.id === "archived" && <Archive className="w-3 h-3 inline ltr:mr-1 rtl:ml-1" />}
-                {t[f.label]}
-              </button>
-            ))}
+        ) : (
+          /* Folder strip, underline style */
+          <div className="flex gap-1 px-2 overflow-x-auto scrollbar-hide">
+            {FOLDERS.filter((f) => f.id !== "archived" || archivedCount > 0).map((f) => {
+              const active = store.folder === f.id;
+              return (
+                <button key={f.id} type="button" onClick={() => store.setFolder(f.id)}
+                  className={`relative px-3 pt-1.5 pb-2.5 text-[13px] font-black whitespace-nowrap transition-colors ${
+                    active ? "" : "text-[#7d8b99] hover:text-neutral-300"
+                  }`} style={active ? { color: TG.accent } : undefined}>
+                  {f.id === "archived" && <Archive className="w-3 h-3 inline ltr:mr-1 rtl:ml-1" />}
+                  {t[f.label]}
+                  {active && (
+                    <motion.span layoutId="folder-underline"
+                      className="absolute bottom-0 left-2 right-2 h-[3px] rounded-t-full"
+                      style={{ background: TG.accent }} />
+                  )}
+                </button>
+              );
+            })}
           </div>
         )}
       </div>
 
       {/* Rows */}
-      <div className="divide-y divide-white/[0.04]">
+      <div className="divide-y divide-white/[0.035]">
         {rows.length === 0 && (
           <p className="py-16 text-center text-xs font-bold text-neutral-600">
             {query ? t.noResults : t.noChats}
@@ -174,18 +172,23 @@ export default function ChatList({ store, isRtl, t, onOpen, onMenu, onCompose })
         )}
         {rows.map(({ chat, message, unread }) => (
           <motion.div key={chat.id} layout="position">
-            <Row
-              chat={chat} message={message} unread={unread}
+            <Row chat={chat} message={message} unread={unread}
               typingUser={store.typing[chat.id]}
               isRtl={isRtl} t={t}
               onOpen={() => onOpen(chat.id)}
-              onMenu={() => onMenu(chat)}
-            />
+              onMenu={() => onMenu(chat)} />
           </motion.div>
         ))}
       </div>
 
       <p className="px-6 pt-6 text-center text-[9px] font-bold text-neutral-700">{t.simulatedNote}</p>
+
+      {/* Compose FAB */}
+      <button type="button" onClick={onCompose} aria-label={t.newChat}
+        className={`fixed bottom-24 ${isRtl ? "left-5" : "right-5"} w-14 h-14 rounded-full flex items-center justify-center text-white shadow-xl active:scale-95 transition-transform z-30`}
+        style={{ background: TG.accentDeep }}>
+        <Pencil className="w-5 h-5" />
+      </button>
     </div>
   );
 }

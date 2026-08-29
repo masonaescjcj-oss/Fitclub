@@ -70,6 +70,8 @@ export function createMessage(patch = {}) {
     silent: false,
     scheduledFor: null,
     effect: null,       // premium message effect
+    translation: null,  // premium translate: the other-language text, when known
+    showTranslation: false,
     media: null,
     poll: null,
     voice: null,
@@ -229,3 +231,15 @@ export function previewOf(message, isRtl, t) {
     default: return message.text;
   }
 }
+
+/** The existing one-to-one chat with this person, if any. */
+export const findPrivateChatWith = (chats, userId) =>
+  chats.find(
+    (c) => c.type === "private" && c.id !== "saved" && (c.members || []).includes(userId)
+  ) || null;
+
+/** Unread across every non-archived chat, for the drawer badge. */
+export const totalUnread = (chats, messages, now = Date.now()) =>
+  chats
+    .filter((c) => !c.archived && !c.muted)
+    .reduce((n, c) => n + unreadCount(messages, c, now), 0);

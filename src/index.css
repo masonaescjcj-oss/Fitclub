@@ -25,3 +25,9 @@
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
+
+/* Telegram-style chat wallpaper: dark ground with a faint fitness doodle tile. */
+.tg-wallpaper {
+  background-color: #0e1621;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150'%3E%3Cg fill='none' stroke='%23ffffff' stroke-opacity='0.045' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='32' cy='34' r='11'/%3E%3Cpath d='M88 28h34M94 20v16M116 20v16'/%3E%3Cpath d='M28 100v22M22 106h12M22 116h12'/%3E%3Ccircle cx='108' cy='112' r='7'/%3E%3Cpath d='M64 64l10 10M74 64l-10 10'/%3E%3C/g%3E%3C/svg%3E");
+}
