@@ -2,7 +2,7 @@
 // Group lists are shared state in spirit only — until there is a backend,
 // every member's ticks live in this browser.
 
-import { ME, applyResets, createItem, createList, periodKey } from "./checklistModel";
+import { ME, applyResets, createItem, createList, periodKey, previousPeriodKeys } from "./checklistModel";
 
 const KEY = "fitclub.checklists.v1";
 
@@ -15,6 +15,24 @@ export const FRIEND_POOL = [
   { id: "yuki", name: "Yuki Tanaka", nameFa: "یوکی تاناکا", avatar: "👧", color: "#8b5cf6" },
   { id: "dan", name: "Dan Moore", nameFa: "دن مور", avatar: "👨‍🦳", color: "#f43f5e" },
 ];
+
+/**
+ * Back-fills a plausible run of finished periods so the consistency strip has
+ * something to show on a fresh install. `perfect` is how many of the most
+ * recent periods were fully completed, which must match the seeded streak.
+ */
+function seedHistory(list, count, perfect) {
+  const total = list.items.length;
+  const missedPattern = [1, 2, 1, 3, 2, 1, 2];
+  return previousPeriodKeys(list.reset, count).map((key, i, all) => {
+    const fromEnd = all.length - 1 - i; // 0 = the period just gone
+    if (fromEnd < perfect) return { key, done: total, total };
+    // Anything at or beyond the streak length must be imperfect, or the
+    // seeded streak wouldn't match the history behind it.
+    const missed = Math.max(Math.min(missedPattern[fromEnd % missedPattern.length], total), 1);
+    return { key, done: Math.max(total - missed, 0), total };
+  });
+}
 
 function seed() {
   const habits = createList({
@@ -34,6 +52,8 @@ function seed() {
     createItem({ textEn: "Read 10 pages of a book", textFa: "مطالعه ۱۰ صفحه کتاب", emoji: "📖", priority: "none" }),
   ];
 
+  habits.history = seedHistory(habits, 21, 14);
+
   const weekly = createList({
     nameEn: "Weekly Goals",
     nameFa: "اهداف هفتگی",
@@ -49,6 +69,8 @@ function seed() {
     createItem({ textEn: "Meal prep for the week", textFa: "آماده‌سازی غذای هفته", emoji: "🥗", priority: "medium" }),
     createItem({ textEn: "Weigh in and log measurements", textFa: "وزن‌کشی و ثبت اندازه‌ها", emoji: "⚖️", priority: "low" }),
   ];
+
+  weekly.history = seedHistory(weekly, 10, 3);
 
   const setup = createList({
     nameEn: "Gear & Setup",
@@ -83,6 +105,8 @@ function seed() {
     createItem({ textEn: "Post a progress photo", textFa: "ارسال عکس پیشرفت", emoji: "📸", priority: "low", assignees: ["sara", "amir"], doneBy: { sara: now } }),
     createItem({ textEn: "Book Saturday's group session", textFa: "رزرو جلسه گروهی شنبه", emoji: "📅", priority: "high", assignees: ["amir"] }),
   ];
+
+  squad.history = seedHistory(squad, 16, 5);
 
   return { lists: [habits, weekly, squad, setup], activeId: habits.id };
 }

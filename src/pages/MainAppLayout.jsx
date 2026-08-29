@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import MainAppHeader from "../components/MainAppHeader";
+import { ChecklistProvider, useChecklistStore } from "../lib/checklistContext";
+import { overallStreak } from "../lib/checklistModel";
 import BottomNavBar from "../components/BottomNavBar";
 
 // Main 5 Pages
@@ -29,9 +31,21 @@ import DietGuidePage from "./sub/DietGuidePage";
 import ActiveWorkoutModal from "../components/modals/ActiveWorkoutModal";
 
 export default function MainAppLayout({ onNavigate }) {
+  return (
+    <ChecklistProvider>
+      <MainAppShell onNavigate={onNavigate} />
+    </ChecklistProvider>
+  );
+}
+
+function MainAppShell({ onNavigate }) {
   const [activeTab, setActiveTab] = useState("fitness");
   const [subPage, setSubPage] = useState(null);
   const [isActiveWorkoutOpen, setIsActiveWorkoutOpen] = useState(false);
+
+  const { lists } = useChecklistStore();
+  // The header badge now reflects the real longest run across the athlete's lists.
+  const streak = overallStreak(lists);
 
   const language = localStorage.getItem("language") || "en";
   const isRtl = language === "fa";
@@ -55,7 +69,7 @@ export default function MainAppLayout({ onNavigate }) {
       {!subPage && !isActiveWorkoutOpen && (
         <MainAppHeader
           userName="Isaac"
-          streak={14}
+          streak={streak}
           coins={450}
           onProfileClick={() => setSubPage("profile")}
           onNotificationClick={() => setSubPage("notifications")}

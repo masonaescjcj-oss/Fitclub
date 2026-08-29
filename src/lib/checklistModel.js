@@ -29,7 +29,7 @@ export function localized(obj, isRtl, base = "name") {
 
 /* ────────────────────────── recurrence engine ────────────────────────── */
 
-const ymd = (d) =>
+export const ymd = (d) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
     d.getDate()
   ).padStart(2, "0")}`;
@@ -213,3 +213,89 @@ export function applyReset(list, now = new Date()) {
 
 export const applyResets = (lists, now = new Date()) =>
   lists.map((l) => applyReset(l, now));
+
+/* ──────────────────── derived views over saved data ──────────────────── */
+
+/** Keys of the `count` periods immediately before the current one, oldest first. */
+export function previousPeriodKeys(rule, count, now = new Date()) {
+  if (!rule || rule.mode === "none") return [];
+  const keys = [];
+  let cursor = periodStart(rule, now);
+  for (let i = 0; i < count; i += 1) {
+    const prev = periodStart(rule, new Date(cursor.getTime() - 1));
+    keys.unshift(`${rule.mode}:${ymd(prev)}`);
+    cursor = prev;
+  }
+  return keys;
+}
+
+/** Finished periods plus the one in progress, for a consistency strip. */
+export function historyCells(list, max = 24) {
+  if (!list.reset || list.reset.mode === "none") return [];
+  const current = progressOf(list);
+  return [
+    ...(list.history || []).slice(-(max - 1)).map((h) => ({
+      key: h.key,
+      done: h.done,
+      total: h.total,
+      ratio: h.total ? h.done / h.total : 0,
+      current: false,
+    })),
+    { key: list.periodKey, done: current.done, total: current.total, ratio: current.ratio, current: true },
+  ];
+}
+
+/** The date a period key refers to, or null for a list that never resets. */
+export const dateOfPeriodKey = (key) => {
+  const iso = (key || "").split(":")[1];
+  return iso ? new Date(`${iso}T00:00:00`) : null;
+};
+
+/**
+ * Completion per calendar day across every daily list.
+ * Weekly and monthly lists don't map onto a day grid, so they sit this out.
+ */
+export function historyByDate(lists, days = 30, now = new Date()) {
+  const daily = lists.filter((l) => l.reset?.mode === "daily");
+  const out = [];
+
+  for (let i = days - 1; i >= 0; i -= 1) {
+    const d = new Date(now);
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() - i);
+    const key = `daily:${ymd(d)}`;
+
+    let done = 0;
+    let total = 0;
+    for (const l of daily) {
+      if (l.periodKey === key) {
+        const p = progressOf(l);
+        done += p.done; total += p.total;
+      } else {
+        const h = (l.history || []).find((e) => e.key === key);
+        if (h) { done += h.done; total += h.total; }
+      }
+    }
+    out.push({ date: d, key, done, total, ratio: total ? done / total : 0, tracked: total > 0 });
+  }
+  return out;
+}
+
+/** App-level streak: the longest run currently alive on any list. */
+export const overallStreak = (lists) => (lists || []).reduce((m, l) => Math.max(m, l.streak || 0), 0);
+export const overallBest = (lists) => (lists || []).reduce((m, l) => Math.max(m, l.bestStreak || 0), 0);
+
+export const topStreakList = (lists) =>
+  (lists || []).reduce((best, l) => ((l.streak || 0) > (best?.streak || 0) ? l : best), null);
+
+/** Who ticked what, newest first — built from the timestamps in doneBy. */
+export function activityFeed(list, limit = 12) {
+  const events = [];
+  for (const item of list.items || []) {
+    for (const [memberId, at] of Object.entries(item.doneBy || {})) {
+      const member = (list.members || []).find((m) => m.id === memberId);
+      if (member && at) events.push({ id: `${item.id}:${memberId}`, member, item, at: new Date(at) });
+    }
+  }
+  return events.sort((a, b) => b.at - a.at).slice(0, limit);
+}

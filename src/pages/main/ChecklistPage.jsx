@@ -6,16 +6,18 @@ import {
 } from "lucide-react";
 import { ME, itemDone, localized, progressOf } from "../../lib/checklistModel";
 import { useChecklistT } from "../../lib/checklistI18n";
-import useChecklists from "../../hooks/useChecklists";
+import { useChecklistStore } from "../../lib/checklistContext";
 import { AvatarStack, ProgressRing, ResetCountdown, describeReset } from "../../components/checklist/ChecklistBits";
 import ChecklistRow from "../../components/checklist/ChecklistRow";
 import ListDrawer from "../../components/checklist/ListDrawer";
 import ListEditorModal from "../../components/checklist/ListEditorModal";
 import ItemDetailSheet from "../../components/checklist/ItemDetailSheet";
+import HistoryStrip from "../../components/checklist/HistoryStrip";
+import ActivityFeed from "../../components/checklist/ActivityFeed";
 
 export default function ChecklistPage({ isRtl, onGoToStreak }) {
   const t = useChecklistT(isRtl);
-  const store = useChecklists();
+  const store = useChecklistStore();
   const { lists, activeList: list } = store;
 
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -26,6 +28,7 @@ export default function ChecklistPage({ isRtl, onGoToStreak }) {
   const [showDone, setShowDone] = useState(true);
   const [composer, setComposer] = useState("");
   const [noteOpen, setNoteOpen] = useState(false);
+  const [feedOpen, setFeedOpen] = useState(false);
   const composerRef = useRef(null);
 
   const { open, done, hidden } = useMemo(() => {
@@ -154,6 +157,13 @@ export default function ChecklistPage({ isRtl, onGoToStreak }) {
               )}
         </div>
 
+        {/* Consistency strip, built from the periods already filed in history. */}
+        {list.reset.mode !== "none" && (
+          <div className="px-1">
+            <HistoryStrip list={list} t={t} />
+          </div>
+        )}
+
         {/* Group lists are local-only for now — say so rather than implying sync. */}
         {isGroup && (
           <AnimatePresence>
@@ -263,6 +273,10 @@ export default function ChecklistPage({ isRtl, onGoToStreak }) {
               )}
             </AnimatePresence>
           </div>
+        )}
+
+        {isGroup && (
+          <ActivityFeed list={list} isRtl={isRtl} t={t} open={feedOpen} onToggle={() => setFeedOpen((v) => !v)} />
         )}
 
         {hidden > 0 && query && (
