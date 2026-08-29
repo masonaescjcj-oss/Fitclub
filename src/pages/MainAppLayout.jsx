@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import MainAppHeader from "../components/MainAppHeader";
 import { ChecklistProvider, useChecklistStore } from "../lib/checklistContext";
+import { NutritionProvider } from "../lib/nutrition/nutritionContext";
 import { overallStreak } from "../lib/checklistModel";
 import BottomNavBar from "../components/BottomNavBar";
 
@@ -33,7 +34,9 @@ import ActiveWorkoutModal from "../components/modals/ActiveWorkoutModal";
 export default function MainAppLayout({ onNavigate }) {
   return (
     <ChecklistProvider>
-      <MainAppShell onNavigate={onNavigate} />
+      <NutritionProvider>
+        <MainAppShell onNavigate={onNavigate} />
+      </NutritionProvider>
     </ChecklistProvider>
   );
 }
