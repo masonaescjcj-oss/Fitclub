@@ -2,23 +2,24 @@ import React, { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ChevronLeft, ChevronRight, Droplets, Dumbbell, Flame, Info, Plus,
-  Scale, SlidersHorizontal, Sparkles, Star, Trash2, TrendingUp, Utensils,
+  Eye, Scale, SlidersHorizontal, Sparkles, Star, Trash2, TrendingUp, Utensils,
 } from "lucide-react";
 import { MEALS, dayKey, entryMacros, mealEntries, sumMacros } from "../../lib/nutrition/diaryStore";
+import { showWorkoutMeals } from "../../lib/nutrition/viewPrefs";
 import { findFood } from "../../lib/nutrition/foods";
 import { proteinPerKg } from "../../lib/nutrition/profile";
 import { fill, useNutritionT } from "../../lib/nutrition/nutritionI18n";
 import { useNutritionStore } from "../../lib/nutrition/nutritionContext";
 import { CalorieRing, MACRO_COLORS, MacroBar, Stat, TrendSpark, round } from "../../components/diet/DietBits";
 import FoodSearchSheet from "../../components/diet/FoodSearchSheet";
-import { QuickAddSheet, Sheet, TargetsSheet, WeightSheet } from "../../components/diet/SmallSheets";
+import { QuickAddSheet, Sheet, TargetsSheet, ViewSheet, WeightSheet } from "../../components/diet/SmallSheets";
 
 const GLASS_ML = 250;
 
 export default function DietPage({ isRtl, onGoToRecipe, onGoToGuide }) {
   const t = useNutritionT(isRtl);
   const store = useNutritionStore();
-  const { day, totals, targets, profile, estimate, trend, cursor } = store;
+  const { day, totals, targets, profile, estimate, trend, cursor, view } = store;
 
   const [addingTo, setAddingTo] = useState(null); // meal object
   const [quickAddTo, setQuickAddTo] = useState(null);
@@ -40,6 +41,13 @@ export default function DietPage({ isRtl, onGoToRecipe, onGoToGuide }) {
       if (next.has(id)) next.delete(id); else next.add(id);
       return next;
     });
+
+  // Workout slots stay out of the way unless the day (or the setting) calls for them.
+  const withWorkout = showWorkoutMeals(view, day);
+  const visibleMeals = useMemo(
+    () => MEALS.filter((m) => !m.workout || withWorkout || mealEntries(day, m.id).length > 0),
+    [withWorkout, day]
+  );
 
   const gPerKg = proteinPerKg(totals.protein, profile.weight);
   const waterGlasses = Math.round((day.water || 0) / GLASS_ML);
@@ -73,6 +81,10 @@ export default function DietPage({ isRtl, onGoToRecipe, onGoToGuide }) {
               className="w-9 h-9 rounded-xl bg-[#141416] border border-white/10 flex items-center justify-center text-neutral-400 hover:text-white transition-all">
               <Scale className="w-4 h-4" />
             </button>
+            <button type="button" onClick={() => setSheet("view")} aria-label={t.customize}
+              className="w-9 h-9 rounded-xl bg-[#141416] border border-white/10 flex items-center justify-center text-neutral-400 hover:text-white transition-all">
+              <Eye className="w-4 h-4" />
+            </button>
             <button type="button" onClick={() => setSheet("targets")} aria-label={t.editTargets}
               className="w-9 h-9 rounded-xl bg-[#141416] border border-white/10 flex items-center justify-center text-neutral-400 hover:text-white transition-all">
               <SlidersHorizontal className="w-4 h-4" />
@@ -81,16 +93,44 @@ export default function DietPage({ isRtl, onGoToRecipe, onGoToGuide }) {
         </div>
 
         {/* Calories + macros */}
-        <div className="p-4 rounded-3xl bg-[#141416]/80 border border-white/10 backdrop-blur flex items-center gap-4">
-          <CalorieRing eaten={totals.kcal} target={targets.kcal} t={t} />
-          <div className="flex-1 min-w-0 space-y-2.5">
-            <MacroBar label={t.protein} eaten={totals.protein} target={targets.protein} color={MACRO_COLORS.protein}
-              sub={`${gPerKg.toFixed(1)} ${t.perKg}`} />
-            <MacroBar label={t.carbs} eaten={totals.carbs} target={targets.carbs} color={MACRO_COLORS.carbs} />
-            <MacroBar label={t.fat} eaten={totals.fat} target={targets.fat} color={MACRO_COLORS.fat} />
-            <MacroBar label={t.fiber} eaten={totals.fiber} target={targets.fiber} color={MACRO_COLORS.fiber} />
+        {view.summary === "full" && (
+          <div className="p-4 rounded-3xl bg-[#141416]/80 border border-white/10 backdrop-blur flex items-center gap-4">
+            <CalorieRing eaten={totals.kcal} target={targets.kcal} t={t} />
+            <div className="flex-1 min-w-0 space-y-2.5">
+              <MacroBar label={t.protein} eaten={totals.protein} target={targets.protein} color={MACRO_COLORS.protein}
+                sub={`${gPerKg.toFixed(1)} ${t.perKg}`} />
+              <MacroBar label={t.carbs} eaten={totals.carbs} target={targets.carbs} color={MACRO_COLORS.carbs} />
+              <MacroBar label={t.fat} eaten={totals.fat} target={targets.fat} color={MACRO_COLORS.fat} />
+              <MacroBar label={t.fiber} eaten={totals.fiber} target={targets.fiber} color={MACRO_COLORS.fiber} />
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* Compact keeps the number that makes a diary worth keeping. */}
+        {view.summary === "compact" && (
+          <div className="p-3.5 rounded-2xl bg-[#141416]/80 border border-white/10 backdrop-blur space-y-2">
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="text-[10px] font-black text-neutral-500 uppercase tracking-wider">{t.calories}</span>
+              <span className="text-sm font-black text-white tabular-nums" dir="ltr">
+                {round(totals.kcal)} <span className="text-neutral-600">/ {round(targets.kcal)}</span>
+              </span>
+            </div>
+            <div className="h-1.5 rounded-full bg-white/[0.07] overflow-hidden">
+              <div className="h-full rounded-full transition-all"
+                style={{
+                  width: `${Math.min((totals.kcal / (targets.kcal || 1)) * 100, 100)}%`,
+                  background: totals.kcal > targets.kcal ? "#f43f5e" : "#844783",
+                }} />
+            </div>
+            <div className="flex items-center justify-between text-[9px] font-black tabular-nums" dir="ltr">
+              {[["protein", t.protein], ["carbs", t.carbs], ["fat", t.fat]].map(([k, lbl]) => (
+                <span key={k} style={{ color: MACRO_COLORS[k] }}>
+                  {lbl} {round(totals[k])}<span className="text-neutral-600">/{round(targets[k])}g</span>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Training vs rest day */}
         <div className="flex items-center gap-2">
@@ -118,6 +158,7 @@ export default function DietPage({ isRtl, onGoToRecipe, onGoToGuide }) {
       <div className="px-4 space-y-3">
 
         {/* ── Coach card: adaptive TDEE ───────────────────────── */}
+        {view.coach && (
         <div className="p-4 rounded-3xl bg-gradient-to-br from-[#844783]/20 to-transparent border border-[#844783]/30 space-y-3">
           <div className="flex items-center gap-2">
             <TrendingUp className="w-4 h-4 text-[#c07dbf]" />
@@ -166,7 +207,10 @@ export default function DietPage({ isRtl, onGoToRecipe, onGoToGuide }) {
           )}
         </div>
 
+        )}
+
         {/* ── Water ───────────────────────────────────────────── */}
+        {view.water && (
         <div className="p-4 rounded-3xl bg-[#141416] border border-white/10 space-y-3">
           <div className="flex items-center justify-between">
             <span className="flex items-center gap-1.5 text-[10px] font-black text-cyan-400 uppercase tracking-wider">
@@ -193,8 +237,10 @@ export default function DietPage({ isRtl, onGoToRecipe, onGoToGuide }) {
           </div>
         </div>
 
+        )}
+
         {/* ── Meals ───────────────────────────────────────────── */}
-        {MEALS.map((meal) => {
+        {visibleMeals.map((meal) => {
           const entries = mealEntries(day, meal.id);
           const mealTotals = sumMacros(entries);
           const open = openMeals.has(meal.id);
@@ -251,7 +297,7 @@ export default function DietPage({ isRtl, onGoToRecipe, onGoToGuide }) {
           </p>
         )}
 
-        {store.diary.savedMeals.length > 0 && (
+        {view.savedMeals && store.diary.savedMeals.length > 0 && (
           <div className="space-y-2 pt-2">
             <h3 className="flex items-center gap-1.5 text-[10px] font-black text-neutral-500 uppercase tracking-wider px-1">
               <Star className="w-3 h-3" /> {t.savedMeals}
@@ -287,6 +333,7 @@ export default function DietPage({ isRtl, onGoToRecipe, onGoToGuide }) {
           </div>
         )}
 
+        {view.shortcuts && (
         <div className="grid grid-cols-2 gap-3 pt-1">
           <button type="button" onClick={onGoToRecipe}
             className="p-4 rounded-2xl bg-[#141416] border border-white/10 flex items-center gap-2.5 hover:border-[#844783]/50 transition-all">
@@ -299,6 +346,7 @@ export default function DietPage({ isRtl, onGoToRecipe, onGoToGuide }) {
             <span className="text-xs font-black text-white">{isRtl ? "راهنمای تغذیه" : "Guide"}</span>
           </button>
         </div>
+        )}
 
         <p className="flex items-center justify-center gap-1.5 pt-1 text-[9px] font-bold text-neutral-700">
           <Info className="w-3 h-3" /> {t.localOnly}
@@ -340,6 +388,15 @@ export default function DietPage({ isRtl, onGoToRecipe, onGoToGuide }) {
         {sheet === "weight" && (
           <WeightSheet current={day.weight ?? profile.weight} trend={trend} isRtl={isRtl} t={t}
             onSave={(kg) => { store.setWeight(kg); setSheet(null); }}
+            onClose={() => setSheet(null)} />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {sheet === "view" && (
+          <ViewSheet view={view} isRtl={isRtl} t={t}
+            onChange={(patch) => store.updateView(patch)}
+            onReset={() => { store.resetView(); setSheet(null); }}
             onClose={() => setSheet(null)} />
         )}
       </AnimatePresence>

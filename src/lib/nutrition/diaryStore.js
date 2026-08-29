@@ -4,12 +4,21 @@ import { findFood, macrosFor } from "./foods";
 
 const KEY = "fitclub.diary.v1";
 
+/**
+ * Meal slots in the order they appear in the diary.
+ * The two workout slots are optional — see viewPrefs — because they only
+ * matter to people who eat around a session.
+ */
 export const MEALS = [
   { id: "breakfast", en: "Breakfast", fa: "صبحانه", emoji: "🌅" },
+  { id: "preworkout", en: "Pre-workout", fa: "قبل تمرین", emoji: "⚡", workout: true },
   { id: "lunch", en: "Lunch", fa: "ناهار", emoji: "🍽️" },
+  { id: "postworkout", en: "Post-workout", fa: "بعد تمرین", emoji: "💪", workout: true },
   { id: "dinner", en: "Dinner", fa: "شام", emoji: "🌙" },
   { id: "snack", en: "Snacks", fa: "میان‌وعده", emoji: "🍏" },
 ];
+
+export const WORKOUT_MEALS = MEALS.filter((m) => m.workout).map((m) => m.id);
 
 export const dayKey = (date = new Date()) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;

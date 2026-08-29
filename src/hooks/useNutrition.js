@@ -4,6 +4,7 @@ import {
   totalsFor, weightTrend,
 } from "../lib/nutrition/diaryStore";
 import { loadProfile, saveProfile, targetsFor, tdee } from "../lib/nutrition/profile";
+import { DEFAULT_VIEW, loadView, saveView } from "../lib/nutrition/viewPrefs";
 
 const RECENT_LIMIT = 12;
 
@@ -12,6 +13,7 @@ export default function useNutrition() {
   const [diary, setDiary] = useState(loadDiary);
   const [profile, setProfile] = useState(loadProfile);
   const [cursor, setCursor] = useState(() => dayKey());
+  const [view, setView] = useState(loadView);
   const firstDiary = useRef(true);
   const firstProfile = useRef(true);
 
@@ -24,6 +26,8 @@ export default function useNutrition() {
     if (firstProfile.current) { firstProfile.current = false; return; }
     saveProfile(profile);
   }, [profile]);
+
+  useEffect(() => { saveView(view); }, [view]);
 
   const day = diary.days[cursor] || emptyDay();
 
@@ -82,6 +86,8 @@ export default function useNutrition() {
     setTrainingDay: (value, key = cursor) => patchDay(key, (d) => ({ ...d, trainingDay: value })),
 
     updateProfile: (patch) => setProfile((p) => ({ ...p, ...patch })),
+    updateView: (patch) => setView((v) => ({ ...v, ...patch })),
+    resetView: () => setView({ ...DEFAULT_VIEW }),
     setCustomTargets: (t) => setProfile((p) => ({ ...p, customTargets: t })),
     useAdaptiveTdee: (on) => setProfile((p) => ({ ...p, useAdaptive: on })),
 
@@ -109,7 +115,7 @@ export default function useNutrition() {
   }), [cursor, patchDay]);
 
   return {
-    diary, profile, cursor, day, totals, targets, estimate, trend,
+    diary, profile, view, cursor, day, totals, targets, estimate, trend,
     maintenance: tdee(profile),
     isToday: cursor === dayKey(),
     ...api,

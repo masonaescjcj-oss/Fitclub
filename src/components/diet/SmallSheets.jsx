@@ -261,3 +261,97 @@ export function TargetsSheet({ profile, targets, isRtl, t, onSave, onClose }) {
     </Sheet>
   );
 }
+
+/* ──────────────────────────── view options ──────────────────────────── */
+
+/** A row of mutually exclusive choices. */
+function Choice({ label, hint, value, options, onChange }) {
+  return (
+    <div className="space-y-2">
+      <div>
+        <span className="block text-xs font-black text-white">{label}</span>
+        {hint && <span className="block text-[9px] font-medium text-neutral-600 mt-0.5">{hint}</span>}
+      </div>
+      <div className="flex gap-1.5">
+        {options.map((o) => (
+          <button key={String(o.id)} type="button" onClick={() => onChange(o.id)}
+            className={`flex-1 h-9 rounded-xl border text-[10px] font-black transition-all ${
+              value === o.id
+                ? "bg-[#844783]/25 border-[#844783]/60 text-white"
+                : "bg-[#141416] border-white/10 text-neutral-500 hover:border-white/25"
+            }`}>
+            {o.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** An on/off row. */
+function Toggle({ label, on, isRtl, onChange }) {
+  // The travel direction comes from the prop: Tailwind's rtl: variant fires in
+  // both modes here, because index.html hardcodes dir="rtl" on the document.
+  const travel = on ? (isRtl ? "-translate-x-5" : "translate-x-5") : "";
+  return (
+    <button type="button" onClick={() => onChange(!on)} role="switch" aria-checked={on}
+      className="w-full flex items-center justify-between gap-3 py-1">
+      <span className="text-xs font-black text-white text-start">{label}</span>
+      <span
+        aria-hidden
+        className={`w-11 h-6 rounded-full p-0.5 shrink-0 transition-colors ${on ? "bg-[#844783]" : "bg-white/10"}`}
+      >
+        <span className={`block w-5 h-5 rounded-full bg-white transition-transform ${travel}`} />
+      </span>
+    </button>
+  );
+}
+
+/** Lets the athlete strip the diary back to just the food log. */
+export function ViewSheet({ view, isRtl, t, onChange, onReset, onClose }) {
+  return (
+    <Sheet title={t.customize} isRtl={isRtl} t={t} onClose={onClose}
+      footer={
+        <>
+          <button type="button" onClick={onReset}
+            className="flex-1 h-12 rounded-2xl bg-white/5 border border-white/10 text-neutral-300 font-black text-sm">
+            {t.resetView}
+          </button>
+          <button type="button" onClick={onClose}
+            className="flex-1 h-12 rounded-2xl bg-[#844783] text-white font-black text-sm">{t.done || t.close}</button>
+        </>
+      }>
+      <p className="text-[10px] font-medium text-neutral-500">{t.customizeHint}</p>
+
+      <Choice
+        label={t.sectionSummary}
+        value={view.summary}
+        onChange={(summary) => onChange({ summary })}
+        options={[
+          { id: "full", label: t.viewFull },
+          { id: "compact", label: t.viewCompact },
+          { id: "hidden", label: t.viewHidden },
+        ]}
+      />
+
+      <Choice
+        label={t.sectionWorkoutMeals}
+        hint={t.autoHint}
+        value={view.workoutMeals}
+        onChange={(workoutMeals) => onChange({ workoutMeals })}
+        options={[
+          { id: "auto", label: t.viewAuto },
+          { id: "always", label: t.viewAlways },
+          { id: "never", label: t.viewNever },
+        ]}
+      />
+
+      <div className="space-y-3 pt-2 border-t border-white/10">
+        <Toggle label={t.sectionCoach} on={view.coach} isRtl={isRtl} onChange={(coach) => onChange({ coach })} />
+        <Toggle label={t.sectionWater} on={view.water} isRtl={isRtl} onChange={(water) => onChange({ water })} />
+        <Toggle label={t.sectionSavedMeals} on={view.savedMeals} isRtl={isRtl} onChange={(savedMeals) => onChange({ savedMeals })} />
+        <Toggle label={t.sectionShortcuts} on={view.shortcuts} isRtl={isRtl} onChange={(shortcuts) => onChange({ shortcuts })} />
+      </div>
+    </Sheet>
+  );
+}
