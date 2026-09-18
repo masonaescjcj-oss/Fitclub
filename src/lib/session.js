@@ -4,14 +4,33 @@ const KEY = "fitclub.session.v1";
 
 const EMPTY = { signedIn: false, onboarded: false, email: null, name: null, username: null };
 
+/**
+ * A first-time visitor starts already signed in, so opening the app lands on
+ * the app itself rather than the welcome screen.
+ *
+ * Flip this to false once real accounts exist and signing up is the way in.
+ * Signing out still works: it writes an explicitly signed-out session instead
+ * of wiping the key, so this default can't quietly log the athlete back in.
+ */
+export const START_SIGNED_IN = true;
+
+const DEMO = {
+  ...EMPTY,
+  signedIn: true,
+  onboarded: true,
+  name: "Isaac",
+  email: "athlete@fitclub.app",
+  username: "fitclub_athlete",
+};
+
 export function loadSession() {
   try {
     const raw = window.localStorage.getItem(KEY);
     if (raw) return { ...EMPTY, ...JSON.parse(raw) };
   } catch {
-    // Unreadable or disabled storage — treat it as signed out.
+    // Unreadable or disabled storage — fall through to the default below.
   }
-  return { ...EMPTY };
+  return START_SIGNED_IN ? { ...DEMO } : { ...EMPTY };
 }
 
 /** Merges a patch into the stored session and returns the result. */
@@ -25,7 +44,17 @@ export function saveSession(patch) {
   return next;
 }
 
+/** Signs out. Records the choice so the auto-sign-in default doesn't undo it. */
 export function clearSession() {
+  try {
+    window.localStorage.setItem(KEY, JSON.stringify({ ...EMPTY, signedOut: true }));
+  } catch {
+    // Nothing to store; this visit is signed out in memory anyway.
+  }
+}
+
+/** Wipes the session entirely, so the next load starts fresh. */
+export function resetSession() {
   try {
     window.localStorage.removeItem(KEY);
   } catch {
