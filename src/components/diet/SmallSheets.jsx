@@ -289,7 +289,7 @@ function Choice({ label, hint, value, options, onChange }) {
 }
 
 /** An on/off row. */
-function Toggle({ label, on, isRtl, onChange }) {
+export function Toggle({ label, on, isRtl, onChange }) {
   // The travel direction comes from the prop: Tailwind's rtl: variant fires in
   // both modes here, because index.html hardcodes dir="rtl" on the document.
   const travel = on ? (isRtl ? "-translate-x-5" : "translate-x-5") : "";

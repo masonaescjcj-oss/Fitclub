@@ -5,6 +5,7 @@ import { ChecklistProvider, useChecklistStore } from "../lib/checklistContext";
 import { NutritionProvider } from "../lib/nutrition/nutritionContext";
 import { ChatProvider, useChatStore } from "../lib/chat/chatContext";
 import { TrainingProvider, useTrainingStore } from "../lib/training/trainingContext";
+import { CoachProvider } from "../lib/coach/coachContext";
 import { useNutritionStore } from "../lib/nutrition/nutritionContext";
 import { useTrainingT } from "../lib/training/trainingI18n";
 import { clearShareFromLocation, readShareFromLocation } from "../lib/training/programModel";
@@ -38,12 +39,15 @@ import DietGuidePage from "./sub/DietGuidePage";
 
 
 export default function MainAppLayout({ onNavigate }) {
+  const isRtl = (localStorage.getItem("language") || "en") === "fa";
   return (
     <ChecklistProvider>
       <NutritionProvider>
-        <ChatProvider lang={(localStorage.getItem("language") || "en") === "fa" ? "fa" : "en"}>
+        <ChatProvider lang={isRtl ? "fa" : "en"}>
           <TrainingProvider>
-            <MainAppShell onNavigate={onNavigate} />
+            <CoachProvider isRtl={isRtl}>
+              <MainAppShell onNavigate={onNavigate} />
+            </CoachProvider>
           </TrainingProvider>
         </ChatProvider>
       </NutritionProvider>
