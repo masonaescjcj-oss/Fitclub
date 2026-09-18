@@ -1,730 +1,385 @@
-import React, { useState } from "react";
-import { 
-  Dumbbell, Play, ChevronRight, 
-  RefreshCw, Info, Coffee, Search, 
-  ChevronLeft
+import React, { useMemo, useState } from "react";
+import { AnimatePresence } from "framer-motion";
+import {
+  BadgeCheck, Coffee, Copy, Download, Dumbbell, Flame, Pencil, Play, Plus, Search, Share2, Trash2, Trophy,
 } from "lucide-react";
-import ExerciseDetailModal from "../../components/modals/ExerciseDetailModal";
-import SwapExerciseModal from "../../components/modals/SwapExerciseModal";
-import ActiveWorkoutModal from "../../components/modals/ActiveWorkoutModal";
 import ExerciseGraphic from "../../components/ExerciseGraphic";
+import ActiveWorkoutModal from "../../components/modals/ActiveWorkoutModal";
+import { AuthorChip, ImportSheet, ProgramBuilderSheet, ShareSheet, Sheet } from "../../components/training/TrainingSheets";
+import { EXERCISES, MUSCLES, exerciseName, findExercise, searchExercises } from "../../lib/training/exercises";
+import {
+  compactProgram, exerciseBests, exerciseTrend, lastPerformance, sessionSetsDone, sessionVolume, estimateCalories,
+} from "../../lib/training/programModel";
+import { useTrainingT } from "../../lib/training/trainingI18n";
+import { useTrainingStore } from "../../lib/training/trainingContext";
+import { useNutritionStore } from "../../lib/nutrition/nutritionContext";
+import { loadSession } from "../../lib/session";
+
+const SEGMENTS = ["plan", "programs", "exercises", "progress"];
+const fmtDuration = (sec) => `${Math.round(sec / 60)}`;
+const dateLabel = (iso) => new Date(iso).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
 
 export default function WorkoutPage({ isRtl }) {
-  const [activeSegment, setActiveSegment] = useState("plan"); // "plan" | "training" | "exercises"
-  const [selectedDay, setSelectedDay] = useState(null); // null = weekly schedule view, object = day routine view
-  const [selectedExerciseForDetail, setSelectedExerciseForDetail] = useState(null);
-  const [selectedExerciseForSwap, setSelectedExerciseForSwap] = useState(null);
-  const [isLiveWorkoutOpen, setIsLiveWorkoutOpen] = useState(false);
-  const [libraryFilter, setLibraryFilter] = useState("all");
-  const [searchQuery, setSearchQuery] = useState("");
+  const t = useTrainingT(isRtl);
+  const store = useTrainingStore();
+  const nutrition = useNutritionStore();
+  const [segment, setSegment] = useState("plan");
+  const [live, setLive] = useState(!!store.draft);
+  const [builder, setBuilder] = useState(undefined); // undefined closed | null new | program edit
+  const [share, setShare] = useState(null);           // program to share
+  const [importing, setImporting] = useState(false);
+  const [trendFor, setTrendFor] = useState(null);     // exercise id
+  const [toast, setToast] = useState("");
 
-  // Workout Days Schedule Data
-  const [scheduleDays, setScheduleDays] = useState([
-    {
-      id: "day1",
-      dayNumber: 1,
-      type: "workout",
-      titleEn: "Explosiveness",
-      titleFa: "تمرین انفجاری و توان بدنی",
-      subtitleEn: "Training Session",
-      subtitleFa: "جلسه تمرینی پرفشار",
-      badgeEn: "Explosiveness",
-      badgeFa: "انفجاری",
-      badgeColor: "amber",
-      duration: "45 min",
-      calories: "420 kcal",
-      exercises: [
-        {
-          id: "ex1",
-          nameEn: "Jump Squat",
-          nameFa: "اسکات پرشی",
-          sets: 5,
-          reps: "5 Reps",
-          area: "Quads & Glutes",
-          primaryMuscle: "Quadriceps",
-          secondaryMuscle: "Glutes & Calves",
-          difficulty: "Intermediate",
-          equipment: "Bodyweight",
-        },
-        {
-          id: "ex2",
-          nameEn: "Barbell Deadlift",
-          nameFa: "ددلیفت با هالتر",
-          sets: 3,
-          reps: "3-5 Reps",
-          area: "Hamstrings & Back",
-          primaryMuscle: "Hamstrings & Lower Back",
-          secondaryMuscle: "Glutes & Trapezius",
-          difficulty: "Advanced",
-          equipment: "Barbell",
-        },
-        {
-          id: "ex3",
-          nameEn: "Power Sled Push",
-          nameFa: "هل دادن سورتمه قدرتی",
-          sets: 4,
-          reps: "30 Reps",
-          area: "Full Body Power",
-          primaryMuscle: "Quadriceps & Calves",
-          secondaryMuscle: "Core & Shoulders",
-          difficulty: "High Intensity",
-          equipment: "Power Sled",
-        },
-        {
-          id: "ex4",
-          nameEn: "Barbell Squat",
-          nameFa: "اسکات پشت با هالتر",
-          sets: 4,
-          reps: "6-8 Reps",
-          area: "Quads & Hips",
-          primaryMuscle: "Quadriceps",
-          secondaryMuscle: "Glutes & Hamstrings",
-          difficulty: "Intermediate",
-          equipment: "Barbell",
-        },
-        {
-          id: "ex5",
-          nameEn: "Smith Leg Press",
-          nameFa: "پرس پا اسمیت",
-          sets: 3,
-          reps: "10-12 Reps",
-          area: "Legs & Glutes",
-          primaryMuscle: "Quadriceps",
-          secondaryMuscle: "Gluteus Maximus",
-          difficulty: "Intermediate",
-          equipment: "Smith Machine",
-        },
-        {
-          id: "ex6",
-          nameEn: "Dumbbell Romanian Deadlift",
-          nameFa: "ددلیفت رومانیایی با دمبل",
-          sets: 3,
-          reps: "8-10 Reps",
-          area: "Posterior Chain",
-          primaryMuscle: "Hamstrings",
-          secondaryMuscle: "Glutes & Erectors",
-          difficulty: "Intermediate",
-          equipment: "Dumbbells",
-        },
-      ]
-    },
-    {
-      id: "day2",
-      dayNumber: 2,
-      type: "workout",
-      titleEn: "Agility",
-      titleFa: "چابکی و سرعت",
-      subtitleEn: "Training Session",
-      subtitleFa: "جلسه تمرینی چابکی",
-      badgeEn: "Agility",
-      badgeFa: "چابکی",
-      badgeColor: "cyan",
-      duration: "40 min",
-      calories: "380 kcal",
-      exercises: [
-        { id: "d2_1", nameEn: "Ladder Agility Drills", nameFa: "تمرین نردبان چابکی", sets: 4, reps: "45 Sec", area: "Footwork & Speed" },
-        { id: "d2_2", nameEn: "Lateral Cone Hops", nameFa: "پرش جانبی روی موانع", sets: 3, reps: "12 Reps", area: "Ankles & Calves" },
-        { id: "d2_3", nameEn: "Medicine Ball Slams", nameFa: "کوبیدن مدیسین بال", sets: 4, reps: "15 Reps", area: "Core & Lats" },
-        { id: "d2_4", nameEn: "Box Jumps", nameFa: "پرش روی باکس", sets: 4, reps: "8 Reps", area: "Explosive Legs" },
-        { id: "d2_5", nameEn: "Plank Shoulder Taps", nameFa: "پلانک و لمس شانه", sets: 3, reps: "20 Reps", area: "Core & Shoulders" },
-      ]
-    },
-    {
-      id: "day3",
-      dayNumber: 3,
-      type: "rest",
-      titleEn: "Rest",
-      titleFa: "استراحت و ریکاوری",
-      subtitleEn: "Recovery Time",
-      subtitleFa: "زمان بازسازی عضلات",
-      duration: "Full Day",
-      calories: "Active Recovery",
-    },
-    {
-      id: "day4",
-      dayNumber: 4,
-      type: "workout",
-      titleEn: "Strength",
-      titleFa: "قدرت و استقامت عضلانی",
-      subtitleEn: "Training Session",
-      subtitleFa: "جلسه تمرینی قدرتی",
-      badgeEn: "Strength",
-      badgeFa: "قدرت",
-      badgeColor: "purple",
-      duration: "50 min",
-      calories: "450 kcal",
-      exercises: [
-        { id: "d4_1", nameEn: "Barbell Bench Press", nameFa: "پرس سینه با هالتر", sets: 4, reps: "6-8 Reps", area: "Chest & Triceps" },
-        { id: "d4_2", nameEn: "Incline Dumbbell Press", nameFa: "پرس بالا سینه دمبل", sets: 3, reps: "8-10 Reps", area: "Upper Chest" },
-        { id: "d4_3", nameEn: "Overhead Shoulder Press", nameFa: "پرس سرشانه هالتر", sets: 4, reps: "8 Reps", area: "Deltoids" },
-        { id: "d4_4", nameEn: "Pull-Ups / Lat Pulldown", nameFa: "بارفیکس / زیربغل لت", sets: 4, reps: "8-10 Reps", area: "Lats & Back" },
-        { id: "d4_5", nameEn: "Barbell Bicep Curls", nameFa: "جلو بازو با هالتر", sets: 3, reps: "10-12 Reps", area: "Biceps" },
-        { id: "d4_6", nameEn: "Tricep Rope Pushdowns", nameFa: "پشت بازو طنابی سیمکش", sets: 3, reps: "12 Reps", area: "Triceps" },
-      ]
-    },
-    {
-      id: "day5",
-      dayNumber: 5,
-      type: "workout",
-      titleEn: "Conditioning",
-      titleFa: "کاندیشنینگ و هوازی",
-      subtitleEn: "Training Session",
-      subtitleFa: "جلسه تمرین استقامتی",
-      badgeEn: "Conditioning",
-      badgeFa: "استقامتی",
-      badgeColor: "emerald",
-      duration: "45 min",
-      calories: "410 kcal",
-      exercises: [
-        { id: "d5_1", nameEn: "Kettlebell Swings", nameFa: "سوئینگ کتل‌بل", sets: 4, reps: "20 Reps", area: "Glutes & Hamstrings" },
-        { id: "d5_2", nameEn: "Burpees to Box Step", nameFa: "برپی با پله باکس", sets: 3, reps: "12 Reps", area: "Full Body Cardio" },
-        { id: "d5_3", nameEn: "Rowing Machine Intervals", nameFa: "اینتروال دستگاه روئینگ", sets: 5, reps: "500m", area: "Cardio & Back" },
-        { id: "d5_4", nameEn: "Hanging Leg Raises", nameFa: "بالا کشیدن پا در حالت آویزان", sets: 3, reps: "15 Reps", area: "Lower Abs" },
-      ]
-    },
-    {
-      id: "day6",
-      dayNumber: 6,
-      type: "rest",
-      titleEn: "Rest",
-      titleFa: "استراحت و کشش",
-      subtitleEn: "Recovery Time",
-      subtitleFa: "ماساژ و فوم رولر",
-      duration: "Full Day",
-      calories: "Mobility",
-    },
-    {
-      id: "day7",
-      dayNumber: 7,
-      type: "rest",
-      titleEn: "Rest",
-      titleFa: "استراحت کامل",
-      subtitleEn: "Recovery Time",
-      subtitleFa: "ریکاوری و خواب کافی",
-      duration: "Full Day",
-      calories: "Rest",
-    },
-  ]);
+  const author = { name: loadSession().name || "Isaac", role: store.coachMode ? "coach" : "user" };
+  const active = store.activeProgram;
 
-  // Workout Programs Catalog Data
-  const programsList = [
-    {
-      id: "prog_athletic",
-      titleEn: "Athletic Explosive Power v2",
-      titleFa: "توان انفجاری و چابکی ورزشی",
-      difficultyEn: "Intermediate",
-      difficultyFa: "متوسط تا پیشرفته",
-      daysPerWeek: 4,
-      duration: "6 Weeks",
-      active: true,
-      tagEn: "CURRENT PLAN",
-      tagFa: "برنامه فعال",
-    },
-    {
-      id: "prog_ppl",
-      titleEn: "Push Pull Legs Hypertrophy",
-      titleFa: "سیستم حجم عضلانی پوش پول لگز",
-      difficultyEn: "Advanced",
-      difficultyFa: "پیشرفته",
-      daysPerWeek: 6,
-      duration: "8 Weeks",
-      active: false,
-    },
-    {
-      id: "prog_fullbody",
-      titleEn: "Full Body Functional Strength",
-      titleFa: "فول بادی فانکشنال و قدرت",
-      difficultyEn: "All Levels",
-      difficultyFa: "تمام سطوح",
-      daysPerWeek: 3,
-      duration: "4 Weeks",
-      active: false,
-    },
-    {
-      id: "prog_calisthenics",
-      titleEn: "Bodyweight Master (Calisthenics)",
-      titleFa: "کالیستنیکس و تمرینات وزن بدن",
-      difficultyEn: "Intermediate",
-      difficultyFa: "متوسط",
-      daysPerWeek: 4,
-      duration: "6 Weeks",
-      active: false,
-    }
-  ];
+  const flash = (msg) => { setToast(msg); setTimeout(() => setToast(""), 1600); };
 
-  // All Exercises Library Database
-  const exerciseLibrary = [
-    { id: "lib1", nameEn: "Jump Squat", nameFa: "اسکات پرشی", muscle: "legs", sets: 5, reps: "5", equipment: "Bodyweight" },
-    { id: "lib2", nameEn: "Barbell Deadlift", nameFa: "ددلیفت با هالتر", muscle: "back", sets: 3, reps: "5", equipment: "Barbell" },
-    { id: "lib3", nameEn: "Barbell Bench Press", nameFa: "پرس سینه با هالتر", muscle: "chest", sets: 4, reps: "8-10", equipment: "Barbell" },
-    { id: "lib4", nameEn: "Incline Dumbbell Press", nameFa: "پرس بالا سینه با دمبل", muscle: "chest", sets: 3, reps: "10-12", equipment: "Dumbbell" },
-    { id: "lib5", nameEn: "Overhead Shoulder Press", nameFa: "پرس سرشانه هالتر", muscle: "shoulders", sets: 4, reps: "8", equipment: "Barbell" },
-    { id: "lib6", nameEn: "Lateral Raises", nameFa: "نشر جانب دمبل", muscle: "shoulders", sets: 4, reps: "15", equipment: "Dumbbell" },
-    { id: "lib7", nameEn: "Pull-Ups", nameFa: "بارفیکس دست باز", muscle: "back", sets: 4, reps: "8", equipment: "Pull-up Bar" },
-    { id: "lib8", nameEn: "Barbell Bicep Curls", nameFa: "جلو بازو هالتر", muscle: "arms", sets: 3, reps: "10-12", equipment: "Barbell" },
-    { id: "lib9", nameEn: "Tricep Pushdowns", nameFa: "پشت بازو سیمکش", muscle: "arms", sets: 3, reps: "12", equipment: "Cable" },
-    { id: "lib10", nameEn: "Hanging Leg Raises", nameFa: "بالا کشیدن پا آویزان", muscle: "core", sets: 3, reps: "15", equipment: "Bodyweight" },
-    { id: "lib11", nameEn: "Romanian Deadlift", nameFa: "ددلیفت رومانیایی", muscle: "legs", sets: 4, reps: "8-10", equipment: "Barbell" },
-  ];
+  const startDay = (day) => { store.startSession(active.id, day.id); setLive(true); };
 
-  // Handler for swapping an exercise in the active day
-  const handleSwapExercise = (newExercise) => {
-    if (!selectedDay || !selectedExerciseForSwap) return;
-    
-    setScheduleDays((prevDays) =>
-      prevDays.map((d) => {
-        if (d.id === selectedDay.id) {
-          const updatedExercises = (d.exercises || []).map((ex) =>
-            ex.id === selectedExerciseForSwap.id ? { ...ex, ...newExercise } : ex
-          );
-          const updatedDay = { ...d, exercises: updatedExercises };
-          setSelectedDay(updatedDay);
-          return updatedDay;
-        }
-        return d;
-      })
-    );
-  };
-
-  // Filtered exercise library
-  const filteredLibrary = exerciseLibrary.filter((ex) => {
-    const matchesFilter = libraryFilter === "all" || ex.muscle === libraryFilter;
-    const matchesSearch = ex.nameEn.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          ex.nameFa.includes(searchQuery);
-    return matchesFilter && matchesSearch;
-  });
+  const programName = (p) => (isRtl && p.nameFa ? p.nameFa : p.name);
+  const dayName = (d) => (d.type === "rest" ? t.rest : (isRtl && d.titleFa ? d.titleFa : d.title));
 
   return (
-    <div
-      dir={isRtl ? "rtl" : "ltr"}
-      className="w-full min-h-[100dvh] bg-black text-white px-4 pt-3 pb-28 space-y-4 font-sans select-none"
-    >
-      {/* ------------------------------------------------------------- */}
-      {/* VIEW A: DAY ROUTINE DETAIL VIEW (iOS Frosted Glass Aesthetic) */}
-      {/* ------------------------------------------------------------- */}
-      {selectedDay ? (
-        <div className="space-y-4 animate-in fade-in duration-200">
-          
-          {/* iOS Frosted Glass Top Bar Header */}
-          <div className="flex items-center justify-between pt-1">
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => setSelectedDay(null)}
-                className="w-10 h-10 rounded-full bg-white/[0.06] backdrop-blur-xl border border-white/10 flex items-center justify-center text-neutral-300 hover:text-white hover:bg-white/[0.12] transition-all active:scale-95 shadow-sm"
-              >
-                {isRtl ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
-              </button>
+    <div className="w-full min-h-[100dvh] bg-black text-white px-4 pt-5 pb-28 space-y-4">
+      {/* Segment switcher */}
+      <div className="p-1 rounded-2xl bg-[#141416] border border-white/10 grid grid-cols-4 gap-1">
+        {SEGMENTS.map((s) => (
+          <button key={s} type="button" onClick={() => setSegment(s)}
+            className={`h-9 rounded-xl text-[11px] font-black transition-all ${segment === s ? "bg-white text-black" : "text-neutral-400 hover:text-white"}`}>
+            {t[s]}
+          </button>
+        ))}
+      </div>
 
-              <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-2xl font-black text-white tracking-tight uppercase">
-                  {isRtl ? `روز ${selectedDay.dayNumber}` : `Day ${selectedDay.dayNumber}`}
-                </h1>
-                
-                {/* iOS Frosted Badges */}
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-bold text-amber-300 bg-amber-500/15 backdrop-blur-lg border border-amber-500/30 px-3 py-0.5 rounded-full flex items-center gap-1 shadow-sm">
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                    {isRtl ? selectedDay.badgeFa : selectedDay.badgeEn}
-                  </span>
+      {/* Resume banner for a workout left open */}
+      {store.draft && !live && (
+        <button type="button" onClick={() => setLive(true)}
+          className="w-full p-3 rounded-2xl bg-emerald-500/15 border border-emerald-500/40 flex items-center gap-3 text-start">
+          <Play className="w-4 h-4 text-emerald-400 shrink-0" />
+          <span className="flex-1 text-xs font-black text-emerald-300 truncate">{isRtl ? "ادامه تمرین باز" : "Resume open workout"} — {store.draft.dayTitle}</span>
+        </button>
+      )}
 
-                  <span className="text-xs font-bold text-[#d17cd0] bg-[#844783]/20 backdrop-blur-lg border border-[#844783]/40 px-3 py-0.5 rounded-full flex items-center gap-1 shadow-sm">
-                    🏋️ {selectedDay.exercises?.length || 6} {isRtl ? "حرکت" : "exercises"}
-                  </span>
-                </div>
+      {/* ── PLAN ── */}
+      {segment === "plan" && (active ? (
+        <>
+          <div className="p-5 rounded-3xl border relative overflow-hidden" style={{ background: `linear-gradient(135deg, ${active.color}33, #141416)`, borderColor: `${active.color}55` }}>
+            <span className="text-[10px] font-black uppercase tracking-wider" style={{ color: active.color }}>{t.currentSplit}</span>
+            <div className="flex items-start justify-between gap-3 mt-1">
+              <div className="min-w-0">
+                <h2 className="text-2xl font-black leading-tight">{active.emoji} {programName(active)}</h2>
+                <p className="text-sm font-bold text-neutral-400 mt-1">{active.days.filter((d) => d.type !== "rest").length} {t.daysWeek} · {active.weeks} {t.weeks}</p>
+                <div className="mt-1"><AuthorChip author={active.author} t={t} /></div>
+              </div>
+              <div className="flex flex-col gap-1.5 shrink-0">
+                <button type="button" onClick={() => setShare(active)} aria-label={t.shareProgram}
+                  className="w-9 h-9 rounded-xl bg-black/40 border border-white/10 flex items-center justify-center text-neutral-300 hover:text-white"><Share2 className="w-4 h-4" /></button>
+                <button type="button" onClick={() => setImporting(true)} aria-label={t.importTitle}
+                  className="w-9 h-9 rounded-xl bg-black/40 border border-white/10 flex items-center justify-center text-neutral-300 hover:text-white"><Download className="w-4 h-4" /></button>
               </div>
             </div>
           </div>
 
-          {/* Exercises List Cards (Matching User Reference Image) */}
-          <div className="space-y-3 pt-1 pb-28">
-            {(selectedDay.exercises || []).map((ex, idx) => (
-              <div
-                key={ex.id || idx}
-                className="p-3.5 sm:p-4 rounded-[26px] bg-[#121316] border border-white/[0.08] hover:border-white/[0.18] transition-all duration-200 flex items-center justify-between group shadow-[0_4px_20px_rgba(0,0,0,0.35)]"
-              >
-                {/* Left: Illustration & Info */}
-                <div className="flex items-center gap-3 min-w-0 flex-1">
-                  
-                  {/* Exercise Graphic Thumbnail Container */}
-                  <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-[18px] overflow-hidden shrink-0 shadow-inner border border-white/[0.06] flex items-center justify-center">
-                    <ExerciseGraphic exerciseId={ex.id || `ex${idx+1}`} name={ex.nameEn} />
+          <div className="space-y-3">
+            {active.days.map((day, i) => {
+              const isRest = day.type === "rest";
+              const est = day.exercises.length * 8;
+              return (
+                <div key={day.id} className={`p-4 rounded-3xl border flex items-center gap-4 ${isRest ? "bg-[#0f0f11] border-white/5 opacity-70" : "bg-[#141416] border-white/10"}`}>
+                  <div className={`w-14 h-14 rounded-2xl flex flex-col items-center justify-center shrink-0 ${isRest ? "bg-neutral-900 border border-white/5" : "text-white"}`}
+                    style={isRest ? undefined : { background: `linear-gradient(135deg, ${active.color}, ${active.color}99)` }}>
+                    <span className="text-[9px] font-black uppercase opacity-80">{t.day}</span>
+                    <span className="text-xl font-black leading-none">{i + 1}</span>
                   </div>
-
-                  {/* Name & Single Line Sets/Reps */}
-                  <div className="min-w-0 flex-1">
-                    <h3 className="text-sm sm:text-base font-extrabold text-white tracking-tight truncate leading-snug">
-                      {isRtl ? ex.nameFa || ex.nameEn : ex.nameEn}
-                    </h3>
-
-                    {/* Guaranteed Single Line Badge */}
-                    <div className="mt-1.5 inline-flex items-center gap-1.5 px-2.5 py-0.5 sm:py-1 rounded-xl bg-[#1c1d22] border border-white/5 text-[11px] sm:text-xs font-black text-neutral-200 shadow-sm whitespace-nowrap">
-                      <span>{ex.sets || 4} {isRtl ? "ست" : "Sets"}</span>
-                      <span className="w-1 h-1 rounded-full bg-neutral-500 shrink-0 mx-0.5" />
-                      <span>{(ex.reps || "8-10").toString().replace(/reps/gi, "").trim()} {isRtl ? "تکرار" : "Reps"}</span>
-                    </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className={`text-base font-black truncate ${isRest ? "text-neutral-400" : "text-white"}`}>{dayName(day)}</h3>
+                    <p className="text-xs font-bold text-neutral-500 mt-0.5">
+                      {isRest ? `☕ ${t.recovery}` : `🔥 ${t.session} · ${day.exercises.length} ${t.exercises.toLowerCase()} · ~${est} ${t.min}`}
+                    </p>
                   </div>
-
+                  {isRest ? (
+                    <span className="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center text-neutral-600"><Coffee className="w-5 h-5" /></span>
+                  ) : (
+                    <button type="button" onClick={() => startDay(day)}
+                      className="px-5 h-12 rounded-full bg-white text-black text-sm font-black active:scale-95 transition-transform shadow-lg">{t.start}</button>
+                  )}
                 </div>
-
-                {/* Right: Action Buttons (Swap & Info Buttons) */}
-                <div className="flex items-center gap-1.5 shrink-0 ltr:ml-1.5 rtl:mr-1.5">
-                  {/* Swap Exercise Button */}
-                  <button
-                    type="button"
-                    title={isRtl ? "تعویض حرکت" : "Swap Exercise"}
-                    onClick={() => setSelectedExerciseForSwap(ex)}
-                    className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#1c1d22] border border-white/5 hover:border-white/20 hover:bg-[#25272e] text-neutral-300 hover:text-white flex items-center justify-center transition-all active:scale-95 shadow-sm"
-                  >
-                    <RefreshCw className="w-4 h-4" />
-                  </button>
-
-                  {/* Exercise Info / Guide Button */}
-                  <button
-                    type="button"
-                    title={isRtl ? "راهنمای حرکت" : "Exercise Details"}
-                    onClick={() => setSelectedExerciseForDetail(ex)}
-                    className="w-10 h-10 rounded-full bg-[#1c1d22] border border-white/5 hover:border-white/20 hover:bg-[#25272e] text-neutral-300 hover:text-white flex items-center justify-center transition-all active:scale-95 shadow-sm"
-                  >
-                    <Info className="w-4 h-4" />
-                  </button>
-                </div>
-
-              </div>
-            ))}
+              );
+            })}
           </div>
-
-          {/* Bottom Floating iOS Glowing CTA Button */}
-          <div className="fixed bottom-16 left-0 right-0 z-40 p-4 pointer-events-none">
-            <div className="w-full md:max-w-lg mx-auto pointer-events-auto">
-              <button
-                type="button"
-                onClick={() => setIsLiveWorkoutOpen(true)}
-                className="w-full h-14 rounded-full bg-gradient-to-r from-[#844783] via-[#9e529d] to-[#a356a2] hover:brightness-110 text-white font-black text-base flex items-center justify-center gap-2.5 shadow-[0_0_35px_rgba(132,71,131,0.65)] active:scale-[0.98] transition-all border border-white/25 backdrop-blur-xl"
-              >
-                <Play className="w-5 h-5 fill-white" />
-                <span>{isRtl ? "شروع تمرین زنده (Start Workout)" : "Start Workout"}</span>
-              </button>
-            </div>
-          </div>
-
-        </div>
+        </>
       ) : (
-        /* ------------------------------------------------------------- */
-        /* VIEW B: MAIN WORKOUT OVERVIEW (iOS Glassmorphism Aesthetic)   */
-        /* ------------------------------------------------------------- */
-        <div className="space-y-4">
-          
-          {/* iOS Glass Segmented Control Tabs */}
-          <div className="bg-neutral-900/60 backdrop-blur-2xl p-1 rounded-[20px] border border-white/[0.08] flex items-center justify-between w-full shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)]">
-            <button
-              type="button"
-              onClick={() => setActiveSegment("plan")}
-              className={`flex-1 py-2.5 rounded-[16px] text-xs font-black transition-all duration-200 flex items-center justify-center gap-1.5 ${
-                activeSegment === "plan"
-                  ? "bg-white text-black shadow-[0_4px_16px_rgba(0,0,0,0.3)] scale-[1.01]"
-                  : "text-neutral-400 hover:text-white"
-              }`}
-            >
-              <span>📅</span>
-              <span>{isRtl ? "برنامه (Plan)" : "Plan"}</span>
-            </button>
+        <p className="py-16 text-center text-sm font-bold text-neutral-500">{t.noActive}</p>
+      ))}
 
-            <button
-              type="button"
-              onClick={() => setActiveSegment("training")}
-              className={`flex-1 py-2.5 rounded-[16px] text-xs font-black transition-all duration-200 flex items-center justify-center gap-1.5 ${
-                activeSegment === "training"
-                  ? "bg-white text-black shadow-[0_4px_16px_rgba(0,0,0,0.3)] scale-[1.01]"
-                  : "text-neutral-400 hover:text-white"
-              }`}
-            >
-              <span>💪</span>
-              <span>{isRtl ? "سیستم‌ها (Training)" : "Training"}</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveSegment("exercises")}
-              className={`flex-1 py-2.5 rounded-[16px] text-xs font-black transition-all duration-200 flex items-center justify-center gap-1.5 ${
-                activeSegment === "exercises"
-                  ? "bg-white text-black shadow-[0_4px_16px_rgba(0,0,0,0.3)] scale-[1.01]"
-                  : "text-neutral-400 hover:text-white"
-              }`}
-            >
-              <span>🏋️</span>
-              <span>{isRtl ? "بانک حرکات (Exercises)" : "exercises"}</span>
-            </button>
+      {/* ── PROGRAMS ── */}
+      {segment === "programs" && (
+        <>
+          <div className="grid grid-cols-2 gap-2">
+            <button type="button" onClick={() => setBuilder(null)}
+              className="h-12 rounded-2xl bg-[#844783] text-white text-sm font-black flex items-center justify-center gap-2"><Plus className="w-4 h-4" /> {t.newProgram}</button>
+            <button type="button" onClick={() => setImporting(true)}
+              className="h-12 rounded-2xl bg-[#141416] border border-white/10 text-white text-sm font-black flex items-center justify-center gap-2"><Download className="w-4 h-4" /> {t.importTitle}</button>
           </div>
 
-          {/* TAB 1: PLAN SCHEDULE (Weekly Routine List) */}
-          {activeSegment === "plan" && (
-            <div className="space-y-3 animate-in fade-in duration-200">
-              
-              {/* iOS Hero Card: Current Workout Split */}
-              <div className="p-5 rounded-[24px] bg-gradient-to-br from-white/[0.08] via-white/[0.03] to-white/[0.01] backdrop-blur-2xl border border-white/[0.12] shadow-[0_8px_32px_rgba(0,0,0,0.4)] flex items-center justify-between relative overflow-hidden group">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-[#844783]/20 rounded-full blur-2xl pointer-events-none" />
-                
-                <div className="relative z-10">
-                  <span className="text-[10px] font-black text-[#844783] uppercase tracking-wider block">
-                    {isRtl ? "برنامه فعال شما" : "CURRENT WORKOUT SPLIT"}
-                  </span>
-                  <h2 className="text-lg font-black text-white mt-0.5 tracking-tight">Athletic Explosive Power</h2>
-                  <span className="text-xs text-neutral-400 font-bold">4 {isRtl ? "روز تمرین در هفته" : "Days / Week"}</span>
-                </div>
-
-                <div className="text-right rtl:text-left relative z-10">
-                  <span className="text-xs font-mono font-black text-emerald-400 bg-emerald-500/15 backdrop-blur-md border border-emerald-500/30 px-3 py-1 rounded-full shadow-sm">
-                    Week 1 • In Progress
-                  </span>
-                </div>
-              </div>
-
-              {/* Day Cards List in Clean iOS Glassmorphism */}
-              <div className="space-y-2.5">
-                {scheduleDays.map((day) => {
-                  const isWorkout = day.type === "workout";
-
+          {[["mine", t.myPrograms], ["imported", t.imported], ["builtin", t.builtin]].map(([source, title]) => {
+            const list = store.programs.filter((p) => p.source === source);
+            if (!list.length) return null;
+            return (
+              <section key={source} className="space-y-2">
+                <h3 className="text-[10px] font-black text-neutral-500 uppercase tracking-wider px-1">{title}</h3>
+                {list.map((p) => {
+                  const isActive = p.id === active?.id;
                   return (
-                    <div
-                      key={day.id}
-                      onClick={() => {
-                        if (isWorkout) setSelectedDay(day);
-                      }}
-                      className={`p-3.5 rounded-[22px] border transition-all duration-300 flex items-center justify-between group ${
-                        isWorkout
-                          ? "bg-white/[0.04] backdrop-blur-xl border-white/[0.08] hover:border-[#844783]/50 hover:bg-white/[0.07] cursor-pointer active:scale-[0.99] shadow-[0_4px_20px_rgba(0,0,0,0.25)]"
-                          : "bg-white/[0.02] backdrop-blur-md border-white/[0.04] opacity-60 cursor-default"
-                      }`}
-                    >
-                      {/* Left: Day Badge & Titles */}
-                      <div className="flex items-center gap-3.5">
-                        
-                        {/* Flawless iOS Sized Day Badge (48px x 48px, Zero Overflow) */}
-                        <div
-                          className={`w-12 h-12 rounded-[16px] flex flex-col items-center justify-center shrink-0 border transition-all duration-200 ${
-                            isWorkout
-                              ? "bg-gradient-to-b from-[#965595] to-[#733572] text-white border-white/25 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4),0_4px_12px_rgba(132,71,131,0.35)] group-hover:scale-105"
-                              : "bg-white/[0.04] text-neutral-500 border-white/[0.08]"
-                          }`}
-                        >
-                          <span className="text-[9px] font-black uppercase tracking-wider text-white/80 leading-none">DAY</span>
-                          <span className="text-base font-black text-white leading-none mt-1">{day.dayNumber}</span>
-                        </div>
-
-                        {/* Titles */}
-                        <div>
-                          <h3 className={`text-base font-black tracking-tight ${isWorkout ? "text-white group-hover:text-amber-300 transition-colors" : "text-neutral-400"}`}>
-                            {isRtl ? day.titleFa : day.titleEn}
-                          </h3>
-                          
-                          <div className="flex items-center gap-1.5 text-xs text-neutral-400 font-medium mt-0.5">
-                            <span>{isWorkout ? "🔥" : "☕"}</span>
-                            <span>{isRtl ? day.subtitleFa : day.subtitleEn}</span>
-                            {isWorkout && (
-                              <span className="text-neutral-500">• {day.duration}</span>
-                            )}
+                    <div key={p.id} className={`p-4 rounded-3xl border space-y-3 ${isActive ? "border-white/30" : "border-white/10"} bg-[#141416]`}>
+                      <div className="flex items-start gap-3">
+                        <span className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shrink-0" style={{ background: `${p.color}22`, border: `1px solid ${p.color}55` }}>{p.emoji}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <h4 className="text-sm font-black text-white truncate">{programName(p)}</h4>
+                            {isActive && <span className="px-2 py-0.5 rounded-full text-[9px] font-black text-white shrink-0" style={{ background: p.color }}>{t.active}</span>}
                           </div>
+                          <p className="text-[11px] font-bold text-neutral-500">{p.days.filter((d) => d.type !== "rest").length} {t.daysWeek} · {p.weeks} {t.weeks}</p>
+                          <AuthorChip author={p.author} t={t} />
                         </div>
-
                       </div>
-
-                      {/* Right Action: iOS Pill Button */}
-                      <div>
-                        {isWorkout ? (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedDay(day);
-                            }}
-                            className="px-5 py-2.5 rounded-full bg-white text-black font-black text-xs hover:bg-neutral-200 transition-all shadow-[0_2px_10px_rgba(255,255,255,0.2)] active:scale-95"
-                          >
-                            {isRtl ? "شروع" : "Start"}
-                          </button>
-                        ) : (
-                          <div className="w-10 h-10 rounded-full bg-white/[0.04] border border-white/[0.08] flex items-center justify-center text-neutral-500">
-                            <Coffee className="w-4 h-4" />
-                          </div>
-                        )}
+                      {p.description && <p className="text-[11px] text-neutral-400">{p.description}</p>}
+                      <div className="flex flex-wrap gap-1.5">
+                        {!isActive && <Act icon={Play} label={t.setActive} onClick={() => { store.setActiveProgram(p.id); setSegment("plan"); }} tone="text-emerald-400" />}
+                        {p.source !== "builtin" && <Act icon={Pencil} label={t.editProgram} onClick={() => setBuilder(p)} />}
+                        <Act icon={Copy} label={t.duplicate} onClick={() => { store.duplicateProgram(p.id, `${t.copyOf} ${p.name}`, author); flash(t.copied); }} />
+                        <Act icon={Share2} label={t.share} onClick={() => setShare(p)} />
+                        {p.source !== "builtin" && <Act icon={Trash2} label={t.delete} tone="text-rose-400" onClick={() => { if (window.confirm(t.deleteProgramConfirm)) store.removeProgram(p.id); }} />}
                       </div>
-
                     </div>
                   );
                 })}
-              </div>
+              </section>
+            );
+          })}
+        </>
+      )}
 
-            </div>
-          )}
+      {/* ── EXERCISES ── */}
+      {segment === "exercises" && <Library isRtl={isRtl} t={t} sessions={store.sessions} onOpen={setTrendFor} />}
 
-          {/* TAB 2: TRAINING PROGRAMS (Browse Other Systems) */}
-          {activeSegment === "training" && (
-            <div className="space-y-3 animate-in fade-in duration-200">
-              <div className="flex items-center justify-between px-1">
-                <span className="text-xs font-black text-neutral-400 uppercase tracking-wider">
-                  {isRtl ? "سیستم‌ها و برنامه‌های ورزشی" : "Workout Programs Catalog"}
-                </span>
-                <span className="text-xs font-bold text-[#844783]">4 Available</span>
-              </div>
+      {/* ── PROGRESS ── */}
+      {segment === "progress" && <Progress isRtl={isRtl} t={t} store={store} />}
 
-              {programsList.map((prog) => (
-                <div
-                  key={prog.id}
-                  className={`p-5 rounded-[22px] border transition-all ${
-                    prog.active
-                      ? "bg-gradient-to-br from-white/[0.08] to-white/[0.02] backdrop-blur-2xl border-[#844783] shadow-[0_4px_24px_rgba(132,71,131,0.25)]"
-                      : "bg-white/[0.04] backdrop-blur-xl border-white/[0.08] hover:border-white/[0.2]"
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-white/10 text-white border border-white/10 backdrop-blur-md">
-                      {isRtl ? prog.difficultyFa : prog.difficultyEn}
-                    </span>
+      {/* overlays */}
+      {live && (
+        <ActiveWorkoutModal store={store} isRtl={isRtl}
+          onClose={() => setLive(false)}
+          onFinished={() => nutrition.setTrainingDay(true)} />
+      )}
+      <AnimatePresence>
+        {builder !== undefined && (
+          <ProgramBuilderSheet program={builder} isRtl={isRtl} t={t} author={author}
+            onSave={(patch) => {
+              if (builder) store.updateProgram(builder.id, patch);
+              else { const p = store.addProgram(patch); store.setActiveProgram(p.id); }
+              setBuilder(undefined);
+            }}
+            onClose={() => setBuilder(undefined)} />
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {share && (
+          <ShareSheet payload={compactProgram({ ...share, author })} title={t.shareProgram} isRtl={isRtl} t={t}
+            coachMode={store.coachMode} onToggleCoach={store.setCoachMode} onClose={() => setShare(null)} />
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {importing && (
+          <ImportSheet isRtl={isRtl} t={t}
+            onImportProgram={(compact) => { const p = store.importProgram(compact); store.setActiveProgram(p.id); setImporting(false); setSegment("plan"); flash(t.importedOk); }}
+            onApplyMeal={(meal) => { applyMealPlan(nutrition, meal); setImporting(false); flash(t.appliedOk); }}
+            onClose={() => setImporting(false)} />
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {trendFor && <TrendSheet exerciseId={trendFor} sessions={store.sessions} isRtl={isRtl} t={t} onClose={() => setTrendFor(null)} />}
+      </AnimatePresence>
 
-                    {prog.active && (
-                      <span className="text-[10px] font-black text-amber-300 bg-amber-500/15 backdrop-blur-md border border-amber-500/30 px-2.5 py-0.5 rounded-full shadow-sm">
-                        {isRtl ? prog.tagFa : prog.tagEn}
-                      </span>
-                    )}
-                  </div>
-
-                  <h3 className="text-base font-black text-white">{isRtl ? prog.titleFa : prog.titleEn}</h3>
-
-                  <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/10 text-xs text-neutral-400">
-                    <span>⚡ {prog.daysPerWeek} {isRtl ? "روز در هفته" : "Days / Wk"} • {prog.duration}</span>
-                    <button
-                      type="button"
-                      className={`px-4 py-1.5 rounded-xl font-black text-xs transition-all ${
-                        prog.active
-                          ? "bg-[#844783] text-white shadow-md shadow-[#844783]/30"
-                          : "bg-white/10 text-white hover:bg-white/20"
-                      }`}
-                    >
-                      {prog.active ? (isRtl ? "انتخاب شده ✓" : "Active ✓") : (isRtl ? "انتخاب برنامه" : "Switch")}
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* TAB 3: EXERCISE LIBRARY */}
-          {activeSegment === "exercises" && (
-            <div className="space-y-3.5 animate-in fade-in duration-200">
-              
-              {/* iOS Frosted Search input */}
-              <div className="relative">
-                <Search className="w-4 h-4 absolute left-3.5 top-3.5 text-neutral-400" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder={isRtl ? "جستجوی حرکت ورزشی..." : "Search exercises..."}
-                  className="w-full h-11 bg-white/[0.05] backdrop-blur-xl border border-white/[0.09] rounded-[18px] pl-10 pr-4 text-xs font-bold text-white placeholder-neutral-500 focus:outline-none focus:border-[#844783] shadow-inner"
-                />
-              </div>
-
-              {/* Muscle Filter Chips in iOS Style */}
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-                {[
-                  { id: "all", label: isRtl ? "همه" : "All" },
-                  { id: "chest", label: isRtl ? "سینه" : "Chest" },
-                  { id: "back", label: isRtl ? "زیربغل / پشت" : "Back" },
-                  { id: "shoulders", label: isRtl ? "سرشانه" : "Shoulders" },
-                  { id: "legs", label: isRtl ? "پاها" : "Legs" },
-                  { id: "arms", label: isRtl ? "بازو" : "Arms" },
-                  { id: "core", label: isRtl ? "شکم و فیله" : "Core" },
-                ].map((chip) => (
-                  <button
-                    key={chip.id}
-                    type="button"
-                    onClick={() => setLibraryFilter(chip.id)}
-                    className={`px-3.5 py-1.5 rounded-full text-xs font-black whitespace-nowrap transition-all ${
-                      libraryFilter === chip.id
-                        ? "bg-[#844783] text-white shadow-md shadow-[#844783]/30"
-                        : "bg-white/[0.04] text-neutral-400 border border-white/[0.08] hover:text-white"
-                    }`}
-                  >
-                    {chip.label}
-                  </button>
-                ))}
-              </div>
-
-              {/* Exercises List in Glass Style */}
-              <div className="space-y-2">
-                {filteredLibrary.map((ex) => (
-                  <div
-                    key={ex.id}
-                    onClick={() => setSelectedExerciseForDetail(ex)}
-                    className="p-3.5 rounded-[22px] bg-white/[0.04] backdrop-blur-xl border border-white/[0.08] hover:border-[#844783]/50 flex items-center justify-between cursor-pointer group transition-all"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-[14px] bg-neutral-900/90 border border-white/[0.08] flex items-center justify-center text-white shrink-0 shadow-inner">
-                        <Dumbbell className="w-5 h-5 text-neutral-300" />
-                      </div>
-                      <div>
-                        <h4 className="text-sm font-black text-white group-hover:text-amber-300 transition-colors">
-                          {isRtl ? ex.nameFa : ex.nameEn}
-                        </h4>
-                        <span className="text-[11px] text-neutral-400 font-bold">
-                          {ex.equipment} • {ex.sets} Sets
-                        </span>
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      className="w-8 h-8 rounded-full bg-white/[0.06] backdrop-blur-md border border-white/10 flex items-center justify-center text-neutral-400 group-hover:text-white shadow-sm"
-                    >
-                      <Info className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-
-            </div>
-          )}
-
+      {toast && (
+        <div className="fixed bottom-24 inset-x-0 flex justify-center z-[95] pointer-events-none">
+          <span className="px-4 py-2 rounded-full bg-white/15 backdrop-blur text-xs font-black text-white">{toast}</span>
         </div>
       )}
-
-      {/* ------------------------------------------------------------- */}
-      {/* MODALS & OVERLAYS                                             */}
-      {/* ------------------------------------------------------------- */}
-      
-      {/* 1. Exercise Detail Modal */}
-      {selectedExerciseForDetail && (
-        <ExerciseDetailModal
-          exercise={selectedExerciseForDetail}
-          onClose={() => setSelectedExerciseForDetail(null)}
-          isRtl={isRtl}
-          onStartWorkout={() => {
-            setSelectedExerciseForDetail(null);
-            setIsLiveWorkoutOpen(true);
-          }}
-        />
-      )}
-
-      {/* 2. Swap Exercise Modal */}
-      {selectedExerciseForSwap && (
-        <SwapExerciseModal
-          currentExercise={selectedExerciseForSwap}
-          onSwap={handleSwapExercise}
-          onClose={() => setSelectedExerciseForSwap(null)}
-          isRtl={isRtl}
-        />
-      )}
-
-      {/* 3. Live Workout Modal */}
-      {isLiveWorkoutOpen && (
-        <ActiveWorkoutModal
-          dayTitle={selectedDay ? (isRtl ? `روز ${selectedDay.dayNumber} - ${selectedDay.titleFa}` : `Day ${selectedDay.dayNumber} - ${selectedDay.titleEn}`) : null}
-          exercises={selectedDay?.exercises}
-          onClose={() => setIsLiveWorkoutOpen(false)}
-          isRtl={isRtl}
-        />
-      )}
-
     </div>
   );
 }
+
+/** Applies a shared nutrition plan: targets plus its saved meals. */
+export function applyMealPlan(nutrition, meal) {
+  const { kcal, protein, carbs, fat } = meal.targets;
+  nutrition.setCustomTargets({
+    kcal, protein, carbs, fat,
+    fiber: Math.round((kcal / 1000) * 14),
+    water: Math.round((nutrition.profile?.weight || 70) * 35),
+  });
+  for (const m of meal.meals) nutrition.saveMeal(m.name, m.items);
+}
+
+function Act({ icon: Icon, label, onClick, tone = "text-neutral-300" }) {
+  return (
+    <button type="button" onClick={onClick}
+      className={`px-2.5 h-8 rounded-lg bg-white/5 border border-white/10 text-[10px] font-black flex items-center gap-1 hover:bg-white/10 ${tone}`}>
+      <Icon className="w-3 h-3" /> {label}
+    </button>
+  );
+}
+
+function Library({ isRtl, t, sessions, onOpen }) {
+  const [q, setQ] = useState("");
+  const [muscle, setMuscle] = useState(null);
+  const list = useMemo(() => searchExercises(q, muscle), [q, muscle]);
+  return (
+    <div className="space-y-3">
+      <div className="relative">
+        <Search className={`w-4 h-4 text-neutral-500 absolute top-1/2 -translate-y-1/2 ${isRtl ? "right-3" : "left-3"}`} />
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t.searchExercises}
+          className={`w-full h-11 ${isRtl ? "pr-10 pl-3" : "pl-10 pr-3"} rounded-2xl bg-[#141416] border border-white/10 text-sm font-bold text-white placeholder:text-neutral-600 focus:outline-none focus:border-white/30`} />
+      </div>
+      <div className="flex gap-1.5 overflow-x-auto scrollbar-hide pb-1">
+        {[{ id: null, en: t.allMuscles, fa: t.allMuscles }, ...MUSCLES].map((m) => (
+          <button key={String(m.id)} type="button" onClick={() => setMuscle(m.id)}
+            className={`px-3 h-8 rounded-lg text-[10px] font-black whitespace-nowrap border ${muscle === m.id ? "bg-white/10 border-white/30 text-white" : "bg-[#141416] border-white/10 text-neutral-400"}`}>
+            {isRtl ? m.fa : m.en}
+          </button>
+        ))}
+      </div>
+      <div className="space-y-2">
+        {list.map((e) => {
+          const best = exerciseBests(sessions, e.id);
+          return (
+            <button key={e.id} type="button" onClick={() => onOpen(e.id)}
+              className="w-full p-3 rounded-2xl bg-[#141416] border border-white/10 flex items-center gap-3 text-start hover:border-white/25">
+              <span className="w-12 h-12 rounded-xl bg-neutral-950 border border-white/10 overflow-hidden shrink-0"><ExerciseGraphic exerciseId={e.id} name={e.nameEn} /></span>
+              <span className="flex-1 min-w-0">
+                <span className="block text-sm font-black text-white truncate">{isRtl ? e.nameFa : e.nameEn}</span>
+                <span className="block text-[10px] font-bold text-neutral-500">{e.equipment}</span>
+              </span>
+              {best.maxWeight > 0 && (
+                <span className="text-end shrink-0">
+                  <span className="block text-[9px] font-black text-amber-400 uppercase">{t.e1rm}</span>
+                  <span className="block text-sm font-black text-white tabular-nums">{Math.round(best.bestE1rm)} {t.kg}</span>
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function TrendSheet({ exerciseId, sessions, isRtl, t, onClose }) {
+  const ex = findExercise(exerciseId);
+  const points = exerciseTrend(sessions, exerciseId);
+  const best = exerciseBests(sessions, exerciseId);
+  const last = lastPerformance(sessions, exerciseId);
+  const max = Math.max(...points.map((p) => p.e1rm), 1);
+  return (
+    <Sheet title={exerciseName(exerciseId, isRtl)} isRtl={isRtl} t={t} onClose={onClose}>
+      <div className="flex items-center gap-3">
+        <span className="w-20 h-20 rounded-2xl bg-neutral-950 border border-white/10 overflow-hidden shrink-0"><ExerciseGraphic exerciseId={exerciseId} name={ex?.nameEn} /></span>
+        <div className="grid grid-cols-2 gap-2 flex-1">
+          <Stat label={t.topSet} value={best.maxWeight ? `${best.maxWeight} ${t.kg}` : "—"} />
+          <Stat label={t.e1rm} value={best.bestE1rm ? `${Math.round(best.bestE1rm)} ${t.kg}` : "—"} />
+        </div>
+      </div>
+      {points.length >= 2 ? (
+        <div className="p-3 rounded-2xl bg-[#141416] border border-white/10">
+          <span className="block text-[10px] font-black text-neutral-500 uppercase tracking-wider mb-2">{t.trend} · {t.e1rm}</span>
+          <div className="flex items-end gap-1.5 h-28" dir="ltr">
+            {points.map((p, i) => (
+              <div key={i} className="flex-1 flex flex-col items-center gap-1" title={`${p.weight}×${p.reps}`}>
+                <span className="text-[9px] font-black text-neutral-400 tabular-nums">{p.e1rm}</span>
+                <div className="w-full rounded-t-lg bg-gradient-to-t from-[#844783] to-[#c07dbf]" style={{ height: `${Math.max((p.e1rm / max) * 80, 6)}%` }} />
+                <span className="text-[8px] font-bold text-neutral-600">{new Date(p.at).toLocaleDateString(undefined, { month: "numeric", day: "numeric" })}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <p className="text-xs font-bold text-neutral-600 text-center py-6">{t.noTrend}</p>
+      )}
+      {last && (
+        <p className="text-[11px] font-bold text-neutral-400" dir="ltr">{t.lastTime}: {last.map((s) => `${s.weight || 0}×${s.reps}`).join(" · ")}</p>
+      )}
+    </Sheet>
+  );
+}
+
+function Stat({ label, value }) {
+  return (
+    <div className="p-3 rounded-2xl bg-[#141416] border border-white/10">
+      <span className="block text-[9px] font-black text-neutral-500 uppercase tracking-wider">{label}</span>
+      <span className="block text-sm font-black text-white tabular-nums">{value}</span>
+    </div>
+  );
+}
+
+function Progress({ isRtl, t, store }) {
+  const sessions = [...store.sessions].filter((s) => s.finishedAt).sort((a, b) => (a.startedAt < b.startedAt ? 1 : -1));
+  const prs = sessions.flatMap((s) => (s.prs || []).map((pr) => ({ ...pr, at: s.startedAt }))).slice(0, 8);
+  const maxVol = Math.max(...store.weekly.map((w) => w.volume), 1);
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-3 gap-2 text-center">
+        {[[t.totalVolume, `${Math.round(store.stats.volume).toLocaleString()} ${t.kg}`, "text-amber-400"], [t.workouts, store.stats.count, "text-[#c07dbf]"], [t.totalBurn, `${store.stats.calories.toLocaleString()} kcal`, "text-emerald-400"]].map(([l, v, tone]) => (
+          <div key={l} className="p-3 rounded-2xl bg-[#141416] border border-white/10">
+            <span className={`block text-[9px] font-black uppercase ${tone}`}>{l}</span>
+            <span className="block text-sm font-black text-white tabular-nums mt-0.5">{v}</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="p-4 rounded-3xl bg-[#141416] border border-white/10">
+        <span className="block text-[10px] font-black text-neutral-500 uppercase tracking-wider mb-3">{t.weeklyVolume}</span>
+        <div className="flex items-end gap-3 h-28" dir="ltr">
+          {store.weekly.map((w, i) => (
+            <div key={i} className="flex-1 flex flex-col items-center gap-1">
+              <span className="text-[9px] font-black text-neutral-400 tabular-nums">{w.volume ? `${Math.round(w.volume / 1000)}k` : "—"}</span>
+              <div className="w-full rounded-t-xl bg-gradient-to-t from-[#844783] to-[#a356a2]" style={{ height: `${Math.max((w.volume / maxVol) * 80, 4)}%` }} />
+              <span className="text-[9px] font-bold text-neutral-600">{w.from.toLocaleDateString(undefined, { month: "numeric", day: "numeric" })}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {prs.length > 0 && (
+        <div className="p-4 rounded-3xl bg-[#141416] border border-white/10 space-y-2">
+          <span className="flex items-center gap-1.5 text-[10px] font-black text-amber-400 uppercase tracking-wider"><Trophy className="w-3.5 h-3.5" /> {t.personalRecords}</span>
+          {prs.map((pr, i) => (
+            <div key={i} className="flex items-center justify-between gap-2 text-xs">
+              <span className="font-black text-white truncate">{exerciseName(pr.exerciseId, isRtl)}</span>
+              <span className="font-bold text-emerald-400 shrink-0" dir="ltr">{pr.kind === "first" ? t.prFirst : `${pr.prev} → ${pr.value} ${t.kg}`}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="space-y-2">
+        <h3 className="text-[10px] font-black text-neutral-500 uppercase tracking-wider px-1">{t.history}</h3>
+        {sessions.length === 0 && <p className="py-8 text-center text-xs font-bold text-neutral-600">{t.noSessions}</p>}
+        {sessions.map((s) => (
+          <div key={s.id} className="p-4 rounded-2xl bg-[#141416] border border-white/10 flex items-center gap-3">
+            <span className="w-10 h-10 rounded-xl bg-[#844783]/20 border border-[#844783]/40 flex items-center justify-center text-[#c07dbf] shrink-0"><Dumbbell className="w-5 h-5" /></span>
+            <span className="flex-1 min-w-0">
+              <span className="block text-sm font-black text-white truncate">{(isRtl && s.dayTitleFa) || s.dayTitle} <span className="text-neutral-500 font-bold">· {s.programName}</span></span>
+              <span className="block text-[10px] font-bold text-neutral-500" dir="ltr">{dateLabel(s.startedAt)} · {fmtDuration(s.durationSec)} {t.min} · {Math.round(sessionVolume(s)).toLocaleString()} {t.kg} · {sessionSetsDone(s)} {t.sets}{s.prs?.length ? ` · 🏆 ${s.prs.length}` : ""}</span>
+            </span>
+            <button type="button" onClick={() => { if (window.confirm(t.deleteSessionConfirm)) store.removeSession(s.id); }} aria-label={t.deleteSession}
+              className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-neutral-600 hover:text-rose-400 shrink-0"><Trash2 className="w-3.5 h-3.5" /></button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export { BadgeCheck, Flame, EXERCISES, estimateCalories };

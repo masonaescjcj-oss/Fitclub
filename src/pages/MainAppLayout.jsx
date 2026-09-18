@@ -1,9 +1,15 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import MainAppHeader from "../components/MainAppHeader";
 import { ChecklistProvider, useChecklistStore } from "../lib/checklistContext";
 import { NutritionProvider } from "../lib/nutrition/nutritionContext";
 import { ChatProvider, useChatStore } from "../lib/chat/chatContext";
+import { TrainingProvider, useTrainingStore } from "../lib/training/trainingContext";
+import { useNutritionStore } from "../lib/nutrition/nutritionContext";
+import { useTrainingT } from "../lib/training/trainingI18n";
+import { clearShareFromLocation, readShareFromLocation } from "../lib/training/programModel";
+import { ImportSheet } from "../components/training/TrainingSheets";
+import { applyMealPlan } from "./main/WorkoutPage";
 import { loadSession } from "../lib/session";
 import { overallStreak } from "../lib/checklistModel";
 import BottomNavBar from "../components/BottomNavBar";
@@ -30,15 +36,15 @@ import SubscriptionPage from "./sub/SubscriptionPage";
 import RecipeExplorePage from "./sub/RecipeExplorePage";
 import DietGuidePage from "./sub/DietGuidePage";
 
-// Modals
-import ActiveWorkoutModal from "../components/modals/ActiveWorkoutModal";
 
 export default function MainAppLayout({ onNavigate }) {
   return (
     <ChecklistProvider>
       <NutritionProvider>
         <ChatProvider lang={(localStorage.getItem("language") || "en") === "fa" ? "fa" : "en"}>
-          <MainAppShell onNavigate={onNavigate} />
+          <TrainingProvider>
+            <MainAppShell onNavigate={onNavigate} />
+          </TrainingProvider>
         </ChatProvider>
       </NutritionProvider>
     </ChecklistProvider>
@@ -48,14 +54,27 @@ export default function MainAppLayout({ onNavigate }) {
 function MainAppShell({ onNavigate }) {
   const [activeTab, setActiveTab] = useState("fitness");
   const [subPage, setSubPage] = useState(null);
-  const [isActiveWorkoutOpen, setIsActiveWorkoutOpen] = useState(false);
+  // A plan shared by link lands here; the sheet decides whether it is a
+  // program or a nutrition plan and hands it to the right store.
+  const [shareCode, setShareCode] = useState(() => readShareFromLocation());
+  const training = useTrainingStore();
+  const nutrition = useNutritionStore();
+  const tt = useTrainingT((localStorage.getItem("language") || "en") === "fa");
+  const [flash, setFlash] = useState("");
+  useEffect(() => { if (shareCode) clearShareFromLocation(); }, [shareCode]);
+  useEffect(() => {
+    const onHash = () => { const c = readShareFromLocation(); if (c) setShareCode(c); };
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
+  useEffect(() => { if (!flash) return undefined; const id = setTimeout(() => setFlash(""), 1800); return () => clearTimeout(id); }, [flash]);
 
   const { lists } = useChecklistStore();
   // An open conversation takes the whole screen, the way a messenger does:
   // the app header and tab bar step aside so the composer isn't buried.
   const { openChatId, screen } = useChatStore();
   const chatImmersive = activeTab === "chat" && !subPage && (!!openChatId || screen !== "list");
-  const immersive = isActiveWorkoutOpen || chatImmersive;
+  const immersive = chatImmersive;
   const userName = loadSession().name || "Isaac";
   // The header badge now reflects the real longest run across the athlete's lists.
   const streak = overallStreak(lists);
@@ -120,7 +139,7 @@ function MainAppShell({ onNavigate }) {
           {/* Main 5 Tabs */}
           {!subPage && (
             <>
-              {activeTab === "fitness" && <WorkoutPage isRtl={isRtl} onStartWorkout={() => setIsActiveWorkoutOpen(true)} />}
+              {activeTab === "fitness" && <WorkoutPage isRtl={isRtl} />}
               {activeTab === "diet" && <DietPage isRtl={isRtl} onGoToRecipe={() => setSubPage("recipeExplore")} onGoToGuide={() => setSubPage("dietGuide")} />}
               {activeTab === "aiCoach" && <AiCoachPage isRtl={isRtl} />}
               {activeTab === "chat" && <CommunityPage isRtl={isRtl} />}
@@ -142,12 +161,17 @@ function MainAppShell({ onNavigate }) {
         />
       )}
 
-      {/* Active Live Workout Tracker Modal */}
-      {isActiveWorkoutOpen && (
-        <ActiveWorkoutModal
-          onClose={() => setIsActiveWorkoutOpen(false)}
-          isRtl={isRtl}
-        />
+      {/* A shared plan opened from a link */}
+      {shareCode && (
+        <ImportSheet initialCode={shareCode} isRtl={isRtl} t={tt}
+          onImportProgram={(compact) => { const p = training.importProgram(compact); training.setActiveProgram(p.id); setActiveTab("fitness"); setSubPage(null); setShareCode(null); setFlash(tt.importedOk); }}
+          onApplyMeal={(meal) => { applyMealPlan(nutrition, meal); setActiveTab("diet"); setSubPage(null); setShareCode(null); setFlash(tt.appliedOk); }}
+          onClose={() => setShareCode(null)} />
+      )}
+      {flash && (
+        <div className="fixed bottom-24 inset-x-0 flex justify-center z-[95] pointer-events-none">
+          <span className="px-4 py-2 rounded-full bg-emerald-500/20 border border-emerald-500/40 backdrop-blur text-xs font-black text-emerald-200">✓ {flash}</span>
+        </div>
       )}
     </div>
   );

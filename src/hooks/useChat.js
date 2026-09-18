@@ -99,11 +99,11 @@ export default function useChat(lang = "en") {
     forwardMessages: (ids, toChatId) =>
       setState((s) => {
         const source = s.messages.filter((m) => ids.includes(m.id));
-        const copies = source.map((m) => {
+        const copies = source.map(({ id: _id, ...m }) => {
           const fromChat = s.chats.find((c) => c.id === m.chatId);
+          // Leaving `id` out of the patch lets the factory mint a fresh one.
           return createMessage({
             ...m,
-            id: undefined,
             chatId: toChatId,
             senderId: ME,
             at: new Date().toISOString(),
@@ -112,7 +112,7 @@ export default function useChat(lang = "en") {
             replyTo: null,
             forwardFrom: { senderId: m.senderId, chatTitle: fromChat?.title || "" },
           });
-        }).map((m) => createMessage(m));
+        });
         return { ...s, messages: [...s.messages, ...copies] };
       }),
 

@@ -1,345 +1,272 @@
-import React, { useState, useEffect } from "react";
-import { Check, X, Play, Pause, RotateCcw, ChevronRight, ChevronLeft, Dumbbell, Flame, Trophy, Clock } from "lucide-react";
+import React, { useEffect, useMemo, useState } from "react";
+import { Check, ChevronLeft, ChevronRight, Clock, Dumbbell, Flame, Minus, Plus, Trophy, X } from "lucide-react";
 import ExerciseGraphic from "../ExerciseGraphic";
+import { exerciseName, findExercise, unitOf } from "../../lib/training/exercises";
+import { estimateCalories, lastPerformance, sessionSetsDone, sessionVolume } from "../../lib/training/programModel";
+import { useTrainingT } from "../../lib/training/trainingI18n";
 
-export default function ActiveWorkoutModal({ onClose, isRtl, dayTitle, exercises: propExercises }) {
-  const defaultExercises = [
-    { id: "ex1", nameEn: "Jump Squat", nameFa: "اسکات پرشی", sets: 5, reps: "5 Reps", area: "Quads & Glutes" },
-    { id: "ex2", nameEn: "Barbell Deadlift", nameFa: "ددلیفت با هالتر", sets: 3, reps: "3-5 Reps", area: "Hamstrings & Back" },
-    { id: "ex3", nameEn: "Power Sled Push", nameFa: "هل دادن سورتمه قدرتی", sets: 4, reps: "30 Reps", area: "Full Body Explosive" },
-    { id: "ex4", nameEn: "Barbell Squat", nameFa: "اسکات پشت با هالتر", sets: 4, reps: "6-8 Reps", area: "Quads & Core" },
-    { id: "ex5", nameEn: "Smith Leg Press", nameFa: "پرس پا اسمیت", sets: 3, reps: "10-12 Reps", area: "Legs" },
-    { id: "ex6", nameEn: "Dumbbell Romanian Deadlift", nameFa: "ددلیفت رومانیایی با دمبل", sets: 3, reps: "8-10 Reps", area: "Hamstrings" },
-  ];
+const fmt = (sec) => `${String(Math.floor(sec / 60)).padStart(2, "0")}:${String(sec % 60).padStart(2, "0")}`;
+const num = (v) => (v === "" || v === null || v === undefined ? null : Number(v));
 
-  const exercises = propExercises && propExercises.length > 0 ? propExercises : defaultExercises;
-  const [exerciseIndex, setExerciseIndex] = useState(0);
-  const [completedSets, setCompletedSets] = useState({});
-  const [timerSeconds, setTimerSeconds] = useState(0);
-  const [isTimerRunning, setIsTimerRunning] = useState(true);
-  const [restTimer, setRestTimer] = useState(null);
-  const [isFinished, setIsFinished] = useState(false);
+/**
+ * The live workout. Every set is logged as weight × reps and persisted as it
+ * happens, so a refresh mid-session loses nothing. Elapsed time is derived from
+ * the session's start rather than a ticking counter, for the same reason.
+ */
+export default function ActiveWorkoutModal({ store, isRtl, onClose, onFinished }) {
+  const t = useTrainingT(isRtl);
+  const draft = store.draft;
+  const [index, setIndex] = useState(0);
+  const [now, setNow] = useState(Date.now());
+  const [rest, setRest] = useState(null);
+  const [finished, setFinished] = useState(null);
 
-  const currentExercise = exercises[exerciseIndex] || exercises[0];
-
-  // Stopwatch timer effect
   useEffect(() => {
-    let interval = null;
-    if (isTimerRunning && !isFinished) {
-      interval = setInterval(() => setTimerSeconds((prev) => prev + 1), 1000);
-    } else {
-      clearInterval(interval);
-    }
-    return () => clearInterval(interval);
-  }, [isTimerRunning, isFinished]);
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
 
-  // Rest Timer countdown
   useEffect(() => {
-    let interval = null;
-    if (restTimer !== null && restTimer > 0) {
-      interval = setInterval(() => setRestTimer((prev) => prev - 1), 1000);
-    } else if (restTimer === 0) {
-      setRestTimer(null);
-    }
-    return () => clearInterval(interval);
-  }, [restTimer]);
+    if (rest === null) return undefined;
+    if (rest <= 0) { setRest(null); return undefined; }
+    const id = setTimeout(() => setRest((r) => (r === null ? null : r - 1)), 1000);
+    return () => clearTimeout(id);
+  }, [rest]);
 
-  const toggleSet = (setNo) => {
-    const key = `${exerciseIndex}-${setNo}`;
-    setCompletedSets((prev) => {
-      const next = { ...prev, [key]: !prev[key] };
-      if (!prev[key]) {
-        // Trigger 45s rest timer when completing set
-        setRestTimer(45);
-      }
-      return next;
-    });
+  const exercises = draft?.exercises || [];
+  const current = exercises[index] || null;
+  const exercise = current ? findExercise(current.exerciseId) : null;
+  const elapsed = draft ? Math.max(Math.floor((now - new Date(draft.startedAt).getTime()) / 1000), 0) : 0;
+  const setsDone = draft ? sessionSetsDone(draft) : 0;
+  const calories = estimateCalories(elapsed, setsDone);
+
+  const last = useMemo(
+    () => (current ? lastPerformance(store.sessions, current.exerciseId) : null),
+    [store.sessions, current]
+  );
+
+  if (!draft && !finished) return null;
+
+  const patchSet = (setIdx, patch) =>
+    store.updateDraft((d) => ({
+      ...d,
+      exercises: d.exercises.map((ex, i) =>
+        i !== index ? ex : { ...ex, sets: ex.sets.map((s, k) => (k === setIdx ? { ...s, ...patch } : s)) }
+      ),
+    }));
+
+  const toggleDone = (setIdx) => {
+    const set = current.sets[setIdx];
+    if (!set.done) setRest(current.restSec || 90);
+    patchSet(setIdx, { done: !set.done });
   };
 
-  const formatTime = (totalSec) => {
-    const mins = Math.floor(totalSec / 60);
-    const secs = totalSec % 60;
-    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+  const addSet = () =>
+    store.updateDraft((d) => ({
+      ...d,
+      exercises: d.exercises.map((ex, i) => {
+        if (i !== index) return ex;
+        const prev = ex.sets[ex.sets.length - 1];
+        return { ...ex, sets: [...ex.sets, { weight: prev?.weight ?? null, reps: prev?.reps ?? null, done: false }] };
+      }),
+    }));
+
+  const removeSet = () =>
+    store.updateDraft((d) => ({
+      ...d,
+      exercises: d.exercises.map((ex, i) => (i !== index || ex.sets.length <= 1 ? ex : { ...ex, sets: ex.sets.slice(0, -1) })),
+    }));
+
+  const finish = () => {
+    const done = store.finishDraft(elapsed);
+    setFinished(done);
+    onFinished?.(done);
   };
 
-  const handleNextExercise = () => {
-    if (exerciseIndex < exercises.length - 1) {
-      setExerciseIndex((prev) => prev + 1);
-      setRestTimer(null);
-    } else {
-      setIsFinished(true);
-    }
+  const close = () => {
+    if (finished) { onClose(); return; }
+    if (setsDone === 0 || window.confirm(t.discardConfirm)) { store.discardDraft(); onClose(); }
   };
 
-  const handlePrevExercise = () => {
-    if (exerciseIndex > 0) {
-      setExerciseIndex((prev) => prev - 1);
-      setRestTimer(null);
-    }
-  };
-
-  const currentSetsCount = currentExercise.sets 
-    ? (typeof currentExercise.sets === 'number' ? currentExercise.sets : parseInt(currentExercise.sets, 10) || 4) 
-    : 4;
-  const totalCompletedCount = Object.values(completedSets).filter(Boolean).length;
-  const estimatedCalories = Math.round((timerSeconds / 60) * 8.5) + (totalCompletedCount * 4);
+  const unit = unitOf(exercise, t);
+  const inputCls = "w-full h-11 rounded-xl bg-black/40 border border-white/10 text-center text-sm font-black text-white focus:outline-none focus:border-[#844783] tabular-nums";
 
   return (
-    <div
-      dir={isRtl ? "rtl" : "ltr"}
-      className="fixed inset-0 z-[100] w-full min-h-[100dvh] bg-[#090a0d] text-white flex flex-col justify-between overflow-y-auto font-sans select-none px-4 py-4 animate-in fade-in duration-200"
-    >
-      {/* Top HUD Navigation Bar */}
-      <div className="border-b border-white/[0.08] pb-3 shrink-0">
-        <div className="flex items-center justify-between">
-          
-          {/* Close Button */}
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-10 h-10 rounded-full bg-white/[0.06] backdrop-blur-xl border border-white/10 flex items-center justify-center text-neutral-400 hover:text-white transition-all active:scale-95 shadow-sm"
-          >
-            <X className="w-5 h-5" />
-          </button>
+    <div dir={isRtl ? "rtl" : "ltr"}
+      className="fixed inset-0 z-[100] w-full min-h-[100dvh] bg-[#090a0d] text-white flex flex-col overflow-y-auto font-sans select-none px-4 py-4">
 
-          {/* Center Routine Info & Multi-Segment Progress */}
-          <div className="text-center flex flex-col items-center">
-            <span className="text-[10px] font-black text-[#d17cd0] uppercase tracking-wider block">
-              {dayTitle || (isRtl ? "تمرین زنده (LIVE SESSION)" : "LIVE WORKOUT SESSION")}
-            </span>
-            
-            {/* Multi-segment exercise progress bar */}
-            <div className="flex items-center gap-1 mt-1.5 w-32 max-w-full">
-              {exercises.map((_, i) => (
-                <div
-                  key={i}
-                  className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${
-                    i < exerciseIndex
-                      ? "bg-[#844783]"
-                      : i === exerciseIndex
-                      ? "bg-white animate-pulse"
-                      : "bg-white/10"
-                  }`}
-                />
-              ))}
-            </div>
+      {/* HUD */}
+      <div className="border-b border-white/[0.08] pb-3 shrink-0 flex items-center justify-between">
+        <button type="button" onClick={close} aria-label={t.close}
+          className="w-10 h-10 rounded-full bg-white/[0.06] border border-white/10 flex items-center justify-center text-neutral-400 hover:text-white active:scale-95">
+          <X className="w-5 h-5" />
+        </button>
+        <div className="text-center flex flex-col items-center min-w-0 px-2">
+          <span className="text-[10px] font-black text-[#d17cd0] uppercase tracking-wider truncate max-w-[180px]">
+            {(isRtl ? (finished || draft).dayTitleFa : null) || (finished || draft).dayTitle}
+          </span>
+          <div className="flex items-center gap-1 mt-1.5 w-32">
+            {exercises.map((_, i) => (
+              <div key={i} className={`h-1.5 flex-1 rounded-full transition-all ${
+                i < index ? "bg-[#844783]" : i === index && !finished ? "bg-white animate-pulse" : "bg-white/10"}`} />
+            ))}
           </div>
-
-          {/* Live Stopwatch Capsule */}
-          <div className="flex items-center gap-2 bg-white/[0.06] backdrop-blur-xl border border-white/10 px-3.5 py-1.5 rounded-full shadow-inner" dir="ltr">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-xs font-mono font-black text-white">{formatTime(timerSeconds)}</span>
-          </div>
-
+        </div>
+        <div className="flex items-center gap-2 bg-white/[0.06] border border-white/10 px-3.5 py-1.5 rounded-full" dir="ltr">
+          <span className={`w-2 h-2 rounded-full ${finished ? "bg-neutral-500" : "bg-emerald-500 animate-pulse"}`} />
+          <span className="text-xs font-mono font-black">{fmt(finished ? finished.durationSec : elapsed)}</span>
         </div>
       </div>
 
-      {!isFinished ? (
-        <div className="my-auto py-3 space-y-4 flex-grow flex flex-col justify-center max-w-md mx-auto w-full">
-          
-          {/* Rest Timer Pop-up Banner */}
-          {restTimer !== null && (
-            <div className="p-3.5 rounded-2xl bg-gradient-to-r from-amber-500/20 via-orange-500/20 to-amber-500/20 border border-amber-500/40 backdrop-blur-xl flex items-center justify-between animate-pulse shadow-lg">
-              <div>
-                <span className="text-xs font-black text-amber-400 uppercase block">{isRtl ? "زمان استراحت بین ست‌ها" : "Rest Interval"}</span>
-                <p className="text-[11px] text-neutral-300 font-medium">{isRtl ? "تنفس عمیق و آماده‌سازی ست بعد..." : "Breathe & get ready for next set..."}</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-2xl font-mono font-black text-amber-400">{restTimer}s</span>
-                <button
-                  type="button"
-                  onClick={() => setRestTimer((t) => (t || 0) + 15)}
-                  className="text-[10px] bg-amber-500/20 border border-amber-500/30 px-2 py-1 rounded-lg text-amber-300 font-black hover:bg-amber-500/40"
-                >
-                  +15s
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRestTimer(null)}
-                  className="text-[10px] bg-amber-500/20 border border-amber-500/30 px-2 py-1 rounded-lg text-amber-300 font-black hover:bg-amber-500/40"
-                >
-                  {isRtl ? "رد کردن" : "Skip"}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* High-End Apple Fitness+ Style Exercise Card */}
-          <div className="p-5 rounded-[28px] bg-white/[0.04] backdrop-blur-2xl border border-white/[0.08] space-y-4 shadow-[0_10px_40px_rgba(0,0,0,0.5)] relative overflow-hidden">
-            
-            {/* Top Category and Exercise Index */}
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-black text-neutral-400 uppercase tracking-wider">
-                {isRtl ? `حرکت ${exerciseIndex + 1} از ${exercises.length}` : `EXERCISE ${exerciseIndex + 1} OF ${exercises.length}`}
-              </span>
-              <span className="px-3 py-0.5 rounded-full bg-[#844783]/20 border border-[#844783]/40 text-[#d17cd0] text-[10px] font-black uppercase">
-                {currentExercise.area || currentExercise.target || "Body Conditioning"}
-              </span>
-            </div>
-
-            {/* Centered Graphic Preview Container */}
-            <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl bg-neutral-950/90 border border-white/10 mx-auto overflow-hidden shadow-inner flex items-center justify-center">
-              <ExerciseGraphic exerciseId={currentExercise.id || `ex${exerciseIndex+1}`} name={currentExercise.nameEn} />
-            </div>
-
-            {/* Exercise Title & Badges */}
-            <div className="text-center">
-              <h3 className="text-xl sm:text-2xl font-black text-white leading-tight tracking-tight">
-                {isRtl ? currentExercise.nameFa || currentExercise.nameEn : currentExercise.nameEn}
-              </h3>
-              
-              {/* Single-row clean stats chips */}
-              <div className="flex items-center justify-center gap-2 mt-2 flex-wrap">
-                <span className="text-xs font-black text-amber-400 bg-amber-500/10 border border-amber-500/20 px-3 py-1 rounded-xl">
-                  ⚡ {currentSetsCount} Sets
-                </span>
-                <span className="text-xs font-black text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-3 py-1 rounded-xl">
-                  ⏱ {(currentExercise.reps || "8-10").toString().replace(/reps/gi, "").trim()} {isRtl ? "تکرار" : "Reps"}
-                </span>
-                <span className="text-xs font-black text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 rounded-xl">
-                  🔥 ~{estimatedCalories} kcal
-                </span>
-              </div>
-            </div>
-
-            {/* Sets Tracker Checklist */}
-            <div className="space-y-2 pt-2 border-t border-white/[0.08]">
-              {Array.from({ length: currentSetsCount }).map((_, sIdx) => {
-                const setNo = sIdx + 1;
-                const isChecked = !!completedSets[`${exerciseIndex}-${setNo}`];
-                return (
-                  <button
-                    key={setNo}
-                    type="button"
-                    onClick={() => toggleSet(setNo)}
-                    className={`w-full p-3.5 rounded-2xl border flex items-center justify-between transition-all duration-200 active:scale-[0.99] ${
-                      isChecked
-                        ? "bg-gradient-to-r from-[#844783] via-[#944e93] to-[#a356a2] border-white/40 text-white shadow-md shadow-[#844783]/30"
-                        : "bg-white/[0.04] border-white/[0.08] hover:border-white/20 text-neutral-300 hover:bg-white/[0.07]"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`w-6 h-6 rounded-full border flex items-center justify-center transition-all duration-200 shrink-0 ${
-                          isChecked ? "bg-white border-white text-[#844783]" : "border-neutral-500 bg-black/40"
-                        }`}
-                      >
-                        {isChecked && <Check className="w-4 h-4 stroke-[3]" />}
-                      </div>
-                      <span className="text-xs font-black tracking-tight">
-                        {isRtl ? `ست ${setNo}` : `Set ${setNo}`} ({(currentExercise.reps || "8-10").toString().replace(/reps/gi, "").trim()} {isRtl ? "تکرار" : "Reps"})
-                      </span>
-                    </div>
-
-                    <span className={`text-[11px] font-bold ${isChecked ? "text-white" : "text-neutral-500"}`}>
-                      {isChecked ? (isRtl ? "ثبت شد ✓" : "Done ✓") : (isRtl ? "لمس برای ثبت" : "Tap to complete")}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-
-          </div>
-        </div>
-      ) : (
-        /* Finished Celebration Screen */
-        <div className="my-auto py-12 flex flex-col items-center text-center space-y-6 max-w-sm mx-auto">
-          <div className="w-24 h-24 rounded-full bg-gradient-to-tr from-emerald-500 to-[#844783] p-1 shadow-[0_0_40px_rgba(16,185,129,0.4)] flex items-center justify-center animate-bounce">
+      {finished ? (
+        /* ── summary ── */
+        <div className="my-auto py-8 flex flex-col items-center text-center space-y-5 max-w-sm mx-auto w-full">
+          <div className="w-24 h-24 rounded-full bg-gradient-to-tr from-emerald-500 to-[#844783] p-1 shadow-[0_0_40px_rgba(16,185,129,0.4)] flex items-center justify-center">
             <div className="w-full h-full rounded-full bg-black flex items-center justify-center">
               <Trophy className="w-12 h-12 text-amber-300" />
             </div>
           </div>
-
           <div>
-            <h2 className="text-3xl font-black text-white tracking-tight uppercase">
-              {isRtl ? "تمرین با موفقیت انجام شد! 🎉" : "WORKOUT COMPLETED! 🎉"}
-            </h2>
-            <p className="text-xs text-neutral-400 mt-2 leading-relaxed">
-              {isRtl
-                ? "عالی بود! تمام ست‌ها و رکوردهای شما در تاریخچه و استریک ورزشی ذخیره شد."
-                : "Great job! All sets, volume, and calories have been logged to your fitness streak."}
-            </p>
+            <h2 className="text-2xl font-black uppercase">{t.completed} 🎉</h2>
+            <p className="text-xs text-neutral-400 mt-1">{t.completedSub}</p>
           </div>
 
-          <div className="grid grid-cols-3 gap-3 w-full">
-            <div className="p-3.5 rounded-2xl bg-white/[0.04] border border-white/10 backdrop-blur-md">
-              <Clock className="w-4 h-4 text-amber-400 mx-auto mb-1" />
-              <span className="text-xs font-bold text-neutral-400 block">{isRtl ? "زمان" : "Duration"}</span>
-              <span className="text-sm font-black text-white">{formatTime(timerSeconds)}</span>
-            </div>
-            <div className="p-3.5 rounded-2xl bg-white/[0.04] border border-white/10 backdrop-blur-md">
-              <Flame className="w-4 h-4 text-orange-400 mx-auto mb-1" />
-              <span className="text-xs font-bold text-neutral-400 block">{isRtl ? "کالری" : "Calories"}</span>
-              <span className="text-sm font-black text-white">{estimatedCalories} kcal</span>
-            </div>
-            <div className="p-3.5 rounded-2xl bg-white/[0.04] border border-white/10 backdrop-blur-md">
-              <Dumbbell className="w-4 h-4 text-cyan-400 mx-auto mb-1" />
-              <span className="text-xs font-bold text-neutral-400 block">{isRtl ? "حرکات" : "Exercises"}</span>
-              <span className="text-sm font-black text-white">{exercises.length}</span>
-            </div>
+          <div className="grid grid-cols-3 gap-2 w-full">
+            {[
+              [Clock, t.duration, fmt(finished.durationSec), "text-amber-400"],
+              [Dumbbell, t.volume, `${Math.round(sessionVolume(finished)).toLocaleString()} ${t.kg}`, "text-cyan-400"],
+              [Flame, t.calories, `${estimateCalories(finished.durationSec, sessionSetsDone(finished))}`, "text-orange-400"],
+            ].map(([Icon, label, value, tone]) => (
+              <div key={label} className="p-3 rounded-2xl bg-white/[0.04] border border-white/10">
+                <Icon className={`w-4 h-4 mx-auto mb-1 ${tone}`} />
+                <span className="text-[10px] font-bold text-neutral-400 block">{label}</span>
+                <span className="text-sm font-black tabular-nums">{value}</span>
+              </div>
+            ))}
           </div>
 
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-full h-14 bg-white text-black font-black rounded-full text-base shadow-xl hover:bg-neutral-200 active:scale-95 transition-all"
-          >
-            {isRtl ? "بازگشت به برنامه اصلی" : "Done & Return"}
+          <div className="w-full p-4 rounded-2xl bg-white/[0.04] border border-white/10 text-start space-y-2">
+            <span className="block text-[10px] font-black text-amber-400 uppercase tracking-wider">🏆 {t.newPRs}</span>
+            {finished.prs.length === 0 ? (
+              <p className="text-xs text-neutral-500 font-medium">{t.noPRs}</p>
+            ) : finished.prs.map((pr) => (
+              <div key={`${pr.exerciseId}-${pr.kind}`} className="flex items-center justify-between gap-2">
+                <span className="text-xs font-black text-white truncate">{exerciseName(pr.exerciseId, isRtl)}</span>
+                <span className="text-[11px] font-bold text-emerald-400 shrink-0" dir="ltr">
+                  {pr.kind === "first" ? t.prFirst : `${pr.prev} → ${pr.value} ${t.kg} · ${pr.kind === "weight" ? t.prWeight : t.prE1rm}`}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          <button type="button" onClick={onClose}
+            className="w-full h-14 bg-white text-black font-black rounded-full text-base active:scale-95 transition-all">
+            {t.doneReturn}
           </button>
         </div>
-      )}
-
-      {/* Footer Controls (Guaranteed on Top of viewport with Zero Overlap) */}
-      {!isFinished && (
-        <div className="space-y-3 pt-2 shrink-0 max-w-md mx-auto w-full">
-          <button
-            type="button"
-            onClick={handleNextExercise}
-            className="w-full h-14 bg-gradient-to-r from-[#844783] via-[#9e529d] to-[#a356a2] hover:brightness-110 text-white font-black rounded-full text-base flex items-center justify-center gap-2 shadow-[0_0_35px_rgba(132,71,131,0.6)] active:scale-98 transition-all border border-white/20"
-          >
-            <span>
-              {exerciseIndex < exercises.length - 1
-                ? (isRtl ? "حرکت بعدی" : "Next Exercise")
-                : (isRtl ? "پایان و ثبت تمرین 🎉" : "Finish Workout 🎉")}
-            </span>
-            {isRtl ? <ChevronLeft className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
-          </button>
-
-          <div className="flex items-center justify-between text-xs text-neutral-400 font-bold px-2">
-            {exerciseIndex > 0 ? (
-              <button
-                type="button"
-                onClick={handlePrevExercise}
-                className="flex items-center gap-1 hover:text-white transition-colors"
-              >
-                {isRtl ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-                <span>{isRtl ? "حرکت قبلی" : "Prev"}</span>
-              </button>
-            ) : (
-              <div />
+      ) : (
+        <>
+          <div className="my-auto py-3 space-y-3 flex-grow flex flex-col justify-center max-w-md mx-auto w-full">
+            {rest !== null && (
+              <div className="p-3 rounded-2xl bg-amber-500/15 border border-amber-500/40 flex items-center justify-between">
+                <span className="text-xs font-black text-amber-400 uppercase">{t.restTimer}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl font-mono font-black text-amber-400 tabular-nums">{rest}s</span>
+                  <button type="button" onClick={() => setRest((r) => (r || 0) + 15)}
+                    className="text-[10px] bg-amber-500/20 border border-amber-500/30 px-2 py-1 rounded-lg text-amber-300 font-black">+15s</button>
+                  <button type="button" onClick={() => setRest(null)}
+                    className="text-[10px] bg-amber-500/20 border border-amber-500/30 px-2 py-1 rounded-lg text-amber-300 font-black">{t.skip}</button>
+                </div>
+              </div>
             )}
 
-            <button
-              type="button"
-              onClick={() => setIsTimerRunning(!isTimerRunning)}
-              className="flex items-center gap-1.5 hover:text-white transition-colors"
-            >
-              {isTimerRunning ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-              <span>{isTimerRunning ? (isRtl ? "توقف تایمر" : "Pause") : (isRtl ? "ادامه" : "Resume")}</span>
-            </button>
+            <div className="p-4 rounded-[28px] bg-white/[0.04] border border-white/[0.08] space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-black text-neutral-400 uppercase tracking-wider">
+                  {isRtl ? `حرکت ${index + 1} از ${exercises.length}` : `EXERCISE ${index + 1} OF ${exercises.length}`}
+                </span>
+                <span className="px-3 py-0.5 rounded-full bg-[#844783]/20 border border-[#844783]/40 text-[#d17cd0] text-[10px] font-black uppercase">
+                  {exercise?.equipment || "—"}
+                </span>
+              </div>
 
-            <button
-              type="button"
-              onClick={() => setTimerSeconds(0)}
-              className="flex items-center gap-1.5 hover:text-white transition-colors"
-            >
-              <RotateCcw className="w-4 h-4" />
-              <span>{isRtl ? "ریست" : "Reset"}</span>
-            </button>
+              <div className="flex items-center gap-3">
+                <div className="w-20 h-20 rounded-2xl bg-neutral-950/90 border border-white/10 overflow-hidden shrink-0">
+                  <ExerciseGraphic exerciseId={current.exerciseId} name={exercise?.nameEn} />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-lg font-black leading-tight">{exerciseName(current.exerciseId, isRtl)}</h3>
+                  {last ? (
+                    <p className="text-[10px] font-bold text-neutral-500 mt-1" dir="ltr">
+                      {t.lastTime}: {last.map((s) => `${s.weight || 0}×${s.reps}`).join(" · ")}
+                    </p>
+                  ) : (
+                    <p className="text-[10px] font-bold text-neutral-600 mt-1">{t.target}: {current.sets.length} {t.sets}</p>
+                  )}
+                  {current.note && <p className="text-[10px] text-neutral-400 mt-1">{current.note}</p>}
+                </div>
+              </div>
+
+              {/* set rows */}
+              <div className="pt-2 border-t border-white/[0.08] space-y-1.5">
+                <div className="grid grid-cols-[32px_1fr_1fr_44px] gap-2 px-1 text-[9px] font-black text-neutral-500 uppercase" dir="ltr">
+                  <span>#</span><span className="text-center">{t.kg}</span><span className="text-center">{unit}</span><span />
+                </div>
+                {current.sets.map((s, k) => (
+                  <div key={k} dir="ltr"
+                    className={`grid grid-cols-[32px_1fr_1fr_44px] gap-2 items-center p-1.5 rounded-2xl transition-colors ${s.done ? "bg-[#844783]/20" : "bg-white/[0.03]"}`}>
+                    <span className="text-xs font-black text-neutral-400 text-center">{k + 1}</span>
+                    <input type="number" inputMode="decimal" step="0.5" min="0" value={s.weight ?? ""} placeholder="—"
+                      onChange={(e) => patchSet(k, { weight: num(e.target.value) })} className={inputCls} aria-label={`${t.kg} ${k + 1}`} />
+                    <input type="number" inputMode="numeric" min="0" value={s.reps ?? ""} placeholder="—"
+                      onChange={(e) => patchSet(k, { reps: num(e.target.value) })} className={inputCls} aria-label={`${unit} ${k + 1}`} />
+                    <button type="button" onClick={() => toggleDone(k)} aria-pressed={s.done} aria-label={`${t.markDone} ${k + 1}`}
+                      className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all active:scale-90 ${
+                        s.done ? "bg-[#844783] text-white" : "bg-white/[0.06] border border-white/10 text-neutral-500"}`}>
+                      <Check className="w-5 h-5 stroke-[3]" />
+                    </button>
+                  </div>
+                ))}
+                <div className="flex gap-2 pt-1">
+                  <button type="button" onClick={addSet}
+                    className="flex-1 h-9 rounded-xl bg-white/[0.05] border border-dashed border-white/15 text-[11px] font-black text-neutral-300 flex items-center justify-center gap-1">
+                    <Plus className="w-3.5 h-3.5" /> {t.addSet}
+                  </button>
+                  <button type="button" onClick={removeSet} disabled={current.sets.length <= 1} aria-label={t.removeSet}
+                    className="w-11 h-9 rounded-xl bg-white/[0.05] border border-white/10 text-neutral-400 disabled:opacity-30 flex items-center justify-center">
+                    <Minus className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-center gap-4 text-[10px] font-black text-neutral-500" dir="ltr">
+              <span>✅ {setsDone} {t.sets}</span>
+              <span>🏋️ {Math.round(sessionVolume(draft)).toLocaleString()} {t.kg}</span>
+              <span>🔥 ~{calories} kcal</span>
+            </div>
           </div>
-        </div>
-      )}
 
+          <div className="space-y-3 pt-2 shrink-0 max-w-md mx-auto w-full">
+            <button type="button" onClick={() => (index < exercises.length - 1 ? setIndex(index + 1) : finish())}
+              className="w-full h-14 bg-gradient-to-r from-[#844783] to-[#a356a2] text-white font-black rounded-full text-base flex items-center justify-center gap-2 shadow-[0_0_35px_rgba(132,71,131,0.5)] active:scale-[0.98] transition-all">
+              <span>{index < exercises.length - 1 ? t.nextExercise : `${t.finishWorkout} 🎉`}</span>
+              {isRtl ? <ChevronLeft className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
+            </button>
+            <div className="flex items-center justify-between text-xs text-neutral-400 font-bold px-2 h-5">
+              {index > 0 ? (
+                <button type="button" onClick={() => setIndex(index - 1)} className="flex items-center gap-1 hover:text-white">
+                  {isRtl ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+                  <span>{t.prevExercise}</span>
+                </button>
+              ) : <span />}
+              {index < exercises.length - 1 && (
+                <button type="button" onClick={finish} className="hover:text-white">{t.finishWorkout}</button>
+              )}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

@@ -2,7 +2,7 @@ import React, { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ChevronLeft, ChevronRight, Droplets, Dumbbell, Flame, Info, Plus,
-  Eye, Scale, SlidersHorizontal, Sparkles, Star, Trash2, TrendingUp, Utensils,
+  Eye, Scale, Share2, SlidersHorizontal, Sparkles, Star, Trash2, TrendingUp, Utensils,
 } from "lucide-react";
 import { MEALS, dayKey, entryMacros, mealEntries, sumMacros } from "../../lib/nutrition/diaryStore";
 import { showWorkoutMeals } from "../../lib/nutrition/viewPrefs";
@@ -13,6 +13,11 @@ import { useNutritionStore } from "../../lib/nutrition/nutritionContext";
 import { CalorieRing, MACRO_COLORS, MacroBar, Stat, TrendSpark, round } from "../../components/diet/DietBits";
 import FoodSearchSheet from "../../components/diet/FoodSearchSheet";
 import { QuickAddSheet, Sheet, TargetsSheet, ViewSheet, WeightSheet } from "../../components/diet/SmallSheets";
+import { ShareSheet } from "../../components/training/TrainingSheets";
+import { compactMealPlan } from "../../lib/training/programModel";
+import { useTrainingStore } from "../../lib/training/trainingContext";
+import { useTrainingT } from "../../lib/training/trainingI18n";
+import { loadSession } from "../../lib/session";
 
 const GLASS_ML = 250;
 
@@ -20,6 +25,8 @@ export default function DietPage({ isRtl, onGoToRecipe, onGoToGuide }) {
   const t = useNutritionT(isRtl);
   const store = useNutritionStore();
   const { day, totals, targets, profile, estimate, trend, cursor, view } = store;
+  const training = useTrainingStore();
+  const tt = useTrainingT(isRtl);
 
   const [addingTo, setAddingTo] = useState(null); // meal object
   const [quickAddTo, setQuickAddTo] = useState(null);
@@ -80,6 +87,10 @@ export default function DietPage({ isRtl, onGoToRecipe, onGoToGuide }) {
             <button type="button" onClick={() => setSheet("weight")} aria-label={t.logWeight}
               className="w-9 h-9 rounded-xl bg-[#141416] border border-white/10 flex items-center justify-center text-neutral-400 hover:text-white transition-all">
               <Scale className="w-4 h-4" />
+            </button>
+            <button type="button" onClick={() => setSheet("share")} aria-label={tt.sharePlan}
+              className="w-9 h-9 rounded-xl bg-[#141416] border border-white/10 flex items-center justify-center text-neutral-400 hover:text-white transition-all">
+              <Share2 className="w-4 h-4" />
             </button>
             <button type="button" onClick={() => setSheet("view")} aria-label={t.customize}
               className="w-9 h-9 rounded-xl bg-[#141416] border border-white/10 flex items-center justify-center text-neutral-400 hover:text-white transition-all">
@@ -388,6 +399,20 @@ export default function DietPage({ isRtl, onGoToRecipe, onGoToGuide }) {
         {sheet === "weight" && (
           <WeightSheet current={day.weight ?? profile.weight} trend={trend} isRtl={isRtl} t={t}
             onSave={(kg) => { store.setWeight(kg); setSheet(null); }}
+            onClose={() => setSheet(null)} />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {sheet === "share" && (
+          <ShareSheet
+            title={tt.sharePlan} isRtl={isRtl} t={tt}
+            payload={compactMealPlan({
+              name: isRtl ? "برنامه غذایی" : "Nutrition plan",
+              author: { name: loadSession().name || "Isaac", role: training.coachMode ? "coach" : "user" },
+              targets, meals: store.diary.savedMeals, notes: "",
+            })}
+            coachMode={training.coachMode} onToggleCoach={training.setCoachMode}
             onClose={() => setSheet(null)} />
         )}
       </AnimatePresence>
