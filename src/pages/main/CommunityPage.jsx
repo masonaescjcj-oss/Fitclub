@@ -14,12 +14,12 @@ import CallsScreen from "../../components/chat/CallsScreen";
 import SettingsScreen from "../../components/chat/SettingsScreen";
 import ProfileScreen from "../../components/chat/ProfileScreen";
 import PeerProfileScreen from "../../components/chat/PeerProfileScreen";
-import BuddyDiscoverScreen, { BuddyPrefsSheet, CrewSheet } from "../../components/chat/BuddyScreens";
+import BuddyDiscoverScreen, { BuddyPrefsSheet, ChallengeSheet, CrewSheet, ReportSheet } from "../../components/chat/BuddyScreens";
 import { useBuddyT } from "../../lib/buddy/buddyI18n";
 import {
-  botAnon, botCrewCreated, botFallback, botLeaderboard, botMatched, botMatches, botMenu, botNeedTeammates, botNoOne,
-  botPrefsSaved, botProfile, botSession, botTaskAdded, deriveMyProfile, findBuddy, leaderboard, likesBack, rankCandidates,
-  suggestSession,
+  botAnon, botChallenge, botChallengeDone, botCrewCreated, botFallback, botLeaderboard, botMatched, botMatches, botMenu,
+  botNeedTeammates, botNoOne, botPrefsSaved, botProfile, botSession, botTaskAdded, challengeProgress, deriveMyProfile, findBuddy,
+  leaderboard, likesBack, rankCandidates, suggestSession,
 } from "../../lib/buddy/buddyModel";
 import { useNutritionStore } from "../../lib/nutrition/nutritionContext";
 import { useTrainingStore } from "../../lib/training/trainingContext";
@@ -136,6 +136,8 @@ export default function CommunityPage({ isRtl, onExit }) {
   const { lists } = checklist;
   const [discover, setDiscover] = useState(false);
   const [crewOpen, setCrewOpen] = useState(false);
+  const [challengeFor, setChallengeFor] = useState(null); // crew chat id awaiting a challenge
+  const [reporting, setReporting] = useState(false);
   const [prefsOpen, setPrefsOpen] = useState(false);
   const pending = useRef([]); // timers for teammates who answer later
 
@@ -145,8 +147,8 @@ export default function CommunityPage({ isRtl, onExit }) {
     [nutrition.profile, training.sessions, lists, store.buddy.prefs]
   );
   const ranked = useMemo(
-    () => rankCandidates(myCard, { liked: store.buddy.liked, passed: store.buddy.passed, matched: store.buddy.matches.map((m) => m.buddyId) }),
-    [myCard, store.buddy]
+    () => rankCandidates(myCard, { liked: store.buddy.liked, passed: [...store.buddy.passed, ...store.blocked], matched: store.buddy.matches.map((m) => m.buddyId) }),
+    [myCard, store.buddy, store.blocked]
   );
   useEffect(() => () => pending.current.forEach(clearTimeout), []);
   const [menuChat, setMenuChat] = useState(null);
@@ -210,9 +212,19 @@ export default function CommunityPage({ isRtl, onExit }) {
   const rowsFor = (memberIds) => leaderboard(memberIds, { mySessions: training.sessions, myStreak: myCard.streak, isRtl });
   const crewMembers = (chat) => (chat?.members || []).filter((id) => id !== ME).map((id) => findBuddy(id)).filter(Boolean);
 
+  const progressOf = (chat) => (chat?.challenge ? challengeProgress(chat, chat.challenge, { mySessions: training.sessions, myStreak: myCard.streak }) : null);
+  const postProgress = (chat) => {
+    const p = progressOf(chat);
+    if (!p) return;
+    store.botPost(botChallenge(p, chat.id), chat.id);
+    if (p.done) store.botPost(botChallengeDone(), chat.id);
+  };
+
   const botAction = (id, fromChatId = null) => {
     if (id.startsWith("open:")) { store.openChat(id.slice(5)); return; }
     const target = (raw) => (raw === "self" ? fromChatId : raw);
+    if (id.startsWith("challenge:")) { const chatId = target(id.slice(10)); if (chatId) setChallengeFor(chatId); return; }
+    if (id.startsWith("progress:")) { postProgress(store.chats.find((c) => c.id === target(id.slice(9)))); return; }
     if (id.startsWith("leaderboard:")) {
       const chatId = target(id.slice(12));
       const chat = store.chats.find((c) => c.id === chatId);
@@ -310,7 +322,9 @@ export default function CommunityPage({ isRtl, onExit }) {
             ? <ChatView store={store} chat={open} isRtl={isRtl} t={t} onBack={store.closeChat}
                 onOpenProfile={() => setProfileOpen(true)}
                 searching={searching} onSearchClose={() => setSearching(false)}
-                onBotAction={(id) => botAction(id, open.id)} />
+                onBotAction={(id) => botAction(id, open.id)}
+                blocked={!!openPeer && store.blocked.includes(openPeer.id)}
+                onUnblock={() => { store.unblockUser(openPeer.id); setToast(t.unblocked); }} />
             : screenView()}
         </motion.div>
       </AnimatePresence>
@@ -328,6 +342,14 @@ export default function CommunityPage({ isRtl, onExit }) {
             onMore={() => setMenuChat(open)}
             onRequestReveal={() => requestReveal(open.id)}
             leaderboardRows={open.crew ? rowsFor(open.members) : null}
+            challenge={progressOf(open)}
+            blocked={!!openPeer && store.blocked.includes(openPeer.id)}
+            onReport={() => setReporting(true)}
+            onBlock={() => {
+              const name = isRtl ? openPeer.nameFa || openPeer.name : openPeer.name;
+              if (window.confirm(t.blockConfirm(name))) { store.blockUser(openPeer.id); setProfileOpen(false); }
+            }}
+            onUnblock={() => { store.unblockUser(openPeer.id); setToast(t.unblocked); }}
             onOpenChat={(id) => { setProfileOpen(false); if (id && id !== open.id) store.openChat(id); }} />
         )}
       </AnimatePresence>
@@ -353,6 +375,28 @@ export default function CommunityPage({ isRtl, onExit }) {
               store.openChat(chatId);
             }}
             onClose={() => setCrewOpen(false)} />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {challengeFor && (
+          <ChallengeSheet isRtl={isRtl} t={t}
+            onStart={(challenge) => {
+              const chat = store.chats.find((c) => c.id === challengeFor);
+              const full = { ...challenge, createdAt: new Date().toISOString() };
+              store.setChallenge(challengeFor, full);
+              if (chat) postProgress({ ...chat, challenge: full });
+              setChallengeFor(null);
+            }}
+            onClose={() => setChallengeFor(null)} />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {reporting && openPeer && (
+          <ReportSheet name={isRtl ? openPeer.nameFa || openPeer.name : openPeer.name} isRtl={isRtl} t={t}
+            onSend={() => { setReporting(false); setToast(t.reportSent); }}
+            onClose={() => setReporting(false)} />
         )}
       </AnimatePresence>
 

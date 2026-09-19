@@ -101,6 +101,40 @@ function Voice({ message, t }) {
   );
 }
 
+/** A crew's weekly goal: the bar, the number, and who put in what. */
+function Challenge({ message, isRtl, t }) {
+  const c = message.challenge;
+  if (!c) return null;
+  const kindLabel = c.kind === "volume" ? t.kindVolume : c.kind === "sessions" ? t.kindSessions : t.kindStreak;
+  const unit = c.kind === "volume" ? t.volumeKg : c.kind === "sessions" ? t.sessionsLabel : "";
+  return (
+    <div className="space-y-2.5 min-w-[240px]">
+      <div>
+        <span className="block text-[11px] font-semibold uppercase tracking-wide text-white/50">🎯 {t.challengeTitle}</span>
+        <p className="text-[15px] font-semibold text-white">{kindLabel}</p>
+      </div>
+      <div className="flex items-baseline gap-1.5" dir="ltr">
+        <span className="text-[26px] font-bold text-white tabular-nums leading-none">{c.value.toLocaleString()}</span>
+        <span className="text-[13px] text-white/60 tabular-nums">/ {c.target.toLocaleString()} {unit}</span>
+        <span className="ms-auto text-[13px] font-semibold" style={{ color: c.done ? "#1f9d4d" : "var(--tg-accent)" }}>{c.done ? `✓ ${t.challengeDone}` : `${c.pct}%`}</span>
+      </div>
+      <span className="block h-2 rounded-full bg-white/15 overflow-hidden">
+        <motion.span className="block h-full rounded-full" style={{ background: c.done ? "#34c759" : "linear-gradient(90deg,#34c759,#2fa6ff)" }}
+          initial={{ width: 0 }} animate={{ width: `${c.pct}%` }} transition={{ duration: 0.5 }} />
+      </span>
+      <div className="space-y-1">
+        <span className="block text-[11px] font-semibold text-white/50">{t.contributions}</span>
+        {c.contributions.map((row) => (
+          <span key={row.id} className="flex items-center justify-between gap-2 text-[12px]">
+            <span className="text-white truncate">{isRtl ? row.nameFa : row.nameEn}</span>
+            <span className="text-white/70 tabular-nums shrink-0" dir="ltr">{c.kind === "streak" ? (row.value ? "🔥" : "—") : row.value.toLocaleString()}</span>
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function MessageBubble({
   message, chat, replyTarget, grouped, tail = true, isRtl, t, selected, selectionMode, translateAll,
   onSelect, onLongPress, onReact, onVote, onJumpToReply, onButton,
@@ -183,6 +217,8 @@ export default function MessageBubble({
                 <Ticks message={message} color="#fff" className="w-3.5 h-3.5" />
               </span>
             </>
+          ) : message.kind === "challenge" ? (
+            <Challenge message={message} isRtl={isRtl} t={t} />
           ) : message.kind === "poll" ? (
             <Poll message={message} t={t} onVote={onVote} />
           ) : message.kind === "voice" ? (

@@ -242,6 +242,11 @@ export default function useChat(lang = "en") {
         };
       }),
 
+    setChallenge: (chatId, challenge) => patchChat(chatId, (c) => ({ ...c, challenge })),
+    /** Blocked people can't be written to and never come up as teammates again. */
+    blockUser: (userId) => setState((s) => ({ ...s, blocked: s.blocked.includes(userId) ? s.blocked : [...s.blocked, userId] })),
+    unblockUser: (userId) => setState((s) => ({ ...s, blocked: s.blocked.filter((id) => id !== userId) })),
+
     markStorySeen: (storyId) =>
       setState((s) => (s.seenStories.includes(storyId) ? s : { ...s, seenStories: [...s.seenStories, storyId] })),
 
@@ -282,6 +287,7 @@ export default function useChat(lang = "en") {
     customUsers: state.customUsers,
     seenStories: state.seenStories,
     buddy: state.buddy,
+    blocked: state.blocked,
     unreadTotal: totalUnread(state.chats, state.messages),
     screen,
     setScreen,

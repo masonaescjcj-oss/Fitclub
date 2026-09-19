@@ -330,9 +330,50 @@ export function botSession(sug, chatId, isRtl) {
 }
 
 export const botCrewCreated = (name, count) => msg(
-  `👥 Crew "${name}" is live with ${count} teammates. I'll keep the weekly leaderboard here and suggest sessions when you ask.`,
-  `👥 کروی «${name}» با ${count} هم‌تیمی راه افتاد. لیدربورد هفتگی رو همین‌جا نگه می‌دارم و هر وقت بخوای جلسه پیشنهاد می‌دم.`,
-  [[{ id: "leaderboard:self", label: "btn_leaderboard" }], [{ id: "session:self", label: "btn_session" }]]
+  `👥 Crew "${name}" is live with ${count} teammates. I'll keep the weekly leaderboard here, suggest sessions, and run a challenge when you set one.`,
+  `👥 کروی «${name}» با ${count} هم‌تیمی راه افتاد. لیدربورد هفتگی رو همین‌جا نگه می‌دارم، جلسه پیشنهاد می‌دم و هر چالشی بگذاری دنبال می‌کنم.`,
+  [[{ id: "leaderboard:self", label: "btn_leaderboard" }], [{ id: "session:self", label: "btn_session" }, { id: "challenge:self", label: "btn_challenge" }]]
+);
+
+/* ──────────────────────────── crew challenges ────────────────────────────
+ * One shared weekly goal. Progress adds the athlete's real week to the
+ * stand-ins' deterministic ones, so the bar moves for real when they train.
+ */
+export const CHALLENGE_KINDS = ["volume", "sessions", "streak"];
+export const CHALLENGE_PRESETS = { volume: [15000, 25000, 40000], sessions: [8, 12, 16] };
+
+export function challengeProgress(chat, challenge, { mySessions, myStreak, now = new Date() }) {
+  const rows = leaderboard((chat.members || []).filter((id) => id !== "buddy_bot"), { mySessions, myStreak, isRtl: false, now });
+  const contributions = rows.map((r) => ({
+    id: r.id, nameEn: r.nameEn, nameFa: r.nameFa,
+    value: challenge.kind === "volume" ? r.volumeKg : challenge.kind === "sessions" ? r.sessions : (r.streak >= 7 ? 1 : 0),
+  }));
+  const value = contributions.reduce((a, c) => a + c.value, 0);
+  const target = challenge.kind === "streak" ? contributions.length : challenge.target;
+  return { kind: challenge.kind, target, value, pct: Math.min(100, Math.round((value / Math.max(target, 1)) * 100)), contributions, done: value >= target };
+}
+
+const unitEn = { volume: "kg", sessions: "sessions", streak: "on a 7-day streak" };
+const unitFa = { volume: "کیلو", sessions: "جلسه", streak: "با استریک ۷ روزه" };
+
+/** The challenge card: a message the bubble renders with a bar. */
+export function botChallenge(progress, chatId) {
+  const { kind, target, value, pct, done } = progress;
+  return {
+    senderId: BOT_ID, kind: "challenge", status: "read",
+    text: `🎯 ${value.toLocaleString()} / ${target.toLocaleString()} ${unitEn[kind]} · ${pct}%`,
+    textFa: `🎯 ${value.toLocaleString()} / ${target.toLocaleString()} ${unitFa[kind]} · ${pct}٪`,
+    challenge: progress,
+    buttons: done
+      ? [[{ id: "challenge:self", label: "btn_challenge" }]]
+      : [[{ id: `progress:${chatId}`, label: "btn_progress" }], [{ id: "leaderboard:self", label: "btn_leaderboard" }, { id: "challenge:self", label: "btn_challenge" }]],
+  };
+}
+
+export const botChallengeDone = () => msg(
+  "🎉 Challenge complete — the whole crew pulled it off. Set the next one?",
+  "🎉 چالش تمام شد — کل کرو از پسش برآمد. چالش بعدی رو بگذاریم؟",
+  [[{ id: "challenge:self", label: "btn_challenge" }]]
 );
 
 export const botNeedTeammates = () => msg(

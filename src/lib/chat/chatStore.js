@@ -185,6 +185,7 @@ function seed() {
   return {
     chats, messages, folder: "all", me: { ...DEFAULT_ME }, customUsers: [], seenStories: [],
     buddy: { prefs: { ...DEFAULT_PREFS }, liked: [], passed: [], matches: [] },
+    blocked: [],
   };
 }
 
@@ -209,6 +210,7 @@ function normalize(state) {
       prefs: { ...DEFAULT_PREFS, ...(state.buddy?.prefs || {}) },
       liked: state.buddy?.liked || [], passed: state.buddy?.passed || [], matches: state.buddy?.matches || [],
     },
+    blocked: state.blocked || [],
   };
 }
 

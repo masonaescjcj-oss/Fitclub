@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Check, Heart, MapPin, Settings2, Users, X } from "lucide-react";
 import { TG } from "../../lib/chat/extras";
-import { GENDERS, HABIT_LABEL, LOOKING_FOR, TIMES, WANT_LABEL, aliasOf } from "../../lib/buddy/buddyModel";
+import { CHALLENGE_KINDS, CHALLENGE_PRESETS, GENDERS, HABIT_LABEL, LOOKING_FOR, TIMES, WANT_LABEL, aliasOf } from "../../lib/buddy/buddyModel";
 import { Sheet } from "./ChatSheets";
 import { Avatar } from "./ChatBits";
 import { findUser } from "../../lib/chat/chatStore";
@@ -239,6 +239,96 @@ export function CrewSheet({ matches, isRtl, t, onCreate, onClose }) {
               );
             })}
           </div>
+        </div>
+      </div>
+    </Sheet>
+  );
+}
+
+/** One shared goal for the week: what to count, and how much. */
+export function ChallengeSheet({ isRtl, t, onStart, onClose }) {
+  const [kind, setKind] = useState("volume");
+  const [target, setTarget] = useState(CHALLENGE_PRESETS.volume[1]);
+  const [custom, setCustom] = useState("");
+  const presets = CHALLENGE_PRESETS[kind] || [];
+  const value = custom ? Number(custom) : target;
+  const valid = kind === "streak" || (Number.isFinite(value) && value > 0);
+  const label = { volume: t.kindVolume, sessions: t.kindSessions, streak: t.kindStreak };
+  const sub = { volume: t.kindVolumeSub, sessions: t.kindSessionsSub, streak: t.kindStreakSub };
+  return (
+    <Sheet title={t.challengeTitle} isRtl={isRtl} t={t} onClose={onClose}
+      footer={
+        <>
+          <button type="button" onClick={onClose} className="flex-1 h-12 rounded-2xl bg-white/5 border border-white/10 text-neutral-300 font-black text-sm">{t.cancel}</button>
+          <button type="button" disabled={!valid} onClick={() => onStart({ kind, target: kind === "streak" ? null : value })}
+            className="flex-1 h-12 rounded-2xl text-white font-black text-sm disabled:opacity-40 on-accent" style={{ background: TG.accentDeep }}>{t.startChallenge}</button>
+        </>
+      }>
+      <div className="p-4 space-y-5">
+        <div>
+          <span className="block text-[12px] font-semibold mb-2" style={{ color: TG.muted }}>{t.challengeKind}</span>
+          <div className="rounded-2xl overflow-hidden divide-y divide-white/[0.04]" style={{ background: TG.card }}>
+            {CHALLENGE_KINDS.map((k) => (
+              <button key={k} type="button" onClick={() => { setKind(k); setCustom(""); setTarget((CHALLENGE_PRESETS[k] || [null])[1] ?? null); }}
+                role="radio" aria-checked={kind === k} className="w-full flex items-center gap-3 px-4 py-3 text-start">
+                <span className="flex-1 min-w-0">
+                  <span className="block text-[15px] font-semibold text-white">{label[k]}</span>
+                  <span className="block text-[12px]" style={{ color: TG.muted }}>{sub[k]}</span>
+                </span>
+                <span className="w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0" style={{ borderColor: kind === k ? TG.accentDeep : TG.muted }}>
+                  {kind === k && <span className="w-2.5 h-2.5 rounded-full" style={{ background: TG.accentDeep }} />}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+        {kind !== "streak" && (
+          <div>
+            <span className="block text-[12px] font-semibold mb-2" style={{ color: TG.muted }}>{t.challengeTarget}</span>
+            <div className="flex flex-wrap gap-1.5">
+              {presets.map((p) => (
+                <button key={p} type="button" onClick={() => { setTarget(p); setCustom(""); }} aria-pressed={!custom && target === p}
+                  className="px-3 h-9 rounded-full text-[13px] font-medium tabular-nums" dir="ltr"
+                  style={{ background: !custom && target === p ? TG.accentDeep : TG.card, color: !custom && target === p ? "#fff" : "inherit" }}>
+                  {p.toLocaleString()}
+                </button>
+              ))}
+              <input value={custom} onChange={(e) => setCustom(e.target.value.replace(/[^0-9]/g, ""))} inputMode="numeric" placeholder={t.customTarget} aria-label={t.customTarget}
+                className="w-24 h-9 px-3 rounded-full text-[13px] font-medium text-white placeholder:text-neutral-500 focus:outline-none tabular-nums" dir="ltr"
+                style={{ background: TG.card }} />
+            </div>
+          </div>
+        )}
+      </div>
+    </Sheet>
+  );
+}
+
+/** Why someone is being reported. Nothing leaves the device yet; the flow is what matters. */
+export function ReportSheet({ name, isRtl, t, onSend, onClose }) {
+  const [reason, setReason] = useState(null);
+  const reasons = [["spam", t.reportSpam], ["harass", t.reportHarass], ["fake", t.reportFake], ["other", t.reportOther]];
+  return (
+    <Sheet title={`${t.reportTitle} · ${name}`} isRtl={isRtl} t={t} onClose={onClose}
+      footer={
+        <>
+          <button type="button" onClick={onClose} className="flex-1 h-12 rounded-2xl bg-white/5 border border-white/10 text-neutral-300 font-black text-sm">{t.cancel}</button>
+          <button type="button" disabled={!reason} onClick={() => onSend(reason)}
+            className="flex-1 h-12 rounded-2xl bg-rose-500 text-white font-black text-sm disabled:opacity-40">{t.report}</button>
+        </>
+      }>
+      <div className="p-4 space-y-3">
+        <span className="block text-[12px] font-semibold" style={{ color: TG.muted }}>{t.reportWhy}</span>
+        <div className="rounded-2xl overflow-hidden divide-y divide-white/[0.04]" style={{ background: TG.card }}>
+          {reasons.map(([id, label]) => (
+            <button key={id} type="button" onClick={() => setReason(id)} role="radio" aria-checked={reason === id}
+              className="w-full flex items-center justify-between gap-3 px-4 py-3 text-start">
+              <span className="text-[15px] font-medium text-white">{label}</span>
+              <span className="w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0" style={{ borderColor: reason === id ? "#f43f5e" : TG.muted }}>
+                {reason === id && <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />}
+              </span>
+            </button>
+          ))}
         </div>
       </div>
     </Sheet>

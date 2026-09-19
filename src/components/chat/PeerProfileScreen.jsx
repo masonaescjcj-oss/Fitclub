@@ -1,6 +1,6 @@
 import React from "react";
 import { motion } from "framer-motion";
-import { Bell, BellOff, MoreHorizontal, Phone, Search, Video } from "lucide-react";
+import { Ban, Bell, BellOff, Flag, MoreHorizontal, Phone, Search, Video } from "lucide-react";
 import { ME, lastMessage, previewOf, relativeTime } from "../../lib/chat/chatModel";
 import { PEOPLE, findUser } from "../../lib/chat/chatStore";
 import { TG } from "../../lib/chat/extras";
@@ -14,7 +14,7 @@ const birthdayLabel = (iso) => new Date(`${iso}T00:00:00`).toLocaleDateString(un
  * Who you are talking to: a person's profile, or a group's / channel's info.
  * Pushed over the conversation the way the iOS client does it.
  */
-export default function PeerProfileScreen({ store, chat, user, isRtl, t, onBack, onToast, onSearch, onMore, onOpenChat, onRequestReveal, leaderboardRows = null }) {
+export default function PeerProfileScreen({ store, chat, user, isRtl, t, onBack, onToast, onSearch, onMore, onOpenChat, onRequestReveal, leaderboardRows = null, challenge = null, blocked = false, onReport, onBlock, onUnblock }) {
   const match = chat.buddy ? store.buddy.matches.find((m) => m.chatId === chat.id) : null;
   const name = user ? (isRtl ? user.nameFa || user.name : user.name) : (isRtl ? chat.titleFa || chat.title : chat.title);
   const subtitle = user
@@ -107,6 +107,21 @@ export default function PeerProfileScreen({ store, chat, user, isRtl, t, onBack,
         </>
       )}
 
+      {!user && chat.crew && challenge && (
+        <>
+          <SectionHeader label={`🎯 ${t.challengeTitle}`} trailing={challenge.done ? `✓ ${t.challengeDone}` : `${challenge.pct}%`} />
+          <Card>
+            <div className="px-4 py-3 space-y-2">
+              <span className="block text-[15px] font-semibold text-white">{challenge.kind === "volume" ? t.kindVolume : challenge.kind === "sessions" ? t.kindSessions : t.kindStreak}</span>
+              <span className="block text-[13px]" style={{ color: TG.muted }} dir="ltr">{challenge.value.toLocaleString()} / {challenge.target.toLocaleString()}</span>
+              <span className="block h-2 rounded-full overflow-hidden" style={{ background: "var(--track)" }}>
+                <span className="block h-full rounded-full" style={{ width: `${challenge.pct}%`, background: challenge.done ? "#34c759" : "linear-gradient(90deg,#34c759,#2fa6ff)" }} />
+              </span>
+            </div>
+          </Card>
+        </>
+      )}
+
       {!user && chat.crew && leaderboardRows && (
         <>
           <SectionHeader label={`🏆 ${t.thisWeek}`} trailing={`${leaderboardRows.length} ${t.members}`} />
@@ -122,6 +137,22 @@ export default function PeerProfileScreen({ store, chat, user, isRtl, t, onBack,
                 <span className="text-[15px] font-bold text-white tabular-nums" dir="ltr">{r.volumeKg.toLocaleString()} <span className="text-[12px] font-medium text-neutral-500">{t.volumeKg}</span></span>
               </div>
             ))}
+          </Card>
+        </>
+      )}
+
+      {user && (
+        <>
+          <SectionHeader label={t.safetyLabel} />
+          <Card>
+            <button type="button" onClick={onReport} className="w-full flex items-center gap-3 px-4 py-3 text-start">
+              <Flag className="w-5 h-5 shrink-0" style={{ color: TG.accent }} />
+              <span className="text-[16px] font-medium" style={{ color: TG.accent }}>{t.report}</span>
+            </button>
+            <button type="button" onClick={blocked ? onUnblock : onBlock} className="w-full flex items-center gap-3 px-4 py-3 text-start">
+              <Ban className="w-5 h-5 shrink-0 text-rose-500" />
+              <span className="text-[16px] font-medium text-rose-500">{blocked ? t.unblock : t.block}</span>
+            </button>
           </Card>
         </>
       )}

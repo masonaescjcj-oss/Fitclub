@@ -48,6 +48,7 @@ export function createChat(patch = {}) {
     archived: false,
     folder: "all",
     folders: [],        // custom folder ids this chat is filed under
+    challenge: null,    // a crew's shared weekly goal
     draft: "",
     pinnedMessageId: null,
     verified: false,
@@ -81,6 +82,7 @@ export function createMessage(patch = {}) {
     media: null,
     poll: null,
     voice: null,
+    challenge: null,    // progress snapshot for a challenge card
     views: 0,
     ...patch,
   };
@@ -233,6 +235,7 @@ export function previewOf(message, isRtl, t) {
     case "sticker": return `${message.media?.emoji || "🪄"} ${t.sticker}`;
     case "poll": return `📊 ${message.poll?.question || t.poll}`;
     case "file": return `📎 ${message.media?.name || t.file}`;
+    case "challenge": return (isRtl && message.textFa) || message.text;
     case "system": return (isRtl && message.textFa) || message.text;
     default: return (isRtl && message.textFa) || message.text;
   }

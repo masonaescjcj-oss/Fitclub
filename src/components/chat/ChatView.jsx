@@ -18,7 +18,7 @@ const WAVEFORM = () => Array.from({ length: 22 }, () => 20 + Math.random() * 80)
 /** A frosted pill floating over the wallpaper, the iOS navigation-bar idiom. */
 const glass = { background: TG.glass, boxShadow: "0 1px 6px rgba(0,0,0,.08)" };
 
-export default function ChatView({ store, chat, isRtl, t, onBack, onOpenProfile, searching = false, onSearchClose, onBotAction }) {
+export default function ChatView({ store, chat, isRtl, t, onBack, onOpenProfile, searching = false, onSearchClose, onBotAction, blocked = false, onUnblock }) {
   const [replyTo, setReplyTo] = useState(null);
   const [editing, setEditing] = useState(null);
   const [actionsFor, setActionsFor] = useState(null);
@@ -247,8 +247,15 @@ export default function ChatView({ store, chat, isRtl, t, onBack, onOpenProfile,
         <div ref={endRef} />
       </div>
 
-      {/* Composer — channels are broadcast-only unless you run them. */}
-      {chat.type === "channel" && !chat.admins.includes(ME) ? (
+      {/* Composer — channels are broadcast-only unless you run them; a blocked peer can't be written to. */}
+      {blocked ? (
+        <div className="sticky bottom-0 px-2 pt-1" style={{ paddingBottom: "max(8px, env(safe-area-inset-bottom))" }}>
+          <div className="w-full h-[46px] rounded-full backdrop-blur-xl flex items-center justify-between ps-4 pe-1.5" style={glass}>
+            <span className="text-[14px] font-medium text-rose-400">🚫 {t.blockedBar}</span>
+            <button type="button" onClick={onUnblock} className="h-9 px-4 rounded-full text-[14px] font-semibold" style={{ color: TG.accent }}>{t.unblock}</button>
+          </div>
+        </div>
+      ) : chat.type === "channel" && !chat.admins.includes(ME) ? (
         <div className="sticky bottom-0 px-2 pt-1" style={{ paddingBottom: "max(8px, env(safe-area-inset-bottom))" }}>
           <button type="button" onClick={() => store.toggleMuted(chat.id)}
             className="w-full h-[46px] rounded-full text-[15px] font-semibold backdrop-blur-xl"
