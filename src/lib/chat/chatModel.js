@@ -6,7 +6,7 @@ export const uid = () =>
 /** The signed-in athlete. */
 export const ME = "me";
 
-export const CHAT_TYPES = ["private", "group", "channel"];
+export const CHAT_TYPES = ["private", "group", "channel", "bot"];
 
 /** Message kinds the renderer knows how to draw. */
 export const KINDS = ["text", "photo", "voice", "sticker", "poll", "file", "system"];
@@ -64,6 +64,8 @@ export function createMessage(patch = {}) {
     senderId: ME,
     kind: "text",
     text: "",
+    textFa: "",         // bots speak both languages; people don't need this
+    buttons: null,      // inline keyboard rows: [[{ id, label }]]
     replyTo: null,
     forwardFrom: null,
     editedAt: null,
@@ -231,8 +233,8 @@ export function previewOf(message, isRtl, t) {
     case "sticker": return `${message.media?.emoji || "🪄"} ${t.sticker}`;
     case "poll": return `📊 ${message.poll?.question || t.poll}`;
     case "file": return `📎 ${message.media?.name || t.file}`;
-    case "system": return message.text;
-    default: return message.text;
+    case "system": return (isRtl && message.textFa) || message.text;
+    default: return (isRtl && message.textFa) || message.text;
   }
 }
 

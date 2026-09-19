@@ -14,7 +14,8 @@ const birthdayLabel = (iso) => new Date(`${iso}T00:00:00`).toLocaleDateString(un
  * Who you are talking to: a person's profile, or a group's / channel's info.
  * Pushed over the conversation the way the iOS client does it.
  */
-export default function PeerProfileScreen({ store, chat, user, isRtl, t, onBack, onToast, onSearch, onMore, onOpenChat }) {
+export default function PeerProfileScreen({ store, chat, user, isRtl, t, onBack, onToast, onSearch, onMore, onOpenChat, onRequestReveal }) {
+  const match = chat.buddy ? store.buddy.matches.find((m) => m.chatId === chat.id) : null;
   const name = user ? (isRtl ? user.nameFa || user.name : user.name) : (isRtl ? chat.titleFa || chat.title : chat.title);
   const subtitle = user
     ? user.online ? t.online : user.lastSeen ? `${t.lastSeen} ${relativeTime(user.lastSeen, t)}` : t.lastSeenRecently
@@ -48,7 +49,7 @@ export default function PeerProfileScreen({ store, chat, user, isRtl, t, onBack,
       <Hero color={user?.color || chat.color} emoji={user?.avatar || chat.emoji} name={name} subtitle={subtitle}
         badges={<NameBadges verified={chat.verified || user?.verified} premium={chat.premium || user?.premium} size={18} />}
         isRtl={isRtl} t={t} onBack={onBack}
-        editLabel={t.edit} onEdit={user ? () => onToast(t.uiOnlyNote) : null} />
+        editLabel={t.edit} onEdit={user && !match ? () => onToast(t.uiOnlyNote) : null} />
       <ActionRow actions={actions} />
 
       {ownChannel && (
@@ -73,7 +74,28 @@ export default function PeerProfileScreen({ store, chat, user, isRtl, t, onBack,
         </>
       )}
 
-      {user && (
+      {match && (
+        <>
+          <SectionHeader label={t.anonTitle} trailing={`${match.score}% ${t.compatible}`} />
+          <Card>
+            <div className="px-4 py-3 space-y-3">
+              <p className="text-[14px] leading-snug" style={{ color: TG.muted }}>{t.anonHint}</p>
+              {match.revealed ? (
+                <span className="inline-flex items-center gap-1.5 text-[14px] font-semibold" style={{ color: "#1f9d4d" }}>🙂 {t.revealed}</span>
+              ) : match.revealRequested ? (
+                <span className="inline-flex items-center gap-1.5 text-[14px] font-medium" style={{ color: TG.muted }}>⏳ {t.revealPending}</span>
+              ) : (
+                <button type="button" onClick={onRequestReveal}
+                  className="h-11 px-5 rounded-full text-[15px] font-semibold text-white on-accent" style={{ background: TG.accentDeep }}>
+                  🎭 {t.reveal}
+                </button>
+              )}
+            </div>
+          </Card>
+        </>
+      )}
+
+      {user && (user.bio || user.phone || user.username || user.birthday) && (
         <>
           <SectionHeader label={t.infoLabel} />
           <Card>

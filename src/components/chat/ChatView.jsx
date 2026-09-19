@@ -18,7 +18,7 @@ const WAVEFORM = () => Array.from({ length: 22 }, () => 20 + Math.random() * 80)
 /** A frosted pill floating over the wallpaper, the iOS navigation-bar idiom. */
 const glass = { background: TG.glass, boxShadow: "0 1px 6px rgba(0,0,0,.08)" };
 
-export default function ChatView({ store, chat, isRtl, t, onBack, onOpenProfile, searching = false, onSearchClose }) {
+export default function ChatView({ store, chat, isRtl, t, onBack, onOpenProfile, searching = false, onSearchClose, onBotAction }) {
   const [replyTo, setReplyTo] = useState(null);
   const [editing, setEditing] = useState(null);
   const [actionsFor, setActionsFor] = useState(null);
@@ -59,6 +59,8 @@ export default function ChatView({ store, chat, isRtl, t, onBack, onOpenProfile,
 
   const subtitle = typingUser
     ? t.typing
+    : chat.type === "bot"
+      ? t.botSub
     : chat.type === "channel"
       ? `${chat.subscribers.toLocaleString()} ${t.subscribers}`
       : chat.type === "group"
@@ -80,6 +82,8 @@ export default function ChatView({ store, chat, isRtl, t, onBack, onOpenProfile,
     store.send(chat.id, { ...patch, replyTo: replyTo?.id || null });
     setReplyTo(null);
     store.setDraft(chat.id, "");
+    // The bot doesn't read free text; it points back at its buttons.
+    if (chat.type === "bot" && patch.text) setTimeout(() => onBotAction?.("fallback"), 600);
   };
 
   const attach = (kind) => {
@@ -223,6 +227,7 @@ export default function ChatView({ store, chat, isRtl, t, onBack, onOpenProfile,
               onReact={store.react}
               onVote={(i2) => store.vote(row.id, i2)}
               onJumpToReply={() => {}}
+              onButton={onBotAction}
             />
           );
         })}

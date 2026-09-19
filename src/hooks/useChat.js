@@ -3,7 +3,8 @@ import {
   ME, createChat, createMessage, findPrivateChatWith, sortChats, toggleReaction,
   totalUnread, unreadCount, visibleMessages, votePoll,
 } from "../lib/chat/chatModel";
-import { loadChat, saveChat } from "../lib/chat/chatStore";
+import { REVEALED, loadChat, saveChat } from "../lib/chat/chatStore";
+import { BOT_CHAT_ID, BOT_ID, findBuddy } from "../lib/buddy/buddyModel";
 import { scheduleReply } from "../lib/chat/simulator";
 import { TRANSCRIPTS } from "../lib/chat/extras";
 import { uid } from "../lib/chat/chatModel";
@@ -23,6 +24,10 @@ export default function useChat(lang = "en") {
     if (first.current) { first.current = false; return; }
     saveChat(state);
   }, [state]);
+
+  // findUser() is a plain function, so it learns about revealed teammates through this set.
+  REVEALED.clear();
+  for (const m of state.buddy.matches) if (m.revealed) REVEALED.add(m.buddyId);
 
   // Never leave a simulated reply firing into an unmounted tree.
   useEffect(() => () => { timers.current.forEach((cancel) => cancel()); }, []);
@@ -168,6 +173,65 @@ export default function useChat(lang = "en") {
       return user;
     },
 
+    /* ── teammates ── */
+    botPost: (patch) =>
+      setState((s) => ({ ...s, messages: [...s.messages, createMessage({ chatId: BOT_CHAT_ID, senderId: BOT_ID, status: "read", ...patch })] })),
+    buddySetPrefs: (patch) =>
+      setState((s) => ({ ...s, buddy: { ...s.buddy, prefs: { ...s.buddy.prefs, ...patch } } })),
+    buddyPass: (id) =>
+      setState((s) => ({ ...s, buddy: { ...s.buddy, passed: s.buddy.passed.includes(id) ? s.buddy.passed : [...s.buddy.passed, id] } })),
+    buddyLike: (id) =>
+      setState((s) => ({ ...s, buddy: { ...s.buddy, liked: s.buddy.liked.includes(id) ? s.buddy.liked : [...s.buddy.liked, id] } })),
+    /** Opens the anonymous chat with a teammate and records the match. Returns the chat id. */
+    buddyMatch: (buddyId, score, isRtl) => {
+      const c = findBuddy(buddyId);
+      if (!c) return null;
+      let chatId = null;
+      setState((s) => {
+        const existing = s.buddy.matches.find((m) => m.buddyId === buddyId);
+        if (existing) { chatId = existing.chatId; return s; }
+        const chat = createChat({
+          type: "private", title: c.alias, titleFa: c.aliasFa, emoji: "🎭", color: c.color,
+          members: [ME, buddyId], folders: ["people"], lastReadAt: new Date().toISOString(),
+          buddy: { buddyId, score, revealed: false },
+        });
+        chatId = chat.id;
+        const hello = createMessage({
+          chatId: chat.id, senderId: buddyId, status: "sent",
+          text: `Hey! ${c.alias} here. Same goal as you, apparently 😄 What are you working on this week?`,
+          textFa: `سلام! ${c.aliasFa} هستم. ظاهراً هدف‌مون یکیه 😄 این هفته روی چی کار می‌کنی؟`,
+        });
+        return {
+          ...s,
+          chats: [...s.chats, chat],
+          messages: [...s.messages, hello],
+          buddy: {
+            ...s.buddy,
+            liked: s.buddy.liked.includes(buddyId) ? s.buddy.liked : [...s.buddy.liked, buddyId],
+            matches: [...s.buddy.matches, { buddyId, chatId: chat.id, score, at: new Date().toISOString(), revealed: false, revealRequested: false,
+              alias: c.alias, aliasFa: c.aliasFa, name: c.name, nameFa: c.nameFa }],
+          },
+        };
+      });
+      return chatId;
+    },
+    buddyRequestReveal: (chatId) =>
+      setState((s) => ({ ...s, buddy: { ...s.buddy, matches: s.buddy.matches.map((m) => (m.chatId === chatId ? { ...m, revealRequested: true } : m)) } })),
+    /** Both sides agreed: the alias gives way to the real name everywhere. */
+    buddyReveal: (chatId) =>
+      setState((s) => {
+        const match = s.buddy.matches.find((m) => m.chatId === chatId);
+        if (!match || match.revealed) return s;
+        const c = findBuddy(match.buddyId);
+        return {
+          ...s,
+          chats: s.chats.map((ch) => (ch.id === chatId ? { ...ch, title: c.name, titleFa: c.nameFa, emoji: c.avatar, buddy: { ...ch.buddy, revealed: true } } : ch)),
+          messages: [...s.messages, createMessage({ chatId, senderId: BOT_ID, kind: "system", status: "read",
+            text: `🎭 → 🙂 You both revealed. Say hello to ${c.name}!`, textFa: `🎭 → 🙂 هر دو هویت‌تون رو نشون دادید. به ${c.nameFa} سلام کن!` })],
+          buddy: { ...s.buddy, matches: s.buddy.matches.map((m) => (m.chatId === chatId ? { ...m, revealed: true } : m)) },
+        };
+      }),
+
     markStorySeen: (storyId) =>
       setState((s) => (s.seenStories.includes(storyId) ? s : { ...s, seenStories: [...s.seenStories, storyId] })),
 
@@ -207,6 +271,7 @@ export default function useChat(lang = "en") {
     me: state.me,
     customUsers: state.customUsers,
     seenStories: state.seenStories,
+    buddy: state.buddy,
     unreadTotal: totalUnread(state.chats, state.messages),
     screen,
     setScreen,

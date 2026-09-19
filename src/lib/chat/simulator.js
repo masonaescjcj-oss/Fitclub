@@ -35,7 +35,7 @@ export function responderFor(chat, meId) {
   const others = (chat.members || []).filter((m) => m !== meId);
   if (!others.length) return null;
   if (chat.type === "private") return others[0];
-  if (chat.type === "channel") return null; // channels are broadcast-only
+  if (chat.type === "channel" || chat.type === "bot") return null; // broadcast-only, or scripted
   return others[Math.floor(Math.random() * others.length)];
 }
 

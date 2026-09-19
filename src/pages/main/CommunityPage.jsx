@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, MessageCircle, Settings, UserCircle2, X } from "lucide-react";
 import { useChatT } from "../../lib/chat/chatI18n";
@@ -13,6 +13,15 @@ import CallsScreen from "../../components/chat/CallsScreen";
 import SettingsScreen from "../../components/chat/SettingsScreen";
 import ProfileScreen from "../../components/chat/ProfileScreen";
 import PeerProfileScreen from "../../components/chat/PeerProfileScreen";
+import BuddyDiscoverScreen, { BuddyPrefsSheet } from "../../components/chat/BuddyScreens";
+import { useBuddyT } from "../../lib/buddy/buddyI18n";
+import {
+  botAnon, botFallback, botMatched, botMatches, botMenu, botNoOne, botPrefsSaved, botProfile,
+  deriveMyProfile, likesBack, rankCandidates,
+} from "../../lib/buddy/buddyModel";
+import { useNutritionStore } from "../../lib/nutrition/nutritionContext";
+import { useTrainingStore } from "../../lib/training/trainingContext";
+import { useChecklistStore } from "../../lib/checklistContext";
 import { Avatar } from "../../components/chat/ChatBits";
 import { ChatActionsSheet } from "../../components/chat/ChatSheets";
 import { loadSession } from "../../lib/session";
@@ -115,8 +124,27 @@ function StoryViewer({ stories, index, isRtl, t, onIndex, onClose }) {
 
 /** The messenger: chat list plus the Telegram-style shell around it. */
 export default function CommunityPage({ isRtl, onExit }) {
-  const t = useChatT(isRtl);
+  const chatT = useChatT(isRtl);
+  const buddyT = useBuddyT(isRtl);
+  const t = useMemo(() => ({ ...chatT, ...buddyT }), [chatT, buddyT]);
   const store = useChatStore();
+  const nutrition = useNutritionStore();
+  const training = useTrainingStore();
+  const { lists } = useChecklistStore();
+  const [discover, setDiscover] = useState(false);
+  const [prefsOpen, setPrefsOpen] = useState(false);
+  const pending = useRef([]); // timers for teammates who answer later
+
+  // The athlete's match card, rebuilt from live data whenever it changes.
+  const myCard = useMemo(
+    () => deriveMyProfile({ profile: nutrition.profile, sessions: training.sessions, lists, prefs: store.buddy.prefs }),
+    [nutrition.profile, training.sessions, lists, store.buddy.prefs]
+  );
+  const ranked = useMemo(
+    () => rankCandidates(myCard, { liked: store.buddy.liked, passed: store.buddy.passed, matched: store.buddy.matches.map((m) => m.buddyId) }),
+    [myCard, store.buddy]
+  );
+  useEffect(() => () => pending.current.forEach(clearTimeout), []);
   const [menuChat, setMenuChat] = useState(null);
   const [toast, setToast] = useState("");
   const [story, setStory] = useState(null); // { list, index }
@@ -156,6 +184,48 @@ export default function CommunityPage({ isRtl, onExit }) {
     const seen = new Set(store.seenStories || []);
     const list = [...STORIES].sort((a, b) => Number(seen.has(a.id)) - Number(seen.has(b.id)));
     setStory({ list, index: Math.max(list.findIndex((x) => x.id === s.id), 0) });
+  };
+
+  const matchWith = (c, score) => {
+    const chatId = store.buddyMatch(c.id, score, isRtl);
+    store.botPost(botMatched(c, score, chatId, isRtl));
+    return chatId;
+  };
+
+  /** Like from the card: an instant match, a later one, or nothing back. */
+  const like = (c, score) => {
+    const answer = likesBack(c.id, score);
+    if (answer.match && answer.delayMs === 0) return { chatId: matchWith(c, score) };
+    store.buddyLike(c.id);
+    if (answer.match) pending.current.push(setTimeout(() => matchWith(c, score), answer.delayMs));
+    setToast(t.sent);
+    return null;
+  };
+
+  const botAction = (id) => {
+    if (id.startsWith("open:")) { store.openChat(id.slice(5)); return; }
+    switch (id) {
+      case "find": setDiscover(true); break;
+      case "anon": {
+        const best = ranked.find((r) => r.score >= 40);
+        if (!best) { store.botPost(botNoOne()); break; }
+        const chatId = store.buddyMatch(best.candidate.id, best.score, isRtl);
+        store.botPost(botAnon(best.candidate, best.score, chatId));
+        store.openChat(chatId);
+        break;
+      }
+      case "matches": store.botPost(botMatches(store.buddy.matches, isRtl)); break;
+      case "profile": store.botPost(botProfile(myCard)); break;
+      case "prefs": setPrefsOpen(true); break;
+      case "menu": store.botPost(botMenu()); break;
+      default: store.botPost(botFallback());
+    }
+  };
+
+  // The other side "agrees" to reveal a moment after you ask — a stand-in for a real reply.
+  const requestReveal = (chatId) => {
+    store.buddyRequestReveal(chatId);
+    pending.current.push(setTimeout(() => store.buddyReveal(chatId), 2500));
   };
 
   const screenView = () => {
@@ -198,7 +268,8 @@ export default function CommunityPage({ isRtl, onExit }) {
           {open
             ? <ChatView store={store} chat={open} isRtl={isRtl} t={t} onBack={store.closeChat}
                 onOpenProfile={() => setProfileOpen(true)}
-                searching={searching} onSearchClose={() => setSearching(false)} />
+                searching={searching} onSearchClose={() => setSearching(false)}
+                onBotAction={botAction} />
             : screenView()}
         </motion.div>
       </AnimatePresence>
@@ -214,7 +285,26 @@ export default function CommunityPage({ isRtl, onExit }) {
             onToast={setToast}
             onSearch={() => { setProfileOpen(false); setSearching(true); }}
             onMore={() => setMenuChat(open)}
+            onRequestReveal={() => requestReveal(open.id)}
             onOpenChat={(id) => { setProfileOpen(false); if (id && id !== open.id) store.openChat(id); }} />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {discover && (
+          <BuddyDiscoverScreen ranked={ranked} me={myCard} isRtl={isRtl} t={t}
+            onLike={like} onPass={(c) => store.buddyPass(c.id)}
+            onOpenPrefs={() => setPrefsOpen(true)}
+            onOpenChat={(chatId) => { setDiscover(false); store.openChat(chatId); }}
+            onClose={() => setDiscover(false)} />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {prefsOpen && (
+          <BuddyPrefsSheet prefs={store.buddy.prefs} isRtl={isRtl} t={t}
+            onSave={(p) => { store.buddySetPrefs(p); setPrefsOpen(false); if (!discover) store.botPost(botPrefsSaved()); }}
+            onClose={() => setPrefsOpen(false)} />
         )}
       </AnimatePresence>
 

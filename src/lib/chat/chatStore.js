@@ -1,6 +1,7 @@
 // Chat persistence and the seeded world the athlete opens into.
 
 import { ME, createChat, createMessage, createUser } from "./chatModel";
+import { BOT_CHAT_ID, BOT_ID, BUDDIES, DEFAULT_PREFS, botWelcome } from "../buddy/buddyModel";
 
 const KEY = "fitclub.chat.v1";
 
@@ -51,10 +52,37 @@ export const STORIES = [
   { id: "st-yuki", userId: "yuki", at: ago(900), emoji: "🧘", captionEn: "Sunday mobility flow, 20 minutes.", captionFa: "حرکات کششی یکشنبه، ۲۰ دقیقه.", bg: "linear-gradient(160deg,#a78bfa,#6d28d9 60%,#2e1065)" },
 ];
 
-export const findUser = (id) =>
-  id === ME
-    ? createUser({ id: ME, name: "You", nameFa: "شما", avatar: "🏋️", color: "#844783", premium: true, online: true })
-    : PEOPLE.find((p) => p.id === id) || createUser({ id, name: id, avatar: "👤" });
+export const BOT_USER = createUser({
+  id: BOT_ID, name: "Teammate Bot", nameFa: "ربات هم‌تیمی", avatar: "🤝", color: "#3390ec", verified: true, online: true,
+  bio: "Pairs you with people working on the same goals.", username: "fitclub_teammate_bot",
+});
+
+/** Teammates whose identity both sides agreed to show. Kept in step by the chat hook. */
+export const REVEALED = new Set();
+
+export const findUser = (id) => {
+  if (id === ME) return createUser({ id: ME, name: "You", nameFa: "شما", avatar: "🏋️", color: "#844783", premium: true, online: true });
+  if (id === BOT_ID) return BOT_USER;
+  const person = PEOPLE.find((p) => p.id === id);
+  if (person) return person;
+  const buddy = BUDDIES.find((x) => x.id === id);
+  if (buddy) {
+    const shown = REVEALED.has(id);
+    return createUser({
+      id, name: shown ? buddy.name : buddy.alias, nameFa: shown ? buddy.nameFa : buddy.aliasFa,
+      avatar: shown ? buddy.avatar : "🎭", color: buddy.color, bio: shown ? buddy.bio : "", online: buddy.online, lastSeen: buddy.lastSeen,
+    });
+  }
+  return createUser({ id, name: id, avatar: "👤" });
+};
+
+/** The matchmaking bot's chat, seeded with its welcome so the list has a preview. */
+function botChat() {
+  return createChat({
+    id: BOT_CHAT_ID, type: "bot", title: "Teammate Bot", titleFa: "ربات هم‌تیمی", emoji: "🤝", color: "#3390ec",
+    members: [ME, BOT_ID], verified: true, folders: ["gym", "people"], lastReadAt: ago(0),
+  });
+}
 
 function seed() {
   const chats = [];
@@ -120,6 +148,10 @@ function seed() {
   push("news", { senderId: "coach", at: ago(200), status: "read", views: 8317,
     text: "Gym closes at 20:00 this Friday for maintenance." });
 
+  /* The matchmaking bot. */
+  chats.push(botChat());
+  push(BOT_CHAT_ID, { ...botWelcome(), at: ago(5) });
+
   /* One-to-one chats. */
   const sara = createChat({
     id: "sara", type: "private", title: "Sara Jenkins", titleFa: "سارا جنکینز",
@@ -150,19 +182,33 @@ function seed() {
   chats.push(yuki);
   push("yuki", { senderId: "yuki", at: ago(4300), status: "read", text: "Thanks for the mobility routine!" });
 
-  return { chats, messages, folder: "all", me: { ...DEFAULT_ME }, customUsers: [], seenStories: [] };
+  return {
+    chats, messages, folder: "all", me: { ...DEFAULT_ME }, customUsers: [], seenStories: [],
+    buddy: { prefs: { ...DEFAULT_PREFS }, liked: [], passed: [], matches: [] },
+  };
 }
 
 function normalize(state) {
   // Saves from before folders existed get the seeded tags back by chat id.
   const seeded = Object.fromEntries(seed().chats.map((c) => [c.id, c.folders]));
+  const chats = (state.chats || []).map((c) => ({ ...createChat(), ...c, folders: c.folders || seeded[c.id] || [] }));
+  const messages = (state.messages || []).map((m) => ({ ...createMessage(), ...m }));
+  // Saves from before the bot existed get it added, welcome included.
+  if (!chats.some((c) => c.id === BOT_CHAT_ID)) {
+    chats.push(botChat());
+    messages.push(createMessage({ chatId: BOT_CHAT_ID, ...botWelcome() }));
+  }
   return {
-    chats: (state.chats || []).map((c) => ({ ...createChat(), ...c, folders: c.folders || seeded[c.id] || [] })),
-    messages: (state.messages || []).map((m) => ({ ...createMessage(), ...m })),
+    chats,
+    messages,
     folder: state.folder || "all",
     me: { ...DEFAULT_ME, ...(state.me || {}) },
     customUsers: state.customUsers || [],
     seenStories: state.seenStories || [],
+    buddy: {
+      prefs: { ...DEFAULT_PREFS, ...(state.buddy?.prefs || {}) },
+      liked: state.buddy?.liked || [], passed: state.buddy?.passed || [], matches: state.buddy?.matches || [],
+    },
   };
 }
 

@@ -103,18 +103,19 @@ function Voice({ message, t }) {
 
 export default function MessageBubble({
   message, chat, replyTarget, grouped, tail = true, isRtl, t, selected, selectionMode, translateAll,
-  onSelect, onLongPress, onReact, onVote, onJumpToReply,
+  onSelect, onLongPress, onReact, onVote, onJumpToReply, onButton,
 }) {
+  const shown = (isRtl && message.textFa) || message.text;
   const mine = isMine(message);
   const isChannel = chat.type === "channel";
-  const showSender = !mine && !grouped && chat.type !== "private";
+  const showSender = !mine && !grouped && chat.type !== "private" && chat.type !== "bot";
   const reactions = reactionList(message);
 
   if (message.kind === "system") {
     return (
       <div className="flex justify-center py-1">
-        <span className="px-3 py-1 rounded-full bg-white/[0.06] text-[10px] font-bold text-neutral-400">
-          {message.text}
+        <span className="px-3 py-1 rounded-full bg-black/20 backdrop-blur text-[12px] font-semibold text-white on-accent text-center max-w-[85%]">
+          {shown}
         </span>
       </div>
     );
@@ -137,6 +138,7 @@ export default function MessageBubble({
       className={`flex ${align} px-3 ${grouped ? "mt-0.5" : "mt-2"} ${selected ? "bg-[#3390ec]/15 -mx-3 px-6 py-0.5" : ""}`}
     >
       <div className="flex items-end gap-1.5 max-w-[85%]">
+        <div className="flex flex-col gap-1.5 min-w-0">
         <div
           onPointerDown={startPress}
           onPointerUp={endPress}
@@ -209,7 +211,7 @@ export default function MessageBubble({
               <p className="text-[16px] font-normal whitespace-pre-wrap break-words leading-[21px]" dir="auto">
                 {(translateAll || message.showTranslation) && message.translation
                   ? message.translation
-                  : message.text}
+                  : shown}
               </p>
               {(translateAll || message.showTranslation) && message.translation && (
                 <span className="block text-[9px] font-bold text-white/50 mt-0.5">🌐 {t.translated}</span>
@@ -247,6 +249,24 @@ export default function MessageBubble({
               ))}
             </span>
           )}
+        </div>
+
+        {/* inline keyboard, Telegram-bot style */}
+        {message.buttons && !message.deleted && (
+          <div className="flex flex-col gap-1.5 w-[min(78vw,320px)]">
+            {message.buttons.map((rowButtons, ri) => (
+              <div key={ri} className="flex gap-1.5">
+                {rowButtons.map((btn) => (
+                  <button key={btn.id} type="button" onClick={() => onButton?.(btn.id)}
+                    className="flex-1 min-h-[40px] px-3 rounded-xl backdrop-blur-xl text-[14px] font-medium leading-tight active:scale-[0.98] transition-transform"
+                    style={{ background: "var(--tg-glass)", color: "var(--tg-accent)", boxShadow: "0 1px 4px rgba(0,0,0,.08)" }}>
+                    {btn.name ? `${t[btn.label] || btn.label} ${btn.name}` : t[btn.label] || btn.label}
+                  </button>
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
         </div>
 
         {selectionMode && (
