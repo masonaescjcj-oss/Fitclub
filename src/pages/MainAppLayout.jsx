@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import MainAppHeader from "../components/MainAppHeader";
 import { ChecklistProvider, useChecklistStore } from "../lib/checklistContext";
 import { NutritionProvider } from "../lib/nutrition/nutritionContext";
-import { ChatProvider, useChatStore } from "../lib/chat/chatContext";
+import { ChatProvider } from "../lib/chat/chatContext";
 import { TrainingProvider, useTrainingStore } from "../lib/training/trainingContext";
 import { CoachProvider } from "../lib/coach/coachContext";
 import { useNutritionStore } from "../lib/nutrition/nutritionContext";
@@ -76,13 +76,11 @@ function MainAppShell({ onNavigate }) {
   const { lists } = useChecklistStore();
   // An open conversation takes the whole screen, the way a messenger does:
   // the app header and tab bar step aside so the composer isn't buried.
-  const { openChatId, screen } = useChatStore();
   const onChatTab = activeTab === "chat" && !subPage;
-  // The messenger draws its own navigation bar, so FitClub's header steps
-  // aside on the whole tab; the tab bar stays until a conversation or a pushed
-  // screen (profile, calls) takes over.
+  // The messenger draws its own navigation, header and tab bar alike, so
+  // FitClub's step aside on the whole tab; its Back button is the way out.
   const hideHeader = onChatTab;
-  const immersive = onChatTab && (!!openChatId || screen === "profile" || screen === "calls");
+  const immersive = onChatTab;
   const userName = loadSession().name || "Isaac";
   // The header badge now reflects the real longest run across the athlete's lists.
   const streak = overallStreak(lists);
@@ -150,7 +148,7 @@ function MainAppShell({ onNavigate }) {
               {activeTab === "fitness" && <WorkoutPage isRtl={isRtl} />}
               {activeTab === "diet" && <DietPage isRtl={isRtl} onGoToRecipe={() => setSubPage("recipeExplore")} onGoToGuide={() => setSubPage("dietGuide")} />}
               {activeTab === "aiCoach" && <AiCoachPage isRtl={isRtl} />}
-              {activeTab === "chat" && <CommunityPage isRtl={isRtl} />}
+              {activeTab === "chat" && <CommunityPage isRtl={isRtl} onExit={() => setActiveTab("fitness")} />}
               {activeTab === "checklist" && <ChecklistPage isRtl={isRtl} onGoToStreak={() => setSubPage("streakDetail")} />}
             </>
           )}

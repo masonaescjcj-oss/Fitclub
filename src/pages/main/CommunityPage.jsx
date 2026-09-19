@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { MessageCircle, Settings, UserCircle2, X } from "lucide-react";
+import { ArrowLeft, MessageCircle, Settings, UserCircle2, X } from "lucide-react";
 import { useChatT } from "../../lib/chat/chatI18n";
 import { useChatStore } from "../../lib/chat/chatContext";
 import { STORIES, findUser } from "../../lib/chat/chatStore";
@@ -19,23 +19,29 @@ import { loadSession } from "../../lib/session";
 /** Screens that show the messenger's own tab bar; the rest are pushed on top. */
 const ROOT_SCREENS = ["list", "contacts", "settings"];
 
-/** The floating pill the iOS client uses: Contacts · Chats · Settings. */
-function TabBar({ screen, unread, t, onGo }) {
+/**
+ * The floating pill the iOS client uses: Contacts · Chats · Settings, plus a
+ * detached Back button beside it that leaves the messenger for the rest of
+ * FitClub — the app's own tab bar is hidden while the messenger is open.
+ */
+function TabBar({ screen, unread, isRtl, t, onGo, onExit }) {
   const tabs = [
     { id: "contacts", icon: UserCircle2, label: t.contactsTab },
     { id: "list", icon: MessageCircle, label: t.chats },
     { id: "settings", icon: Settings, label: t.settingsTab },
   ];
+  const shadow = `0 8px 28px rgba(0,0,0,.14), 0 0 0 0.5px ${TG.sep}`;
   return (
-    <div className="fixed inset-x-0 bottom-[68px] z-40 flex justify-center pointer-events-none">
+    <div className="fixed inset-x-0 z-40 flex justify-center items-center gap-2.5 pointer-events-none"
+      style={{ bottom: "max(14px, env(safe-area-inset-bottom))" }}>
       <div className="pointer-events-auto flex items-center gap-1 p-1.5 rounded-full backdrop-blur-2xl"
-        style={{ background: TG.pill, boxShadow: `0 8px 28px rgba(0,0,0,.14), 0 0 0 0.5px ${TG.sep}` }}>
+        style={{ background: TG.pill, boxShadow: shadow }}>
         {tabs.map((tab) => {
           const active = screen === tab.id;
           const Icon = tab.icon;
           return (
             <button key={tab.id} type="button" onClick={() => onGo(tab.id)} aria-label={tab.label} aria-current={active ? "page" : undefined}
-              className="relative flex flex-col items-center justify-center w-[92px] h-[54px] rounded-full transition-colors"
+              className="relative flex flex-col items-center justify-center w-[80px] h-[54px] rounded-full transition-colors"
               style={{ background: active ? TG.pillActive : "transparent", color: active ? TG.accent : TG.muted }}>
               <Icon className="w-[26px] h-[26px]" fill={active ? "currentColor" : "none"} fillOpacity={active ? 0.2 : 0} />
               <span className="text-[10px] font-semibold mt-0.5">{tab.label}</span>
@@ -49,6 +55,12 @@ function TabBar({ screen, unread, t, onGo }) {
           );
         })}
       </div>
+      <button type="button" onClick={onExit} aria-label={t.backToApp}
+        className="pointer-events-auto flex flex-col items-center justify-center w-[66px] h-[66px] rounded-full backdrop-blur-2xl active:scale-95 transition-transform"
+        style={{ background: TG.pill, boxShadow: shadow, color: TG.muted }}>
+        <ArrowLeft className={`w-[24px] h-[24px] ${isRtl ? "rotate-180" : ""}`} />
+        <span className="text-[10px] font-semibold mt-0.5">{t.backToApp}</span>
+      </button>
     </div>
   );
 }
@@ -101,7 +113,7 @@ function StoryViewer({ stories, index, isRtl, t, onIndex, onClose }) {
 }
 
 /** The messenger: chat list plus the Telegram-style shell around it. */
-export default function CommunityPage({ isRtl }) {
+export default function CommunityPage({ isRtl, onExit }) {
   const t = useChatT(isRtl);
   const store = useChatStore();
   const [menuChat, setMenuChat] = useState(null);
@@ -180,7 +192,7 @@ export default function CommunityPage({ isRtl }) {
       </AnimatePresence>
 
       {!open && ROOT_SCREENS.includes(store.screen) && (
-        <TabBar screen={store.screen} unread={store.unreadTotal} t={t} onGo={(s) => store.setScreen(s)} />
+        <TabBar screen={store.screen} unread={store.unreadTotal} isRtl={isRtl} t={t} onGo={(s) => store.setScreen(s)} onExit={onExit} />
       )}
 
       <AnimatePresence>
@@ -206,7 +218,7 @@ export default function CommunityPage({ isRtl }) {
       </AnimatePresence>
 
       {toast && (
-        <div className="fixed bottom-36 inset-x-0 flex justify-center z-[80] pointer-events-none">
+        <div className="fixed bottom-24 inset-x-0 flex justify-center z-[80] pointer-events-none">
           <span className="px-4 py-2 rounded-full bg-neutral-900/90 backdrop-blur text-xs font-bold text-white max-w-[85%] text-center">
             {toast}
           </span>

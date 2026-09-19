@@ -123,7 +123,7 @@ export default function ContactsScreen({ store, isRtl, t, onBack, onGoCalls }) {
 
       {/* FAB */}
       <button type="button" onClick={() => setAdding(true)} aria-label={t.addContact}
-        className={`fixed bottom-36 ${isRtl ? "left-5" : "right-5"} w-14 h-14 rounded-full flex items-center justify-center text-white shadow-xl active:scale-95 transition-transform z-30 on-accent`}
+        className={`fixed bottom-24 ${isRtl ? "left-5" : "right-5"} w-14 h-14 rounded-full flex items-center justify-center text-white shadow-xl active:scale-95 transition-transform z-30 on-accent`}
         style={{ background: TG.accentDeep }}>
         <UserPlus className="w-6 h-6" />
       </button>
