@@ -7,6 +7,8 @@ export default function WelcomePage({ onNavigate }) {
     const nextLang = language === "en" ? "fa" : "en";
     setLanguage(nextLang);
     localStorage.setItem("language", nextLang);
+    document.documentElement.lang = nextLang;
+    document.documentElement.dir = nextLang === "fa" ? "rtl" : "ltr";
   };
 
   const isFa = language === "fa";

@@ -1,5 +1,5 @@
 import React from "react";
-import { BadgeCheck, Check, CheckCheck, Pin, VolumeX } from "lucide-react";
+import { BadgeCheck, Bookmark, Check, CheckCheck, Pin, VolumeX } from "lucide-react";
 import { ME } from "../../lib/chat/chatModel";
 import { findUser } from "../../lib/chat/chatStore";
 
@@ -9,6 +9,16 @@ export function Avatar({ chat, user, size = 48, ring = "#000", showStatus = true
   const label = source?.avatar || source?.emoji || "💬";
   const color = source?.color || "#3390ec";
   const online = user?.online ?? false;
+
+  // Saved Messages is the one chat Telegram draws as an icon, not a picture.
+  if (chat?.id === "saved" && !user) {
+    return (
+      <div className="relative shrink-0 rounded-full flex items-center justify-center on-accent"
+        style={{ width: size, height: size, background: "var(--tg-accent-deep)" }}>
+        <Bookmark className="text-white" style={{ width: size * 0.42, height: size * 0.42 }} fill="currentColor" />
+      </div>
+    );
+  }
 
   return (
     <div className="relative shrink-0" style={{ width: size, height: size }}>
@@ -52,12 +62,13 @@ export function NameBadges({ verified, premium, size = 14 }) {
 }
 
 /** Delivery ticks: one for sent, two for read. Only ever on my own messages. */
-export function Ticks({ message, className = "" }) {
+export function Ticks({ message, className = "", color = null }) {
   if (message.senderId !== ME) return null;
   const Icon = message.status === "read" ? CheckCheck : Check;
   return (
     <Icon
-      className={`w-3.5 h-3.5 shrink-0 ${message.status === "read" ? "text-sky-400" : "text-white/50"} ${className}`}
+      className={`w-3.5 h-3.5 shrink-0 ${color ? "" : message.status === "read" ? "text-sky-400" : "text-white/50"} ${className}`}
+      style={color ? { color } : undefined}
     />
   );
 }

@@ -36,7 +36,7 @@ export default function ActivityFeed({ list, isRtl, t, open, onToggle }) {
         <div className="space-y-1.5">
           {events.map((e) => (
             <div key={e.id} className="flex items-center gap-2.5 p-2 rounded-xl bg-[#0f0f11] border border-white/[0.06]">
-              <Avatar member={e.member} size={22} ring="#0f0f11" />
+              <Avatar member={e.member} size={22} ring="var(--ground)" />
               <span className="flex-1 min-w-0 text-[11px] font-bold text-neutral-300 truncate">
                 <span className="text-white">
                   {e.member.id === ME.id ? t.you : localized(e.member, isRtl)}

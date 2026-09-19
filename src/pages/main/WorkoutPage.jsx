@@ -65,7 +65,7 @@ export default function WorkoutPage({ isRtl }) {
       {/* ── PLAN ── */}
       {segment === "plan" && (active ? (
         <>
-          <div className="p-5 rounded-3xl border relative overflow-hidden" style={{ background: `linear-gradient(135deg, ${active.color}33, #141416)`, borderColor: `${active.color}55` }}>
+          <div className="p-5 rounded-3xl border relative overflow-hidden" style={{ background: `linear-gradient(135deg, ${active.color}33, var(--card))`, borderColor: `${active.color}55` }}>
             <span className="text-[10px] font-black uppercase tracking-wider" style={{ color: active.color }}>{t.currentSplit}</span>
             <div className="flex items-start justify-between gap-3 mt-1">
               <div className="min-w-0">

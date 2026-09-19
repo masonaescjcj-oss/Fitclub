@@ -125,7 +125,7 @@ export function ForwardSheet({ chats, count, isRtl, t, onPick, onClose }) {
         {chats.map((c) => (
           <button key={c.id} type="button" onClick={() => onPick(c.id)}
             className="w-full flex items-center gap-3 p-2.5 rounded-2xl hover:bg-white/[0.06] transition-colors text-start">
-            <Avatar chat={c} size={40} ring="#0d0d0f" showStatus={false} />
+            <Avatar chat={c} size={40} ring="var(--sheet)" showStatus={false} />
             <span className="flex-1 min-w-0 text-sm font-black text-white truncate">
               {isRtl ? c.titleFa || c.title : c.title}
             </span>

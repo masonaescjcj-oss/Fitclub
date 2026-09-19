@@ -168,6 +168,9 @@ export default function useChat(lang = "en") {
       return user;
     },
 
+    markStorySeen: (storyId) =>
+      setState((s) => (s.seenStories.includes(storyId) ? s : { ...s, seenStories: [...s.seenStories, storyId] })),
+
     /** Rerender hook for out-of-band changes like the language toggle. */
     bump: () => setState((s) => ({ ...s })),
 
@@ -203,6 +206,7 @@ export default function useChat(lang = "en") {
     folder: state.folder,
     me: state.me,
     customUsers: state.customUsers,
+    seenStories: state.seenStories,
     unreadTotal: totalUnread(state.chats, state.messages),
     screen,
     setScreen,

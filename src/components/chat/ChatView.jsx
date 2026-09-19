@@ -137,7 +137,7 @@ export default function ChatView({ store, chat, isRtl, t, onBack }) {
 
         {pinned && !selectionMode && (
           <button type="button" onClick={() => store.pinMessage(chat.id, pinned.id)}
-            className="w-full flex items-center gap-2 px-3 py-2 border-t border-white/10 bg-black/50 text-start">
+            className="w-full flex items-center gap-2 px-3 py-2 border-t border-white/10 bg-white/[0.06] text-start">
             <Pin className="w-3.5 h-3.5 text-[#5eb5f7] shrink-0" />
             <span className="min-w-0">
               <span className="block text-[9px] font-black text-[#5eb5f7] uppercase tracking-wider">{t.pinnedMessage}</span>

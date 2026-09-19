@@ -3,6 +3,7 @@ import { AnimatePresence } from "framer-motion";
 import { ArrowLeft, Check, ChevronRight, Gift, Star } from "lucide-react";
 import { AnimatePresence as AP } from "framer-motion";
 import { GIFTS, PREF_TOGGLES, SETTINGS_ROWS, TG } from "../../lib/chat/extras";
+import { useTheme } from "../../lib/theme";
 
 import { Sheet, ForwardSheet } from "./ChatSheets";
 
@@ -10,7 +11,7 @@ function Row({ icon, tint, label, sub, value, isRtl, onClick }) {
   return (
     <button type="button" onClick={onClick}
       className="w-full flex items-center gap-3.5 px-4 py-3 hover:bg-white/[0.04] transition-colors text-start">
-      <span className="w-9 h-9 rounded-xl flex items-center justify-center text-base shrink-0"
+      <span className="w-9 h-9 rounded-xl flex items-center justify-center text-base shrink-0 on-accent"
         style={{ background: tint }}>
         {icon}
       </span>
@@ -24,11 +25,17 @@ function Row({ icon, tint, label, sub, value, isRtl, onClick }) {
   );
 }
 
-function Toggle({ label, on, isRtl, onChange }) {
+function Toggle({ label, sub, icon, tint, on, isRtl, onChange }) {
   return (
-    <button type="button" role="switch" aria-checked={on} onClick={() => onChange(!on)}
-      className="w-full flex items-center justify-between gap-3 px-4 py-3">
-      <span className="text-sm font-bold text-white text-start">{label}</span>
+    <button type="button" role="switch" aria-checked={on} aria-label={label} onClick={() => onChange(!on)}
+      className="w-full flex items-center gap-3.5 px-4 py-3">
+      {icon && (
+        <span className="w-9 h-9 rounded-xl flex items-center justify-center text-base shrink-0 on-accent" style={{ background: tint }}>{icon}</span>
+      )}
+      <span className="flex-1 min-w-0 text-start">
+        <span className="block text-sm font-bold text-white truncate">{label}</span>
+        {sub && <span className="block text-xs font-medium text-neutral-500 truncate">{sub}</span>}
+      </span>
       <span className={`w-11 h-6 rounded-full p-0.5 shrink-0 transition-colors ${on ? "" : "bg-white/10"}`}
         style={on ? { background: TG.accentDeep } : undefined}>
         <span className={`block w-5 h-5 rounded-full bg-white transition-transform ${
@@ -48,7 +55,7 @@ function DetailSheet({ id, me, store, isRtl, t, onClose }) {
     account: [[t.mobile, me.phone], [t.usernameLabel, `@${me.username}`], [t.bio, me.bio]],
     privacy: [["Last Seen", "Everybody"], ["Profile Photo", "Everybody"], ["Calls", "My Contacts"], ["Two-Step Verification", "On"]],
     chatSettings: [["Wallpaper", "FitClub pattern"], ["Night Mode", "Always on"], ["Message Size", "14"]],
-    folders: [["All", ""], ["Unread", ""], ["Personal", ""], ["Groups", ""], ["Channels", ""]],
+    folders: [[t.all, ""], [t.unreadFolder, ""], [t.family, ""], [t.gym, ""], [t.work, ""], [t.people, ""]],
     devices: [[t.thisDevice, t.webSession]],
   };
   const facts = FACTS[id] || [];
@@ -87,7 +94,7 @@ function PremiumSheet({ isRtl, t, onClose }) {
   return (
     <Sheet title={t.premiumTitle} isRtl={isRtl} t={t} onClose={onClose}>
       <div className="p-4 space-y-4">
-        <div className="p-4 rounded-2xl text-center space-y-1"
+        <div className="p-4 rounded-2xl text-center space-y-1 on-accent"
           style={{ background: "linear-gradient(135deg,#8b5cf6,#3390ec)" }}>
           <span className="text-3xl block">⭐</span>
           <span className="block text-sm font-black text-white">{t.premiumActive}</span>
@@ -116,7 +123,7 @@ function GiftPicker({ me, isRtl, t, onPick, onClose }) {
         {GIFTS.map((g) => (
           <button key={g.id} type="button" onClick={() => onPick(g)}
             disabled={g.stars > me.stars}
-            className="rounded-2xl p-3 flex flex-col items-center gap-1.5 disabled:opacity-40 active:scale-95 transition-transform"
+            className="rounded-2xl p-3 flex flex-col items-center gap-1.5 disabled:opacity-40 active:scale-95 transition-transform on-accent"
             style={{ background: g.bg }}>
             <span className="text-3xl">{g.emoji}</span>
             <span className="text-[10px] font-black text-white text-center leading-tight">
@@ -134,12 +141,13 @@ function GiftPicker({ me, isRtl, t, onPick, onClose }) {
 
 export default function SettingsScreen({ store, name, isRtl, t, onBack, onGoProfile, onToast, onToggleLanguage }) {
   const me = store.me;
+  const [theme, setTheme] = useTheme();
   const [detail, setDetail] = useState(null); // settings row id
   const [sheet, setSheet] = useState(null);   // "premium" | "gift"
   const [gift, setGift] = useState(null);     // chosen gift, awaiting a recipient
 
   return (
-    <div className="w-full min-h-[100dvh] text-white pb-8" style={{ background: TG.bg }}>
+    <div className="w-full min-h-[100dvh] text-white pb-44" style={{ background: TG.bg }}>
       <div className="sticky top-0 z-20 flex items-center gap-2 px-3 h-14 border-b border-white/[0.07]"
         style={{ background: TG.surface }}>
         <button type="button" onClick={onBack} aria-label={t.close}
@@ -178,6 +186,8 @@ export default function SettingsScreen({ store, name, isRtl, t, onBack, onGoProf
         <Row isRtl={isRtl} icon="🌐" tint="#8b5cf6" label={t.language}
           sub={isRtl ? "فارسی" : "English"}
           onClick={onToggleLanguage} />
+        <Toggle icon="🌙" tint="#5856d6" label={t.nightMode} sub={t.nightModeSub} isRtl={isRtl}
+          on={theme === "dark"} onChange={(on) => setTheme(on ? "dark" : "light")} />
       </div>
 
       {/* Premium block */}

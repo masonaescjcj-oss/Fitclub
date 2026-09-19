@@ -33,6 +33,18 @@ export const DEFAULT_ME = {
   prefs: {},
 };
 
+/**
+ * Stories, Telegram-style: one per friend, a day old at most. Display-only
+ * until there is a backend to post to; which ones were watched is remembered.
+ */
+export const STORIES = [
+  { id: "st-sara", userId: "sara", at: ago(45), emoji: "🏃‍♀️", captionEn: "12k done before sunrise ☀️", captionFa: "۱۲ کیلومتر قبل از طلوع ☀️", bg: "linear-gradient(160deg,#ff6b6b,#e0567d 55%,#7a2a5a)" },
+  { id: "st-coach", userId: "coach", at: ago(130), emoji: "📋", captionEn: "Block 3 plans go out tonight. Rest up.", captionFa: "برنامه‌های بلوک ۳ امشب می‌رسد. خوب استراحت کنید.", bg: "linear-gradient(160deg,#844783,#4a2449 60%,#1b0f1b)" },
+  { id: "st-lena", userId: "lena", at: ago(240), emoji: "🔥", captionEn: "New WOD: 21-15-9. Who's in?", captionFa: "تمرین جدید: ۲۱-۱۵-۹. کی هست؟", bg: "linear-gradient(160deg,#f59e0b,#d97706 55%,#7c2d12)" },
+  { id: "st-amir", userId: "amir", at: ago(600), emoji: "🏋️", captionEn: "185 kg. Finally.", captionFa: "۱۸۵ کیلو. بالاخره.", bg: "linear-gradient(160deg,#38bdf8,#1d4ed8 60%,#0f172a)" },
+  { id: "st-yuki", userId: "yuki", at: ago(900), emoji: "🧘", captionEn: "Sunday mobility flow, 20 minutes.", captionFa: "حرکات کششی یکشنبه، ۲۰ دقیقه.", bg: "linear-gradient(160deg,#a78bfa,#6d28d9 60%,#2e1065)" },
+];
+
 export const findUser = (id) =>
   id === ME
     ? createUser({ id: ME, name: "You", nameFa: "شما", avatar: "🏋️", color: "#844783", premium: true, online: true })
@@ -55,7 +67,7 @@ function seed() {
   const coach = createChat({
     id: "coach", type: "private", title: "Coach Dana", titleFa: "مربی دانا",
     emoji: "🦾", color: "#844783", members: [ME, "coach"], verified: true, premium: true,
-    pinned: true, lastReadAt: ago(40), pinnedMessageId: "m-coach-plan",
+    folders: ["gym", "work"], pinned: true, lastReadAt: ago(40), pinnedMessageId: "m-coach-plan",
   });
   chats.push(coach);
   push("coach", { id: "m-coach-plan", senderId: "coach", at: ago(2000), status: "read",
@@ -70,7 +82,7 @@ function seed() {
   const squad = createChat({
     id: "squad", type: "group", title: "Squad Shred", titleFa: "گروه چالش",
     emoji: "⚡", color: "#e0567d", members: [ME, "sara", "amir", "lena", "mo"],
-    admins: [ME, "sara"], lastReadAt: ago(12),
+    admins: [ME, "sara"], folders: ["gym", "people"], lastReadAt: ago(12),
   });
   chats.push(squad);
   push("squad", { id: "m-squad-1", senderId: "sara", at: ago(300), status: "read",
@@ -93,7 +105,7 @@ function seed() {
   const channel = createChat({
     id: "news", type: "channel", title: "FitClub Announcements", titleFa: "اطلاعیه‌های فیت‌کلاب",
     emoji: "📣", color: "#f59e0b", members: [ME, "coach"], admins: ["coach"],
-    verified: true, subscribers: 12480, muted: true, lastReadAt: ago(0),
+    verified: true, subscribers: 12480, muted: true, folders: ["gym", "work"], lastReadAt: ago(0),
   });
   chats.push(channel);
   push("news", { senderId: "coach", at: ago(1440), status: "read", views: 11204,
@@ -105,7 +117,7 @@ function seed() {
   /* One-to-one chats. */
   const sara = createChat({
     id: "sara", type: "private", title: "Sara Jenkins", titleFa: "سارا جنکینز",
-    emoji: "👩‍🦰", color: "#e0567d", members: [ME, "sara"], premium: true, lastReadAt: ago(0),
+    emoji: "👩‍🦰", color: "#e0567d", members: [ME, "sara"], premium: true, folders: ["family", "people"], lastReadAt: ago(0),
   });
   chats.push(sara);
   push("sara", { senderId: "sara", at: ago(500), status: "read", text: "Are you doing the Saturday session?" });
@@ -118,7 +130,7 @@ function seed() {
 
   const amir = createChat({
     id: "amir", type: "private", title: "Amir Reza", titleFa: "امیررضا",
-    emoji: "🧔", color: "#38bdf8", members: [ME, "amir"], lastReadAt: ago(600),
+    emoji: "🧔", color: "#38bdf8", members: [ME, "amir"], folders: ["gym", "people"], lastReadAt: ago(600),
   });
   chats.push(amir);
   push("amir", { senderId: "amir", at: ago(400), status: "read", text: "Sent you the deadlift program" });
@@ -127,21 +139,24 @@ function seed() {
 
   const yuki = createChat({
     id: "yuki", type: "private", title: "Yuki Tanaka", titleFa: "یوکی تاناکا",
-    emoji: "👧", color: "#8b5cf6", members: [ME, "yuki"], archived: true, lastReadAt: ago(0),
+    emoji: "👧", color: "#8b5cf6", members: [ME, "yuki"], archived: true, folders: ["people"], lastReadAt: ago(0),
   });
   chats.push(yuki);
   push("yuki", { senderId: "yuki", at: ago(4300), status: "read", text: "Thanks for the mobility routine!" });
 
-  return { chats, messages, folder: "all", me: { ...DEFAULT_ME }, customUsers: [] };
+  return { chats, messages, folder: "all", me: { ...DEFAULT_ME }, customUsers: [], seenStories: [] };
 }
 
 function normalize(state) {
+  // Saves from before folders existed get the seeded tags back by chat id.
+  const seeded = Object.fromEntries(seed().chats.map((c) => [c.id, c.folders]));
   return {
-    chats: (state.chats || []).map((c) => ({ ...createChat(), ...c })),
+    chats: (state.chats || []).map((c) => ({ ...createChat(), ...c, folders: c.folders || seeded[c.id] || [] })),
     messages: (state.messages || []).map((m) => ({ ...createMessage(), ...m })),
     folder: state.folder || "all",
     me: { ...DEFAULT_ME, ...(state.me || {}) },
     customUsers: state.customUsers || [],
+    seenStories: state.seenStories || [],
   };
 }
 

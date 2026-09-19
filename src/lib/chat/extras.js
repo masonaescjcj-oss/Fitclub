@@ -3,14 +3,24 @@
 
 import { PEOPLE } from "./chatStore";
 
-/** Telegram dark palette, used only inside the messenger. */
+/**
+ * Telegram palette, used only inside the messenger. Every value is a CSS
+ * variable so the same components render the light and the dark theme;
+ * the actual colours live in src/index.css.
+ */
 export const TG = {
-  bg: "#0e1621",        // chat wallpaper base / page ground
-  surface: "#17212b",   // headers, cards
-  card: "#1c2733",      // elevated rows
-  accent: "#4fa9e8",    // links, active states
-  accentDeep: "#3390ec",// buttons, badges
-  inBubble: "#182533",
+  bg: "var(--tg-bg)",               // chat wallpaper base / page ground
+  surface: "var(--tg-surface)",     // headers, cards
+  card: "var(--tg-card)",           // elevated rows, inputs
+  accent: "var(--tg-accent)",       // links, active states
+  accentDeep: "var(--tg-accent-deep)", // buttons, badges
+  inBubble: "var(--tg-in-bubble)",
+  outBubble: "var(--tg-out-bubble)",
+  muted: "var(--tg-muted)",         // secondary text
+  sep: "var(--tg-sep)",             // hairlines
+  pill: "var(--tg-pill)",           // floating tab bar
+  pillActive: "var(--tg-pill-active)",
+  green: "#34c759",                 // iOS read ticks
 };
 
 const ago = (mins) => new Date(Date.now() - mins * 60000).toISOString();

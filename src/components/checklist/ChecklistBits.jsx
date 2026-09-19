@@ -10,7 +10,7 @@ export function ProgressRing({ ratio, size = 62, stroke = 6, color = "#844783", 
   return (
     <div className="relative shrink-0" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="-rotate-90">
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={stroke} />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--track)" strokeWidth={stroke} />
         <motion.circle
           cx={size / 2} cy={size / 2} r={r} fill="none"
           stroke={color} strokeWidth={stroke} strokeLinecap="round"
@@ -29,7 +29,7 @@ export function ProgressRing({ ratio, size = 62, stroke = 6, color = "#844783", 
 }
 
 /** Small round member badge. Falls back to an initial when there's no emoji. */
-export function Avatar({ member, size = 26, ring = "#09090b", dimmed = false }) {
+export function Avatar({ member, size = 26, ring = "var(--ground)", dimmed = false }) {
   const label = member.avatar || (member.name || "?").slice(0, 1).toUpperCase();
   return (
     <div

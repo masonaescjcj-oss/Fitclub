@@ -23,7 +23,7 @@ export function CalorieRing({ eaten, target, size = 148, stroke = 12, t }) {
   return (
     <div className="relative shrink-0" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="-rotate-90">
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth={stroke} />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--track)" strokeWidth={stroke} />
         <motion.circle
           cx={size / 2} cy={size / 2} r={r} fill="none"
           stroke={color} strokeWidth={stroke} strokeLinecap="round"
@@ -100,7 +100,7 @@ export function TrendSpark({ points, width = 260, height = 54, color = "#844783"
   return (
     <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="overflow-visible">
       {points.map((p, i) => (
-        <circle key={p.key} cx={x(i)} cy={y(p.raw)} r={1.8} fill="rgba(255,255,255,0.28)" />
+        <circle key={p.key} cx={x(i)} cy={y(p.raw)} r={1.8} fill="var(--dot)" />
       ))}
       <path d={line} fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
       <circle cx={x(points.length - 1)} cy={y(points[points.length - 1].trend)} r={3.5} fill={color} />

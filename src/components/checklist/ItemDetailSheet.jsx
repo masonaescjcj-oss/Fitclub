@@ -110,7 +110,7 @@ export default function ItemDetailSheet({ item, list, isRtl, t, onSave, onDelete
                       className={`w-full flex items-center gap-2.5 p-2 rounded-xl border transition-all ${
                         on ? "bg-white/[0.06] border-white/20" : "bg-black/40 border-white/5"
                       }`}>
-                      <Avatar member={m} size={28} ring="#0d0d0f" dimmed={!on} />
+                      <Avatar member={m} size={28} ring="var(--sheet)" dimmed={!on} />
                       <span className="flex-1 text-xs font-bold text-white truncate text-start">
                         {m.id === ME.id ? t.you : localized(m, isRtl)}
                       </span>

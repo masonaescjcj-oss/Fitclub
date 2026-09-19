@@ -77,8 +77,12 @@ function MainAppShell({ onNavigate }) {
   // An open conversation takes the whole screen, the way a messenger does:
   // the app header and tab bar step aside so the composer isn't buried.
   const { openChatId, screen } = useChatStore();
-  const chatImmersive = activeTab === "chat" && !subPage && (!!openChatId || screen !== "list");
-  const immersive = chatImmersive;
+  const onChatTab = activeTab === "chat" && !subPage;
+  // The messenger draws its own navigation bar, so FitClub's header steps
+  // aside on the whole tab; the tab bar stays until a conversation or a pushed
+  // screen (profile, calls) takes over.
+  const hideHeader = onChatTab;
+  const immersive = onChatTab && (!!openChatId || screen === "profile" || screen === "calls");
   const userName = loadSession().name || "Isaac";
   // The header badge now reflects the real longest run across the athlete's lists.
   const streak = overallStreak(lists);
@@ -102,7 +106,7 @@ function MainAppShell({ onNavigate }) {
       className="w-full md:max-w-lg mx-auto min-h-[100dvh] bg-black text-white flex flex-col justify-between overflow-x-hidden relative font-sans select-none"
     >
       {/* Top Header (Shown unless on sub-pages or Active Workout) */}
-      {!subPage && !immersive && (
+      {!subPage && !hideHeader && (
         <MainAppHeader
           userName={userName}
           streak={streak}

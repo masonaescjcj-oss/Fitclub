@@ -9,6 +9,52 @@
   }
 }
 
+/* Theme tokens. Dark is the app's original look; light remaps it (see theme-light.css). */
+:root {
+  --fg: #ffffff;
+  --ground: #09090b;
+  --card: #141416;
+  --sheet: #0d0d0f;
+  --track: rgba(255, 255, 255, 0.07);
+  --dot: rgba(255, 255, 255, 0.28);
+  --tg-bg: #0e1621;
+  --tg-surface: #17212b;
+  --tg-card: #1c2733;
+  --tg-accent: #4fa9e8;
+  --tg-accent-deep: #3390ec;
+  --tg-in-bubble: #182533;
+  --tg-out-bubble: linear-gradient(135deg, #7b6ee0 0%, #3e7bdc 100%);
+  --tg-muted: #7d8b99;
+  --tg-sep: rgba(255, 255, 255, 0.07);
+  --tg-pill: rgba(28, 39, 51, 0.88);
+  --tg-pill-active: rgba(255, 255, 255, 0.1);
+}
+[data-theme="light"] {
+  --fg: #0f0f12;
+  --ground: #f2f2f7;
+  --card: #ffffff;
+  --sheet: #ffffff;
+  --track: rgba(0, 0, 0, 0.07);
+  --dot: rgba(0, 0, 0, 0.3);
+  --tg-bg: #ffffff;
+  --tg-surface: #f7f7f7;
+  --tg-card: #f2f2f7;
+  --tg-accent: #007aff;
+  --tg-accent-deep: #007aff;
+  --tg-in-bubble: #ffffff;
+  --tg-out-bubble: #e1ffc7;
+  --tg-muted: #8e8e93;
+  --tg-sep: #e5e5ea;
+  --tg-pill: rgba(255, 255, 255, 0.9);
+  --tg-pill-active: rgba(120, 120, 128, 0.14);
+}
+[data-theme="light"] body {
+  background: #f2f2f7;
+  color: #0f0f12;
+}
+/* White text inside an accent-coloured element, whatever the theme. */
+.on-accent { --fg: #ffffff; }
+
 /* Custom Scrollbar Hide Utility */
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
@@ -25,9 +71,17 @@
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
+[data-theme="light"] .glass-card {
+  background: rgba(255, 255, 255, 0.75);
+  border-color: rgba(0, 0, 0, 0.08);
+}
 
 /* Telegram-style chat wallpaper: dark ground with a faint fitness doodle tile. */
 .tg-wallpaper {
   background-color: #0e1621;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150'%3E%3Cg fill='none' stroke='%23ffffff' stroke-opacity='0.045' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='32' cy='34' r='11'/%3E%3Cpath d='M88 28h34M94 20v16M116 20v16'/%3E%3Cpath d='M28 100v22M22 106h12M22 116h12'/%3E%3Ccircle cx='108' cy='112' r='7'/%3E%3Cpath d='M64 64l10 10M74 64l-10 10'/%3E%3C/g%3E%3C/svg%3E");
+}
+[data-theme="light"] .tg-wallpaper {
+  background-color: #e6ebf1;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150'%3E%3Cg fill='none' stroke='%23000000' stroke-opacity='0.06' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='32' cy='34' r='11'/%3E%3Cpath d='M88 28h34M94 20v16M116 20v16'/%3E%3Cpath d='M28 100v22M22 106h12M22 116h12'/%3E%3Ccircle cx='108' cy='112' r='7'/%3E%3Cpath d='M64 64l10 10M74 64l-10 10'/%3E%3C/g%3E%3C/svg%3E");
 }

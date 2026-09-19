@@ -19,7 +19,7 @@ function AddContactSheet({ isRtl, t, onSave, onClose }) {
           <button type="button" onClick={onClose}
             className="flex-1 h-12 rounded-2xl bg-white/5 border border-white/10 text-neutral-300 font-black text-sm">{t.cancel}</button>
           <button type="button" disabled={!name.trim()} onClick={() => onSave({ name: name.trim(), avatar })}
-            className="flex-1 h-12 rounded-2xl text-white font-black text-sm disabled:opacity-40"
+            className="flex-1 h-12 rounded-2xl text-white font-black text-sm disabled:opacity-40 on-accent"
             style={{ background: TG.accentDeep }}>{t.startChat}</button>
         </>
       }>
@@ -61,7 +61,7 @@ export default function ContactsScreen({ store, isRtl, t, onBack, onGoCalls }) {
   };
 
   return (
-    <div className="w-full min-h-[100dvh] text-white pb-8" style={{ background: TG.bg }}>
+    <div className="w-full min-h-[100dvh] text-white pb-44" style={{ background: TG.bg }}>
       <div className="sticky top-0 z-20 border-b border-white/[0.07]" style={{ background: TG.surface }}>
         <div className="flex items-center gap-2 px-3 h-14">
           <button type="button" onClick={onBack} aria-label={t.close}
@@ -123,7 +123,7 @@ export default function ContactsScreen({ store, isRtl, t, onBack, onGoCalls }) {
 
       {/* FAB */}
       <button type="button" onClick={() => setAdding(true)} aria-label={t.addContact}
-        className={`fixed bottom-6 ${isRtl ? "left-5" : "right-5"} w-14 h-14 rounded-full flex items-center justify-center text-white shadow-xl active:scale-95 transition-transform z-30`}
+        className={`fixed bottom-36 ${isRtl ? "left-5" : "right-5"} w-14 h-14 rounded-full flex items-center justify-center text-white shadow-xl active:scale-95 transition-transform z-30 on-accent`}
         style={{ background: TG.accentDeep }}>
         <UserPlus className="w-6 h-6" />
       </button>

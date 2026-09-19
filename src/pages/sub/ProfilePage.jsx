@@ -1,8 +1,10 @@
 import React, { useState } from "react";
-import { User, Watch, Wallet, LogOut, ChevronRight, Globe, Crown, Award } from "lucide-react";
+import { User, Watch, Wallet, LogOut, ChevronRight, Globe, Crown, Award, Moon, Sun } from "lucide-react";
+import { useTheme } from "../../lib/theme";
 
 export default function ProfilePage({ onNavigate, onBack, isRtl }) {
   const [language, setLanguage] = useState(localStorage.getItem("language") || "en");
+  const [theme, setTheme] = useTheme();
 
   const toggleLanguage = () => {
     const newLang = language === "fa" ? "en" : "fa";
@@ -101,6 +103,24 @@ export default function ProfilePage({ onNavigate, onBack, isRtl }) {
           </div>
           <span className="text-xs font-black text-[#844783] bg-[#844783]/10 border border-[#844783]/30 px-3 py-1 rounded-full uppercase">
             {language.toUpperCase()}
+          </span>
+        </button>
+
+        {/* Appearance */}
+        <button
+          type="button"
+          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+          aria-label={isRtl ? "تغییر تم" : "Toggle theme"}
+          className="w-full p-4 rounded-2xl bg-[#141416] border border-white/10 flex items-center justify-between hover:border-[#844783]/40 transition-all text-left rtl:text-right"
+        >
+          <div className="flex items-center gap-3.5">
+            <div className="p-2.5 rounded-xl bg-neutral-900 border border-white/10 shrink-0 text-amber-400">
+              {theme === "dark" ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+            </div>
+            <span className="text-sm font-black text-white">{isRtl ? "ظاهر برنامه (روشن / تیره)" : "Appearance (Light / Dark)"}</span>
+          </div>
+          <span className="text-xs font-black text-[#844783] bg-[#844783]/10 border border-[#844783]/30 px-3 py-1 rounded-full uppercase">
+            {theme === "dark" ? (isRtl ? "تیره" : "Dark") : (isRtl ? "روشن" : "Light")}
           </span>
         </button>
 

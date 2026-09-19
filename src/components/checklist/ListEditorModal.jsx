@@ -120,7 +120,7 @@ export default function ListEditorModal({ list, isRtl, t, onSave, onDelete, onCl
                 <button key={c} type="button" onClick={() => set({ color: c })}
                   aria-label={c}
                   className="w-8 h-8 rounded-full flex items-center justify-center transition-transform hover:scale-110"
-                  style={{ background: c, boxShadow: draft.color === c ? `0 0 0 2px #0d0d0f, 0 0 0 4px ${c}` : "none" }}>
+                  style={{ background: c, boxShadow: draft.color === c ? `0 0 0 2px var(--sheet), 0 0 0 4px ${c}` : "none" }}>
                   {draft.color === c && <Check className="w-4 h-4 text-white stroke-[3]" />}
                 </button>
               ))}
@@ -177,7 +177,7 @@ export default function ListEditorModal({ list, isRtl, t, onSave, onDelete, onCl
                 <div className="space-y-1.5">
                   {draft.members.map((m) => (
                     <div key={m.id} className="flex items-center gap-2.5 p-2 rounded-xl bg-[#141416] border border-white/10">
-                      <Avatar member={m} size={28} ring="#141416" />
+                      <Avatar member={m} size={28} ring="var(--card)" />
                       <span className="flex-1 text-xs font-bold text-white truncate">
                         {m.id === ME.id ? t.you : localized(m, isRtl)}
                       </span>
@@ -199,7 +199,7 @@ export default function ListEditorModal({ list, isRtl, t, onSave, onDelete, onCl
                     {available.map((f) => (
                       <button key={f.id} type="button" onClick={() => toggleFriend(f)}
                         className="w-full flex items-center gap-2.5 p-2 rounded-xl bg-black/40 border border-white/5 hover:border-white/20 transition-all">
-                        <Avatar member={f} size={28} ring="#0d0d0f" />
+                        <Avatar member={f} size={28} ring="var(--sheet)" />
                         <span className="flex-1 text-xs font-bold text-neutral-300 truncate text-start">{localized(f, isRtl)}</span>
                         <span className="w-6 h-6 rounded-lg bg-white/5 flex items-center justify-center text-neutral-400">+</span>
                       </button>

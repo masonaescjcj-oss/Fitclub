@@ -4,6 +4,7 @@ import { Check, CornerUpLeft, Eye, FileText, Mic, Pin } from "lucide-react";
 import {
   ME, hasVoted, isMine, pollTotals, reactionList, timeOf,
 } from "../../lib/chat/chatModel";
+import { TG } from "../../lib/chat/extras";
 import { Ticks, senderColor, senderName } from "./ChatBits";
 
 /** The quoted block above a reply. */
@@ -150,7 +151,7 @@ export default function MessageBubble({
                 : "bg-[#182533] text-white rounded-bl-md"
           } ${selectionMode ? "cursor-pointer" : ""}`}
           style={!isSticker && mine && !isChannel
-            ? { background: "linear-gradient(135deg, #7b6ee0 0%, #3e7bdc 100%)" }
+            ? { background: TG.outBubble }
             : undefined}
         >
           {showSender && (
@@ -199,7 +200,7 @@ export default function MessageBubble({
             </span>
           ) : (
             <>
-              <p className="text-sm font-medium whitespace-pre-wrap break-words leading-snug">
+              <p className="text-sm font-medium whitespace-pre-wrap break-words leading-snug" dir="auto">
                 {(translateAll || message.showTranslation) && message.translation
                   ? message.translation
                   : message.text}

@@ -43,7 +43,7 @@ export default function HistoryStrip({ list, t, max = 24 }) {
               minWidth: 4,
               // Intensity rides in the colour's alpha channel: the entrance
               // animation owns `opacity`, so encoding it there gets overwritten.
-              background: cell.total === 0 ? "rgba(255,255,255,0.05)" : `${list.color}${alpha(cell.ratio)}`,
+              background: cell.total === 0 ? "var(--track)" : `${list.color}${alpha(cell.ratio)}`,
               outline: cell.current ? `1.5px solid ${list.color}` : "none",
               outlineOffset: cell.current ? 1 : 0,
             }}

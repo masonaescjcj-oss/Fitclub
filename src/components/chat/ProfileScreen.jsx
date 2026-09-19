@@ -40,7 +40,7 @@ function EditInfoSheet({ me, isRtl, t, onSave, onClose }) {
           <button type="button" onClick={onClose}
             className="flex-1 h-12 rounded-2xl bg-white/5 border border-white/10 text-neutral-300 font-black text-sm">{t.cancel}</button>
           <button type="button" onClick={() => onSave({ bio: bio.trim(), username: username.trim() || me.username })}
-            className="flex-1 h-12 rounded-2xl text-white font-black text-sm" style={{ background: TG.accentDeep }}>{t.save}</button>
+            className="flex-1 h-12 rounded-2xl text-white font-black text-sm on-accent" style={{ background: TG.accentDeep }}>{t.save}</button>
         </>
       }>
       <div className="p-4 space-y-4">
@@ -81,7 +81,7 @@ export default function ProfileScreen({ store, name, isRtl, t, onBack, onGoSetti
   return (
     <div className="w-full min-h-[100dvh] text-white pb-10" style={{ background: TG.bg }}>
       {/* Colored header with floating gifts */}
-      <div className="relative overflow-hidden pb-5" style={{ background: "linear-gradient(180deg,#7c3f78,#5b2d58)" }}>
+      <div className="relative overflow-hidden pb-5 on-accent" style={{ background: "linear-gradient(180deg,#7c3f78,#5b2d58)" }}>
         <button type="button" onClick={onBack} aria-label={t.close}
           className="absolute top-3 z-10 w-9 h-9 rounded-xl flex items-center justify-center text-white/90 hover:text-white ltr:left-3 rtl:right-3">
           <ArrowLeft className={`w-5 h-5 ${isRtl ? "rotate-180" : ""}`} />

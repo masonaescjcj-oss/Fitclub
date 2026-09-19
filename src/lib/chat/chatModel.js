@@ -44,6 +44,7 @@ export function createChat(patch = {}) {
     muted: false,
     archived: false,
     folder: "all",
+    folders: [],        // custom folder ids this chat is filed under
     draft: "",
     pinnedMessageId: null,
     verified: false,
