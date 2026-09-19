@@ -244,9 +244,10 @@ export default function ChatView({ store, chat, isRtl, t, onBack, onOpenProfile,
 
       {/* Composer — channels are broadcast-only unless you run them. */}
       {chat.type === "channel" && !chat.admins.includes(ME) ? (
-        <div className="sticky bottom-0 backdrop-blur-xl px-4 py-2" style={{ background: TG.bar, borderTop: `0.5px solid ${TG.sep}` }}>
+        <div className="sticky bottom-0 px-2 pt-1" style={{ paddingBottom: "max(8px, env(safe-area-inset-bottom))" }}>
           <button type="button" onClick={() => store.toggleMuted(chat.id)}
-            className="w-full h-11 rounded-full text-[15px] font-semibold" style={{ color: TG.accent }}>
+            className="w-full h-[46px] rounded-full text-[15px] font-semibold backdrop-blur-xl"
+            style={{ ...glass, color: TG.accent }}>
             {chat.muted ? t.unmute : t.mute}
           </button>
         </div>

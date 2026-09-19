@@ -18,7 +18,7 @@ const ATTACHMENTS = [
 function ContextStrip({ mode, message, isRtl, t, onCancel }) {
   if (!message) return null;
   return (
-    <div className="flex items-center gap-2 px-3 py-2 border-b" style={{ borderColor: TG.sep }}>
+    <div className="flex items-center gap-2 px-3 py-2 mb-1.5 rounded-2xl backdrop-blur-xl" style={{ background: TG.glass, boxShadow: "0 1px 6px rgba(0,0,0,.08)" }}>
       <span className="w-0.5 h-8 rounded-full shrink-0"
         style={{ background: mode === "edit" ? "#f59e0b" : senderColor(message.senderId) }} />
       <span className="flex-1 min-w-0">
@@ -71,10 +71,8 @@ export default function Composer({
   const startHold = () => { holdTimer.current = setTimeout(() => setSendMenu(true), 450); };
   const endHold = () => { clearTimeout(holdTimer.current); holdTimer.current = null; };
 
-  const iconBtn = (active) => `w-9 h-9 rounded-full flex items-center justify-center shrink-0 transition-colors ${active ? "" : "hover:text-white"}`;
-
   return (
-    <div className="sticky bottom-0 z-20 backdrop-blur-xl" style={{ background: TG.bar, borderTop: `0.5px solid ${TG.sep}` }}>
+    <div className="sticky bottom-0 z-20 px-2 pt-1" style={{ paddingBottom: "max(8px, env(safe-area-inset-bottom))" }}>
       <ContextStrip
         mode={editing ? "edit" : "reply"}
         message={editing || replyTo}
@@ -86,7 +84,7 @@ export default function Composer({
         {panel && (
           <motion.div
             initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}
-            className="overflow-hidden border-b" style={{ borderColor: TG.sep }}
+            className="overflow-hidden rounded-2xl mb-1.5 backdrop-blur-xl" style={{ background: TG.glass, boxShadow: "0 1px 6px rgba(0,0,0,.08)" }}
           >
             {panel === "attach" ? (
               <div className="grid grid-cols-4 gap-2 p-4">
@@ -122,15 +120,14 @@ export default function Composer({
         )}
       </AnimatePresence>
 
-      <div className="flex items-end gap-1.5 px-2 py-1.5 relative">
-        <button type="button" onClick={() => setPanel(panel === "attach" ? null : "attach")}
-          aria-label={t.attach} className={iconBtn(panel === "attach")}
-          style={{ color: panel === "attach" ? TG.accent : TG.muted }}>
-          <Paperclip className="w-[22px] h-[22px]" />
-        </button>
-
-        <div className="flex-1 flex items-end rounded-[20px] min-h-[38px] ps-3.5 pe-1 min-w-0"
-          style={{ background: TG.inBubble, border: `0.5px solid ${TG.sep}` }}>
+      <div className="flex items-end gap-2 relative">
+        <div className="flex-1 flex items-end rounded-[24px] min-h-[46px] ps-1 pe-1 min-w-0 backdrop-blur-xl"
+          style={{ background: TG.glass, boxShadow: "0 2px 12px rgba(0,0,0,.1)" }}>
+          <button type="button" onClick={() => setPanel(panel === "attach" ? null : "attach")}
+            aria-label={t.attach} className="w-10 h-[46px] flex items-center justify-center shrink-0"
+            style={{ color: panel === "attach" ? TG.accent : TG.muted }}>
+            <Paperclip className="w-[22px] h-[22px]" />
+          </button>
           <textarea
             ref={inputRef}
             rows={1}
@@ -141,15 +138,15 @@ export default function Composer({
             }}
             placeholder={t.message}
             aria-label={t.message}
-            className="flex-1 min-w-0 bg-transparent py-2 text-[16px] leading-[22px] text-white placeholder:text-neutral-500 resize-none focus:outline-none max-h-28"
+            className="flex-1 min-w-0 bg-transparent py-3 text-[16px] leading-[22px] text-white placeholder:text-neutral-500 resize-none focus:outline-none max-h-28"
           />
           <button type="button" onClick={() => setPanel(panel === "stickers" ? null : "stickers")}
-            aria-label={t.stickers} className="w-8 h-[38px] flex items-center justify-center shrink-0"
+            aria-label={t.stickers} className="w-9 h-[46px] flex items-center justify-center shrink-0"
             style={{ color: panel === "stickers" ? TG.accent : TG.muted }}>
             <Sticker className="w-[22px] h-[22px]" />
           </button>
           <button type="button" onClick={() => setPanel(panel === "emoji" ? null : "emoji")}
-            aria-label={t.emoji} className="w-8 h-[38px] flex items-center justify-center shrink-0"
+            aria-label={t.emoji} className="w-9 h-[46px] flex items-center justify-center shrink-0"
             style={{ color: panel === "emoji" ? TG.accent : TG.muted }}>
             <Smile className="w-[22px] h-[22px]" />
           </button>
@@ -159,13 +156,14 @@ export default function Composer({
           <button type="button" onClick={() => submit()} aria-label={t.send}
             onPointerDown={startHold} onPointerUp={endHold} onPointerLeave={endHold}
             onContextMenu={(e) => { e.preventDefault(); setSendMenu(true); }}
-            className="w-9 h-9 rounded-full flex items-center justify-center text-white active:scale-95 transition-transform shrink-0 on-accent"
-            style={{ background: TG.accentDeep }}>
-            <ArrowUp className="w-5 h-5 stroke-[2.5]" />
+            className="w-[46px] h-[46px] rounded-full flex items-center justify-center text-white active:scale-95 transition-transform shrink-0 on-accent"
+            style={{ background: TG.accentDeep, boxShadow: "0 2px 12px rgba(0,122,255,.35)" }}>
+            <ArrowUp className="w-6 h-6 stroke-[2.5]" />
           </button>
         ) : (
           <button type="button" onClick={() => onAttach("voice")} aria-label={t.voiceMessage}
-            className={iconBtn(false)} style={{ color: TG.muted }}>
+            className="w-[46px] h-[46px] rounded-full flex items-center justify-center shrink-0 backdrop-blur-xl"
+            style={{ color: TG.muted, background: TG.glass, boxShadow: "0 2px 12px rgba(0,0,0,.1)" }}>
             <Mic className="w-[22px] h-[22px]" />
           </button>
         )}
@@ -175,7 +173,7 @@ export default function Composer({
             <>
               <button type="button" aria-label={t.close} onClick={() => setSendMenu(false)} className="fixed inset-0 z-10 cursor-default" />
               <motion.div initial={{ opacity: 0, y: 6, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 6, scale: 0.96 }}
-                className="absolute bottom-12 end-2 z-20 min-w-[200px] rounded-2xl overflow-hidden backdrop-blur-xl divide-y"
+                className="absolute bottom-14 end-0 z-20 min-w-[200px] rounded-2xl overflow-hidden backdrop-blur-xl divide-y"
                 style={{ background: TG.glass, boxShadow: "0 12px 32px rgba(0,0,0,.18)", borderColor: TG.sep }}>
                 <button type="button" onClick={() => submit(true)}
                   className="w-full flex items-center justify-between gap-3 px-4 py-3 text-[15px] text-white text-start">
