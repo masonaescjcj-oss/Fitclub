@@ -20,6 +20,10 @@ export const TG = {
   sep: "var(--tg-sep)",             // hairlines
   pill: "var(--tg-pill)",           // floating tab bar
   pillActive: "var(--tg-pill-active)",
+  glass: "var(--tg-glass)",         // frosted pills over the wallpaper
+  bar: "var(--tg-bar)",             // composer and selection bars
+  action: "var(--tg-action)",       // round profile action buttons
+  actionFg: "var(--tg-action-fg)",
   green: "#34c759",                 // iOS read ticks
 };
 

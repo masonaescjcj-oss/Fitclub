@@ -5,13 +5,14 @@ import { useChatT } from "../../lib/chat/chatI18n";
 import { useChatStore } from "../../lib/chat/chatContext";
 import { STORIES, findUser } from "../../lib/chat/chatStore";
 import { TG } from "../../lib/chat/extras";
-import { relativeTime } from "../../lib/chat/chatModel";
+import { ME, relativeTime } from "../../lib/chat/chatModel";
 import ChatList from "../../components/chat/ChatList";
 import ChatView from "../../components/chat/ChatView";
 import ContactsScreen from "../../components/chat/ContactsScreen";
 import CallsScreen from "../../components/chat/CallsScreen";
 import SettingsScreen from "../../components/chat/SettingsScreen";
 import ProfileScreen from "../../components/chat/ProfileScreen";
+import PeerProfileScreen from "../../components/chat/PeerProfileScreen";
 import { Avatar } from "../../components/chat/ChatBits";
 import { ChatActionsSheet } from "../../components/chat/ChatSheets";
 import { loadSession } from "../../lib/session";
@@ -119,9 +120,17 @@ export default function CommunityPage({ isRtl, onExit }) {
   const [menuChat, setMenuChat] = useState(null);
   const [toast, setToast] = useState("");
   const [story, setStory] = useState(null); // { list, index }
+  const [profileOpen, setProfileOpen] = useState(false); // who you're talking to, over the chat
+  const [searching, setSearching] = useState(false);
 
   const name = loadSession().name || "Isaac";
   const open = store.openedChat;
+  const openPeer = open && open.type === "private" && open.id !== "saved"
+    ? findUser(open.members.find((m) => m !== ME))
+    : null;
+
+  // Leaving a conversation drops whatever was stacked on it.
+  useEffect(() => { setProfileOpen(false); setSearching(false); }, [open?.id]);
 
   useEffect(() => {
     if (!toast) return undefined;
@@ -166,6 +175,7 @@ export default function CommunityPage({ isRtl, onExit }) {
         return <ProfileScreen store={store} name={name} isRtl={isRtl} t={t}
           onBack={() => store.setScreen("settings")}
           onGoSettings={() => store.setScreen("settings")}
+          onToast={setToast}
           onOpenChannel={() => { store.openChat("news"); store.setScreen("list"); }} />;
       default:
         return <ChatList store={store} isRtl={isRtl} t={t}
@@ -186,7 +196,9 @@ export default function CommunityPage({ isRtl, onExit }) {
           exit={{ opacity: 0, x: isRtl ? -16 : 16 }}
           transition={{ duration: 0.15 }}>
           {open
-            ? <ChatView store={store} chat={open} isRtl={isRtl} t={t} onBack={store.closeChat} />
+            ? <ChatView store={store} chat={open} isRtl={isRtl} t={t} onBack={store.closeChat}
+                onOpenProfile={() => setProfileOpen(true)}
+                searching={searching} onSearchClose={() => setSearching(false)} />
             : screenView()}
         </motion.div>
       </AnimatePresence>
@@ -194,6 +206,17 @@ export default function CommunityPage({ isRtl, onExit }) {
       {!open && ROOT_SCREENS.includes(store.screen) && (
         <TabBar screen={store.screen} unread={store.unreadTotal} isRtl={isRtl} t={t} onGo={(s) => store.setScreen(s)} onExit={onExit} />
       )}
+
+      <AnimatePresence>
+        {open && profileOpen && (
+          <PeerProfileScreen store={store} chat={open} user={openPeer} isRtl={isRtl} t={t}
+            onBack={() => setProfileOpen(false)}
+            onToast={setToast}
+            onSearch={() => { setProfileOpen(false); setSearching(true); }}
+            onMore={() => setMenuChat(open)}
+            onOpenChat={(id) => { setProfileOpen(false); if (id && id !== open.id) store.openChat(id); }} />
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {story && (

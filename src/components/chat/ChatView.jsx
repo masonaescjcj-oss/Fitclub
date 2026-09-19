@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence } from "framer-motion";
-import { ArrowLeft, Clock, Pin, Trash2, Forward, X } from "lucide-react";
+import { ChevronLeft, Clock, Forward, Pin, Search, Trash2, X } from "lucide-react";
 import {
   ME, groupByDay, isGroupedWith, relativeTime, scheduledMessages,
 } from "../../lib/chat/chatModel";
@@ -15,18 +15,27 @@ import {
 
 const WAVEFORM = () => Array.from({ length: 22 }, () => 20 + Math.random() * 80);
 
-export default function ChatView({ store, chat, isRtl, t, onBack }) {
+/** A frosted pill floating over the wallpaper, the iOS navigation-bar idiom. */
+const glass = { background: TG.glass, boxShadow: "0 1px 6px rgba(0,0,0,.08)" };
+
+export default function ChatView({ store, chat, isRtl, t, onBack, onOpenProfile, searching = false, onSearchClose }) {
   const [replyTo, setReplyTo] = useState(null);
   const [editing, setEditing] = useState(null);
   const [actionsFor, setActionsFor] = useState(null);
   const [selection, setSelection] = useState([]);
   const [sheet, setSheet] = useState(null); // "forward" | "poll" | "schedule"
   const [translateAll, setTranslateAll] = useState(false);
+  const [query, setQuery] = useState("");
   const [toast, setToast] = useState("");
   const endRef = useRef(null);
 
-  const messages = store.messagesOf(chat.id);
-  const byId = useMemo(() => Object.fromEntries(messages.map((m) => [m.id, m])), [messages]);
+  const all = store.messagesOf(chat.id);
+  const byId = useMemo(() => Object.fromEntries(all.map((m) => [m.id, m])), [all]);
+  const q = searching ? query.trim().toLowerCase() : "";
+  const messages = useMemo(
+    () => (q ? all.filter((m) => (m.text || "").toLowerCase().includes(q) || (m.translation || "").toLowerCase().includes(q)) : all),
+    [all, q]
+  );
   const rows = useMemo(() => groupByDay(messages), [messages]);
   const scheduled = scheduledMessages(store.messages, chat.id);
   const pinned = chat.pinnedMessageId ? byId[chat.pinnedMessageId] : null;
@@ -37,14 +46,16 @@ export default function ChatView({ store, chat, isRtl, t, onBack }) {
   const typingUser = store.typing[chat.id];
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [messages.length, typingUser]);
+    if (!q) endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [all.length, typingUser, q]);
 
   useEffect(() => {
     if (!toast) return undefined;
     const id = setTimeout(() => setToast(""), 1600);
     return () => clearTimeout(id);
   }, [toast]);
+
+  useEffect(() => { if (!searching) setQuery(""); }, [searching]);
 
   const subtitle = typingUser
     ? t.typing
@@ -56,7 +67,8 @@ export default function ChatView({ store, chat, isRtl, t, onBack }) {
           ? t.online
           : peer?.lastSeen
             ? `${t.lastSeen} ${relativeTime(peer.lastSeen, t)}`
-            : "";
+            : chat.id === "saved" ? "" : t.lastSeenRecently;
+  const subtitleLive = !!typingUser || (peer?.online && chat.type === "private");
 
   const send = (patch) => {
     if (editing) {
@@ -88,89 +100,105 @@ export default function ChatView({ store, chat, isRtl, t, onBack }) {
     setSelection((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
 
   const selectionMode = selection.length > 0;
+  const round = "w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-xl text-white shrink-0";
+  const canProfile = chat.id !== "saved";
 
   return (
-    <div className="w-full min-h-[100dvh] text-white flex flex-col" style={{ background: TG.bg }}>
-      {/* Header */}
-      <div className="sticky top-0 z-30 border-b border-white/[0.07]" style={{ background: TG.surface }}>
+    <div className="w-full min-h-[100dvh] text-white flex flex-col tg-wallpaper">
+      {/* Navigation bar: frosted pills over the wallpaper */}
+      <div className="sticky top-0 z-30 px-2 pt-2 pb-1 space-y-1.5">
         {selectionMode ? (
-          <div className="flex items-center gap-2 px-3 h-14">
+          <div className="flex items-center gap-2 h-11 px-2 rounded-full backdrop-blur-xl" style={glass}>
             <button type="button" onClick={() => setSelection([])} aria-label={t.cancel}
-              className="w-9 h-9 rounded-xl flex items-center justify-center text-neutral-300 hover:text-white">
+              className="w-9 h-9 rounded-full flex items-center justify-center text-white">
               <X className="w-5 h-5" />
             </button>
-            <span className="flex-1 text-sm font-black text-white">
-              {selection.length} {t.selected}
-            </span>
+            <span className="flex-1 text-[15px] font-semibold text-white">{selection.length} {t.selected}</span>
             <button type="button" onClick={() => setSheet("forward")} aria-label={t.forward}
-              className="w-9 h-9 rounded-xl flex items-center justify-center text-neutral-300 hover:text-white">
+              className="w-9 h-9 rounded-full flex items-center justify-center" style={{ color: TG.accent }}>
               <Forward className="w-5 h-5" />
             </button>
             <button type="button" aria-label={t.deleteMessage}
               onClick={() => { store.deleteMessages(selection); setSelection([]); }}
-              className="w-9 h-9 rounded-xl flex items-center justify-center text-rose-400">
+              className="w-9 h-9 rounded-full flex items-center justify-center text-rose-400">
               <Trash2 className="w-5 h-5" />
             </button>
           </div>
+        ) : searching ? (
+          <div className="flex items-center gap-2 h-11 ps-3 pe-1 rounded-full backdrop-blur-xl" style={glass}>
+            <Search className="w-4 h-4 shrink-0" style={{ color: TG.muted }} />
+            <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t.searchMessages}
+              aria-label={t.searchMessages}
+              className="flex-1 min-w-0 bg-transparent text-[15px] text-white placeholder:text-neutral-500 focus:outline-none" />
+            {q && <span className="text-[12px] shrink-0" style={{ color: TG.muted }}>{messages.length} {t.results}</span>}
+            <button type="button" onClick={onSearchClose} aria-label={t.close}
+              className="w-9 h-9 rounded-full flex items-center justify-center text-white"><X className="w-5 h-5" /></button>
+          </div>
         ) : (
-          <div className="flex items-center gap-2 px-3 h-14">
-            <button type="button" onClick={onBack} aria-label={t.close}
-              className="w-9 h-9 rounded-xl flex items-center justify-center text-neutral-300 hover:text-white shrink-0">
-              <ArrowLeft className={`w-5 h-5 ${isRtl ? "rotate-180" : ""}`} />
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={onBack} aria-label={t.backToApp} className={round} style={glass}>
+              <ChevronLeft className={`w-6 h-6 ${isRtl ? "rotate-180" : ""}`} />
             </button>
-            <Avatar chat={chat} user={peer} size={38} />
-            <span className="flex-1 min-w-0">
-              <span className="flex items-center gap-1">
-                <span className="text-sm font-black text-white truncate">
-                  {isRtl ? chat.titleFa || chat.title : chat.title}
+            <div className="flex-1 flex justify-center min-w-0">
+              <button type="button" onClick={canProfile ? onOpenProfile : undefined} aria-label={t.infoLabel}
+                className="max-w-full px-4 py-1 rounded-full backdrop-blur-xl text-center" style={glass}>
+                <span className="flex items-center justify-center gap-1">
+                  <span className="text-[15px] font-semibold text-white truncate leading-[19px]">
+                    {isRtl ? chat.titleFa || chat.title : chat.title}
+                  </span>
+                  <NameBadges verified={chat.verified} premium={chat.premium || peer?.premium} size={13} />
                 </span>
-                <NameBadges verified={chat.verified} premium={chat.premium || peer?.premium} size={13} />
-              </span>
-              <span className={`block text-[10px] font-bold truncate ${
-                typingUser ? "text-[#5eb5f7]" : peer?.online ? "text-emerald-400" : "text-neutral-500"
-              }`}>
-                {subtitle}
-              </span>
-            </span>
+                {subtitle && (
+                  <span className="block text-[12px] leading-[15px] truncate" style={{ color: subtitleLive ? TG.accent : TG.muted }}>
+                    {subtitle}
+                  </span>
+                )}
+              </button>
+            </div>
+            <button type="button" onClick={canProfile ? onOpenProfile : undefined} aria-label={t.infoLabel} className="shrink-0 rounded-full" style={{ boxShadow: "0 1px 6px rgba(0,0,0,.12)" }}>
+              <Avatar chat={chat} user={peer} size={40} showStatus={false} />
+            </button>
           </div>
         )}
 
-        {pinned && !selectionMode && (
+        {pinned && !selectionMode && !searching && (
           <button type="button" onClick={() => store.pinMessage(chat.id, pinned.id)}
-            className="w-full flex items-center gap-2 px-3 py-2 border-t border-white/10 bg-white/[0.06] text-start">
-            <Pin className="w-3.5 h-3.5 text-[#5eb5f7] shrink-0" />
-            <span className="min-w-0">
-              <span className="block text-[9px] font-black text-[#5eb5f7] uppercase tracking-wider">{t.pinnedMessage}</span>
-              <span className="block text-[11px] text-neutral-300 truncate">{pinned.text || t.photo}</span>
+            className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-2xl backdrop-blur-xl text-start" style={glass}>
+            <span className="w-0.5 h-7 rounded-full shrink-0" style={{ background: TG.accent }} />
+            <span className="min-w-0 flex-1">
+              <span className="block text-[12px] font-semibold" style={{ color: TG.accent }}>{t.pinnedMessage}</span>
+              <span className="block text-[13px] text-white truncate">{pinned.text || t.photo}</span>
             </span>
+            <Pin className="w-4 h-4 shrink-0" style={{ color: TG.accent }} />
           </button>
         )}
 
-        {messages.some((m) => m.translation && !m.deleted) && !selectionMode && (
+        {all.some((m) => m.translation && !m.deleted) && !selectionMode && !searching && (
           <button type="button" onClick={() => setTranslateAll((v) => !v)}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 border-t border-white/[0.07] text-xs font-black"
-            style={{ color: TG.accent, background: "rgba(51,144,236,0.07)" }}>
+            className="w-full flex items-center justify-center gap-2 px-3 py-1.5 rounded-2xl backdrop-blur-xl text-[13px] font-semibold"
+            style={{ ...glass, color: TG.accent }}>
             🌐 {translateAll ? t.showOriginal : t.translateBar}
           </button>
         )}
 
         {scheduled.length > 0 && (
-          <div className="flex items-center gap-1.5 px-3 py-1.5 border-t border-white/10 bg-amber-500/10">
-            <Clock className="w-3 h-3 text-amber-400" />
-            <span className="text-[10px] font-black text-amber-300">
-              {scheduled.length} {t.scheduledCount}
-            </span>
+          <div className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-2xl backdrop-blur-xl" style={glass}>
+            <Clock className="w-3.5 h-3.5 text-amber-400" />
+            <span className="text-[12px] font-semibold text-amber-400">{scheduled.length} {t.scheduledCount}</span>
           </div>
         )}
       </div>
 
       {/* Messages */}
-      <div className="flex-1 py-3 tg-wallpaper">
+      <div className="flex-1 py-2">
+        {q && rows.length === 0 && (
+          <p className="py-16 text-center text-[13px] font-medium text-white/80">{t.noMessagesFound}</p>
+        )}
         {rows.map((row, i) => {
           if (row.separator) {
             return (
               <div key={row.id} className="flex justify-center my-3">
-                <span className="px-2.5 py-1 rounded-full bg-white/[0.07] text-[10px] font-black text-neutral-400">
+                <span className="px-2.5 py-1 rounded-full bg-black/20 backdrop-blur text-[12px] font-semibold text-white on-accent">
                   {new Date(row.at).toDateString() === new Date().toDateString()
                     ? t.today
                     : new Date(row.at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
@@ -185,6 +213,7 @@ export default function ChatView({ store, chat, isRtl, t, onBack }) {
               chat={chat}
               replyTarget={row.replyTo ? byId[row.replyTo] : null}
               grouped={isGroupedWith(rows[i - 1], row)}
+              tail={!(rows[i + 1] && !rows[i + 1].separator && isGroupedWith(row, rows[i + 1]))}
               isRtl={isRtl} t={t}
               selected={selection.includes(row.id)}
               selectionMode={selectionMode}
@@ -198,10 +227,10 @@ export default function ChatView({ store, chat, isRtl, t, onBack }) {
           );
         })}
 
-        {typingUser && (
+        {typingUser && !q && (
           <div className="flex items-center gap-2 px-4 py-2">
             <Avatar user={findUser(typingUser)} size={24} showStatus={false} />
-            <span className="flex gap-1 px-3 py-2 rounded-2xl bg-[#182533]">
+            <span className="flex gap-1 px-3 py-2 rounded-2xl" style={{ background: TG.inBubble }}>
               {[0, 1, 2].map((d) => (
                 <span key={d} className="w-1.5 h-1.5 rounded-full bg-neutral-500 animate-bounce"
                   style={{ animationDelay: `${d * 0.15}s` }} />
@@ -215,10 +244,11 @@ export default function ChatView({ store, chat, isRtl, t, onBack }) {
 
       {/* Composer — channels are broadcast-only unless you run them. */}
       {chat.type === "channel" && !chat.admins.includes(ME) ? (
-        <div className="sticky bottom-0 bg-black/95 backdrop-blur border-t border-white/10 px-4 py-3 text-center">
-          <span className="text-xs font-black text-neutral-500">
+        <div className="sticky bottom-0 backdrop-blur-xl px-4 py-2" style={{ background: TG.bar, borderTop: `0.5px solid ${TG.sep}` }}>
+          <button type="button" onClick={() => store.toggleMuted(chat.id)}
+            className="w-full h-11 rounded-full text-[15px] font-semibold" style={{ color: TG.accent }}>
             {chat.muted ? t.unmute : t.mute}
-          </span>
+          </button>
         </div>
       ) : (
         <Composer
@@ -237,7 +267,7 @@ export default function ChatView({ store, chat, isRtl, t, onBack }) {
 
       {toast && (
         <div className="fixed bottom-24 inset-x-0 flex justify-center z-40 pointer-events-none">
-          <span className="px-4 py-2 rounded-full bg-white/15 backdrop-blur text-xs font-black text-white">{toast}</span>
+          <span className="px-4 py-2 rounded-full bg-neutral-900/90 backdrop-blur text-xs font-bold text-white">{toast}</span>
         </div>
       )}
 

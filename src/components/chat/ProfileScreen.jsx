@@ -1,18 +1,13 @@
 import React, { useState } from "react";
 import { AnimatePresence } from "framer-motion";
-import { ArrowLeft, AtSign, Cake, ChevronRight, Pencil, Phone, Settings, Smile } from "lucide-react";
+import { Settings, Share2, Smile, Sparkles } from "lucide-react";
 import { GIFTS, TG } from "../../lib/chat/extras";
 import { Sheet } from "./ChatSheets";
+import { ActionRow, Card, ChatPreviewCard, Hero, InfoRow, SectionHeader } from "./ProfileBits";
+import { lastMessage, previewOf, relativeTime } from "../../lib/chat/chatModel";
 
 const AVATARS = ["🏋️", "💪", "🧗", "🏃", "🚴", "🧘", "🥇", "🦾", "😎", "🐺"];
 const STATUSES = ["⭐", "🏆", "🔥", "💪", "⚡", "🥇", "🧊", "🌙", "❤️", "🫡"];
-
-/** The gifts floating around the avatar, the way Telegram scatters them. */
-const FLOATING = [
-  { emoji: "🎂", top: "6%", left: "16%" }, { emoji: "🧢", top: "4%", right: "18%" },
-  { emoji: "🏆", top: "30%", left: "6%" }, { emoji: "🚀", top: "28%", right: "7%" },
-  { emoji: "🧸", top: "52%", left: "14%" }, { emoji: "💍", top: "50%", right: "15%" },
-];
 
 function EmojiPickSheet({ title, options, isRtl, t, onPick, onClose }) {
   return (
@@ -57,101 +52,62 @@ function EditInfoSheet({ me, isRtl, t, onSave, onClose }) {
   );
 }
 
-function InfoRow({ icon: Icon, value, label, dir }) {
-  return (
-    <div className="flex items-start gap-3.5 px-4 py-3">
-      <Icon className="w-4 h-4 text-neutral-500 shrink-0 mt-1" />
-      <span className="min-w-0">
-        <span className="block text-sm font-bold text-white break-words" dir={dir}>{value}</span>
-        <span className="block text-xs font-medium text-neutral-500">{label}</span>
-      </span>
-    </div>
-  );
-}
-
-export default function ProfileScreen({ store, name, isRtl, t, onBack, onGoSettings, onOpenChannel }) {
+/** My own profile, laid out like the iOS client: hero, round actions, cards. */
+export default function ProfileScreen({ store, name, isRtl, t, onBack, onGoSettings, onOpenChannel, onToast }) {
   const me = store.me;
   const [tab, setTab] = useState("gifts");
   const [sheet, setSheet] = useState(null); // "photo" | "status" | "edit"
 
   const age = Math.floor((Date.now() - new Date(`${me.birthday}T00:00:00`)) / (365.25 * 86400000));
   const birthdayLabel = new Date(`${me.birthday}T00:00:00`)
-    .toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+    .toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+
+  const channel = store.chats.find((c) => c.id === "news");
+  const last = channel ? lastMessage(store.messages, channel.id) : null;
+
+  const share = () => {
+    navigator.clipboard?.writeText(`https://t.me/${me.username}`).catch(() => {});
+    onToast?.(t.linkCopied);
+  };
+
+  const actions = [
+    { id: "photo", icon: Smile, label: t.photo, onClick: () => setSheet("photo") },
+    { id: "status", icon: Sparkles, label: t.statusAction, onClick: () => setSheet("status") },
+    { id: "share", icon: Share2, label: t.shareAction, onClick: share },
+    { id: "settings", icon: Settings, label: t.settingsTab, onClick: onGoSettings },
+  ];
 
   return (
-    <div className="w-full min-h-[100dvh] text-white pb-10" style={{ background: TG.bg }}>
-      {/* Colored header with floating gifts */}
-      <div className="relative overflow-hidden pb-5 on-accent" style={{ background: "linear-gradient(180deg,#7c3f78,#5b2d58)" }}>
-        <button type="button" onClick={onBack} aria-label={t.close}
-          className="absolute top-3 z-10 w-9 h-9 rounded-xl flex items-center justify-center text-white/90 hover:text-white ltr:left-3 rtl:right-3">
-          <ArrowLeft className={`w-5 h-5 ${isRtl ? "rotate-180" : ""}`} />
-        </button>
+    <div className="w-full min-h-[100dvh] text-white pb-12" style={{ background: TG.bg }}>
+      <Hero color="#844783" emoji={me.avatar} name={name} subtitle={t.online} isRtl={isRtl} t={t} onBack={onBack}
+        badges={<button type="button" onClick={() => setSheet("status")} aria-label={t.emojiStatus} className="text-[22px] leading-none">{me.emojiStatus}</button>}
+        editLabel={t.edit} onEdit={() => setSheet("edit")} />
+      <ActionRow actions={actions} />
 
-        {FLOATING.map((f, i) => (
-          <span key={i} className="absolute text-xl opacity-90"
-            style={{ top: f.top, left: f.left, right: f.right, filter: "drop-shadow(0 0 10px rgba(255,255,255,0.35))" }}>
-            {f.emoji}
-          </span>
-        ))}
+      {channel && (
+        <>
+          <SectionHeader label={t.channelLabel} trailing={`${channel.subscribers.toLocaleString()} ${t.subscribers}`} />
+          <Card>
+            <ChatPreviewCard chat={channel} title={isRtl ? channel.titleFa || channel.title : channel.title}
+              preview={last ? previewOf(last, isRtl, t) : ""} time={last ? relativeTime(last.at, t) : ""} onClick={onOpenChannel} />
+          </Card>
+        </>
+      )}
 
-        <div className="pt-10 flex flex-col items-center">
-          <span className="w-24 h-24 rounded-full flex items-center justify-center text-5xl bg-black/30 border-2 border-white/25">
-            {me.avatar}
-          </span>
-          <span className="flex items-center gap-1.5 mt-3">
-            <span className="text-xl font-black text-white">{name}</span>
-            <button type="button" onClick={() => setSheet("status")} aria-label={t.emojiStatus}
-              className="text-xl leading-none hover:scale-110 transition-transform">{me.emojiStatus}</button>
-          </span>
-          <span className="text-xs font-bold text-white/70 mt-0.5">{t.online}</span>
-
-          <div className="flex gap-2 mt-4 px-4 w-full max-w-sm">
-            {[
-              { icon: Smile, label: t.setPhoto, act: () => setSheet("photo") },
-              { icon: Pencil, label: t.editInfo, act: () => setSheet("edit") },
-              { icon: Settings, label: t.settingsTitle, act: onGoSettings },
-            ].map(({ icon: Icon, label, act }) => (
-              <button key={label} type="button" onClick={act}
-                className="flex-1 h-16 rounded-2xl bg-white/15 hover:bg-white/25 backdrop-blur flex flex-col items-center justify-center gap-1 transition-colors">
-                <Icon className="w-4 h-4 text-white" />
-                <span className="text-[10px] font-black text-white">{label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Personal channel */}
-      <button type="button" onClick={onOpenChannel}
-        className="mx-3 mt-3 w-[calc(100%-24px)] rounded-2xl flex items-center gap-3 px-4 py-3 text-start hover:bg-white/[0.03] transition-colors"
-        style={{ background: TG.surface }}>
-        <span className="text-xl">📣</span>
-        <span className="flex-1 min-w-0">
-          <span className="flex items-center gap-2">
-            <span className="text-sm font-black" style={{ color: TG.accent }}>{t.myChannel}</span>
-            <span className="px-2 py-0.5 rounded-full bg-white/10 text-[9px] font-black text-neutral-300">
-              12,480 {t.subscribers}
-            </span>
-          </span>
-          <span className="block text-xs font-bold text-neutral-500 truncate">FitClub Announcements</span>
-        </span>
-        <ChevronRight className={`w-4 h-4 text-neutral-600 shrink-0 ${isRtl ? "rotate-180" : ""}`} />
-      </button>
-
-      {/* Info card */}
-      <div className="mx-3 mt-3 rounded-2xl overflow-hidden divide-y divide-white/[0.04]" style={{ background: TG.surface }}>
-        <InfoRow icon={Phone} value={me.phone} label={t.mobile} dir="ltr" />
-        <InfoRow icon={Smile} value={me.bio} label={t.bio} />
-        <InfoRow icon={AtSign} value={`@${me.username}`} label={t.usernameLabel} dir="ltr" />
-        <InfoRow icon={Cake} value={`${birthdayLabel} (${age} ${t.yearsOld})`} label={t.birthday} />
-      </div>
+      <SectionHeader label={t.infoLabel} />
+      <Card>
+        <InfoRow label={t.mobile} value={me.phone} dir="ltr" link />
+        <InfoRow label={t.usernameLabel} value={`@${me.username}`} dir="ltr" link />
+        <InfoRow label={t.birthday} value={`${birthdayLabel} (${age} ${t.yearsOld})`} />
+        <InfoRow label={t.bio} value={me.bio} />
+      </Card>
 
       {/* Gifts / Posts */}
-      <div className="mx-3 mt-3 rounded-2xl overflow-hidden" style={{ background: TG.surface }}>
-        <div className="flex border-b border-white/[0.06]">
+      <Card className="mt-4">
+        <div className="flex border-b" style={{ borderColor: TG.sep }}>
           {[["gifts", `${t.giftsTab} 🎂🏆`], ["posts", t.postsTab]].map(([id, label]) => (
             <button key={id} type="button" onClick={() => setTab(id)}
-              className={`flex-1 py-3 text-xs font-black transition-colors relative ${tab === id ? "text-white" : "text-neutral-500"}`}>
+              className={`flex-1 py-3 text-[14px] font-semibold transition-colors relative ${tab === id ? "text-white" : "text-neutral-500"}`}>
               {label}
               {tab === id && (
                 <span className="absolute bottom-0 left-1/4 right-1/4 h-0.5 rounded-t-full" style={{ background: TG.accentDeep }} />
@@ -159,23 +115,20 @@ export default function ProfileScreen({ store, name, isRtl, t, onBack, onGoSetti
             </button>
           ))}
         </div>
-
         {tab === "gifts" ? (
           <div className="grid grid-cols-3 gap-2 p-3">
             {GIFTS.map((g) => (
-              <div key={g.id} className="rounded-2xl p-3 flex flex-col items-center gap-1.5 relative" style={{ background: g.bg }}>
-                <span className="absolute top-1.5 ltr:left-1.5 rtl:right-1.5 text-[10px]">📌</span>
+              <div key={g.id} className="rounded-2xl p-3 flex flex-col items-center gap-1.5 relative on-accent" style={{ background: g.bg }}>
+                <span className="absolute top-1.5 start-1.5 text-[10px]">📌</span>
                 <span className="text-3xl">{g.emoji}</span>
-                <span className="text-[9px] font-black text-white/90 text-center leading-tight">
-                  {isRtl ? g.nameFa : g.nameEn}
-                </span>
+                <span className="text-[9px] font-black text-white/90 text-center leading-tight">{isRtl ? g.nameFa : g.nameEn}</span>
               </div>
             ))}
           </div>
         ) : (
           <p className="py-10 text-center text-xs font-bold text-neutral-600">{t.noPosts}</p>
         )}
-      </div>
+      </Card>
 
       <AnimatePresence>
         {sheet === "photo" && (

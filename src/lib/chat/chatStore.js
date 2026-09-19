@@ -8,17 +8,23 @@ const ago = (mins) => new Date(Date.now() - mins * 60000).toISOString();
 
 export const PEOPLE = [
   createUser({ id: "sara", name: "Sara Jenkins", nameFa: "سارا جنکینز", avatar: "👩‍🦰", color: "#e0567d",
-    premium: true, emojiStatus: "🏆", bio: "Marathon in 12 weeks. Coffee first.", online: true }),
+    premium: true, emojiStatus: "🏆", bio: "Marathon in 12 weeks. Coffee first.", online: true,
+    phone: "+1 415 555 0132", username: "sara_runs", birthday: "1996-03-14" }),
   createUser({ id: "amir", name: "Amir Reza", nameFa: "امیررضا", avatar: "🧔", color: "#38bdf8",
-    bio: "Powerlifting. 180kg deadlift club.", online: false, lastSeen: ago(23) }),
+    bio: "Powerlifting. 180kg deadlift club.", online: false, lastSeen: ago(23),
+    phone: "+98 912 555 0199", username: "amir_lifts", birthday: "1993-08-02" }),
   createUser({ id: "lena", name: "Lena Cole", nameFa: "لنا کول", avatar: "👩‍💼", color: "#f59e0b",
-    premium: true, emojiStatus: "⚡", bio: "CrossFit coach", online: true }),
+    premium: true, emojiStatus: "⚡", bio: "CrossFit coach", online: true,
+    phone: "+44 7700 900123", username: "lena_wod", birthday: "1991-11-26" }),
   createUser({ id: "mo", name: "Mohammad K.", nameFa: "محمد ک.", avatar: "🧑‍🦱", color: "#10b981",
-    bio: "Just here for the protein recipes", online: false, lastSeen: ago(180) }),
+    bio: "Just here for the protein recipes", online: false, lastSeen: ago(180),
+    phone: "+98 935 555 0140", username: "mo_k", birthday: "1998-05-19" }),
   createUser({ id: "yuki", name: "Yuki Tanaka", nameFa: "یوکی تاناکا", avatar: "👧", color: "#8b5cf6",
-    bio: "Yoga + mobility", online: false, lastSeen: ago(1440) }),
+    bio: "Yoga + mobility", online: false, lastSeen: ago(1440),
+    phone: "+81 90 5555 0177", username: "yuki_flow", birthday: "1995-01-08" }),
   createUser({ id: "coach", name: "Coach Dana", nameFa: "مربی دانا", avatar: "🦾", color: "#844783",
-    verified: true, premium: true, emojiStatus: "💪", bio: "Head coach at FitClub", online: true }),
+    verified: true, premium: true, emojiStatus: "💪", bio: "Head coach at FitClub", online: true,
+    phone: "+98 912 000 1000", username: "coach_dana", birthday: "1988-06-21" }),
 ];
 
 /** The athlete's own messenger profile — editable from the Profile screen. */

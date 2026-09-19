@@ -102,7 +102,7 @@ function Voice({ message, t }) {
 }
 
 export default function MessageBubble({
-  message, chat, replyTarget, grouped, isRtl, t, selected, selectionMode, translateAll,
+  message, chat, replyTarget, grouped, tail = true, isRtl, t, selected, selectionMode, translateAll,
   onSelect, onLongPress, onReact, onVote, onJumpToReply,
 }) {
   const mine = isMine(message);
@@ -143,15 +143,15 @@ export default function MessageBubble({
           onPointerLeave={endPress}
           onClick={() => (selectionMode ? onSelect(message.id) : null)}
           onContextMenu={(e) => { e.preventDefault(); onLongPress(message); }}
-          className={`relative ${isSticker ? "" : "px-3 py-2 rounded-2xl"} ${
+          className={`relative ${isSticker ? "pb-3" : `tg-bubble px-3 py-1.5 rounded-[18px] ${tail ? "tg-tail" : ""}`} ${
             isSticker
               ? ""
               : mine && !isChannel
-                ? "text-white rounded-br-md"
-                : "bg-[#182533] text-white rounded-bl-md"
+                ? `tg-out text-white ${tail ? "rounded-ee-[6px]" : ""}`
+                : `tg-in text-white ${tail ? "rounded-es-[6px]" : ""}`
           } ${selectionMode ? "cursor-pointer" : ""}`}
-          style={!isSticker && mine && !isChannel
-            ? { background: TG.outBubble }
+          style={!isSticker
+            ? { background: mine && !isChannel ? TG.outBubble : TG.inBubble }
             : undefined}
         >
           {showSender && (
@@ -174,7 +174,13 @@ export default function MessageBubble({
           {message.deleted ? (
             <p className="text-xs italic text-white/50">{t.deletedMessage}</p>
           ) : isSticker ? (
-            <span className="text-6xl leading-none block">{message.media?.emoji}</span>
+            <>
+              <span className="text-7xl leading-none block">{message.media?.emoji}</span>
+              <span className="absolute bottom-0 end-0 flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/40 backdrop-blur text-[10px] font-semibold text-white on-accent" dir="ltr">
+                {timeOf(message.at)}
+                <Ticks message={message} color="#fff" className="w-3.5 h-3.5" />
+              </span>
+            </>
           ) : message.kind === "poll" ? (
             <Poll message={message} t={t} onVote={onVote} />
           ) : message.kind === "voice" ? (
@@ -200,7 +206,7 @@ export default function MessageBubble({
             </span>
           ) : (
             <>
-              <p className="text-sm font-medium whitespace-pre-wrap break-words leading-snug" dir="auto">
+              <p className="text-[16px] font-normal whitespace-pre-wrap break-words leading-[21px]" dir="auto">
                 {(translateAll || message.showTranslation) && message.translation
                   ? message.translation
                   : message.text}
@@ -221,8 +227,8 @@ export default function MessageBubble({
                 </span>
               )}
               {message.editedAt && <span className="text-[9px] font-bold text-white/50">{t.edited}</span>}
-              <span className="text-[9px] font-bold text-white/50 tabular-nums">{timeOf(message.at)}</span>
-              <Ticks message={message} />
+              <span className="text-[11px] font-medium text-white/50 tabular-nums">{timeOf(message.at)}</span>
+              <Ticks message={message} color={message.status === "read" ? TG.accent : undefined} />
             </span>
           )}
 

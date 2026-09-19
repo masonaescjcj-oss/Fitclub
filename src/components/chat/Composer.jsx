@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Clock, Image, Mic, Paperclip, Send, Smile, Sticker, VolumeX, X } from "lucide-react";
+import { ArrowUp, Clock, Image, Mic, Paperclip, Smile, Sticker, VolumeX, X } from "lucide-react";
+import { TG } from "../../lib/chat/extras";
 import { senderColor, senderName } from "./ChatBits";
 
 const EMOJI = ["😀","😁","😂","🤣","😊","😍","😘","😎","🤔","😴","🙄","😮","😢","😤","🥵","🤝","🙏","👍","👎","👏","💪","🔥","⚡","🏆","🥇","🎯","💯","❤️","🩶","✅","🏋️","🏃","🚴","🧘","🥗","🍗","💧","😮‍💨"];
@@ -17,15 +18,15 @@ const ATTACHMENTS = [
 function ContextStrip({ mode, message, isRtl, t, onCancel }) {
   if (!message) return null;
   return (
-    <div className="flex items-center gap-2 px-3 py-2 border-b border-white/10 bg-black/40">
+    <div className="flex items-center gap-2 px-3 py-2 border-b" style={{ borderColor: TG.sep }}>
       <span className="w-0.5 h-8 rounded-full shrink-0"
         style={{ background: mode === "edit" ? "#f59e0b" : senderColor(message.senderId) }} />
       <span className="flex-1 min-w-0">
-        <span className="block text-[10px] font-black"
+        <span className="block text-[12px] font-semibold"
           style={{ color: mode === "edit" ? "#f59e0b" : senderColor(message.senderId) }}>
           {mode === "edit" ? t.editingMessage : senderName(message.senderId, isRtl)}
         </span>
-        <span className="block text-[11px] text-neutral-400 truncate">{message.text || t.photo}</span>
+        <span className="block text-[13px] text-neutral-400 truncate">{message.text || t.photo}</span>
       </span>
       <button type="button" onClick={onCancel} aria-label={t.cancel}
         className="w-7 h-7 rounded-lg flex items-center justify-center text-neutral-500 hover:text-white shrink-0">
@@ -35,13 +36,19 @@ function ContextStrip({ mode, message, isRtl, t, onCancel }) {
   );
 }
 
+/**
+ * The iOS composer: paperclip, a rounded field with emoji and sticker
+ * toggles inside, and a round blue send button. Holding the send button
+ * offers silent and scheduled sending, as the real client does.
+ */
 export default function Composer({
   chat, draft, replyTo, editing, isRtl, t,
   onChangeDraft, onSend, onAttach, onCancelContext, onOpenSchedule,
 }) {
   const [panel, setPanel] = useState(null); // "emoji" | "stickers" | "attach"
-  const [silent, setSilent] = useState(false);
+  const [sendMenu, setSendMenu] = useState(false);
   const inputRef = useRef(null);
+  const holdTimer = useRef(null);
 
   useEffect(() => {
     if (editing || replyTo) inputRef.current?.focus();
@@ -49,10 +56,11 @@ export default function Composer({
 
   const canSend = draft.trim().length > 0;
 
-  const submit = () => {
+  const submit = (silent = false) => {
     if (!canSend) return;
     onSend({ text: draft.trim(), silent });
     setPanel(null);
+    setSendMenu(false);
   };
 
   const insert = (char) => {
@@ -60,8 +68,13 @@ export default function Composer({
     inputRef.current?.focus();
   };
 
+  const startHold = () => { holdTimer.current = setTimeout(() => setSendMenu(true), 450); };
+  const endHold = () => { clearTimeout(holdTimer.current); holdTimer.current = null; };
+
+  const iconBtn = (active) => `w-9 h-9 rounded-full flex items-center justify-center shrink-0 transition-colors ${active ? "" : "hover:text-white"}`;
+
   return (
-    <div className="sticky bottom-0 z-20 bg-black/95 backdrop-blur border-t border-white/10">
+    <div className="sticky bottom-0 z-20 backdrop-blur-xl" style={{ background: TG.bar, borderTop: `0.5px solid ${TG.sep}` }}>
       <ContextStrip
         mode={editing ? "edit" : "reply"}
         message={editing || replyTo}
@@ -73,7 +86,7 @@ export default function Composer({
         {panel && (
           <motion.div
             initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}
-            className="overflow-hidden border-b border-white/10"
+            className="overflow-hidden border-b" style={{ borderColor: TG.sep }}
           >
             {panel === "attach" ? (
               <div className="grid grid-cols-4 gap-2 p-4">
@@ -87,7 +100,7 @@ export default function Composer({
                         style={{ background: `${a.tint}22`, border: `1px solid ${a.tint}55`, color: a.tint }}>
                         <Icon className="w-5 h-5" />
                       </span>
-                      <span className="text-[9px] font-black text-neutral-400">{t[a.label]}</span>
+                      <span className="text-[11px] font-medium text-neutral-400">{t[a.label]}</span>
                     </button>
                   );
                 })}
@@ -109,24 +122,15 @@ export default function Composer({
         )}
       </AnimatePresence>
 
-      <div className="flex items-end gap-1.5 px-2 py-2">
+      <div className="flex items-end gap-1.5 px-2 py-1.5 relative">
         <button type="button" onClick={() => setPanel(panel === "attach" ? null : "attach")}
-          aria-label={t.attach}
-          className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
-            panel === "attach" ? "text-[#5eb5f7]" : "text-neutral-500 hover:text-white"
-          }`}>
-          <Paperclip className="w-5 h-5" />
+          aria-label={t.attach} className={iconBtn(panel === "attach")}
+          style={{ color: panel === "attach" ? TG.accent : TG.muted }}>
+          <Paperclip className="w-[22px] h-[22px]" />
         </button>
 
-        <div className="flex-1 flex items-end gap-1 rounded-2xl bg-[#141416] border border-white/10 px-2 py-1 min-w-0">
-          <button type="button" onClick={() => setPanel(panel === "emoji" ? null : "emoji")}
-            aria-label={t.emoji}
-            className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-              panel === "emoji" ? "text-[#5eb5f7]" : "text-neutral-500 hover:text-white"
-            }`}>
-            <Smile className="w-5 h-5" />
-          </button>
-
+        <div className="flex-1 flex items-end rounded-[20px] min-h-[38px] ps-3.5 pe-1 min-w-0"
+          style={{ background: TG.inBubble, border: `0.5px solid ${TG.sep}` }}>
           <textarea
             ref={inputRef}
             rows={1}
@@ -136,41 +140,55 @@ export default function Composer({
               if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submit(); }
             }}
             placeholder={t.message}
-            className="flex-1 min-w-0 bg-transparent py-1.5 text-sm font-medium text-white placeholder:text-neutral-600 resize-none focus:outline-none max-h-28"
+            aria-label={t.message}
+            className="flex-1 min-w-0 bg-transparent py-2 text-[16px] leading-[22px] text-white placeholder:text-neutral-500 resize-none focus:outline-none max-h-28"
           />
-
           <button type="button" onClick={() => setPanel(panel === "stickers" ? null : "stickers")}
-            aria-label={t.stickers}
-            className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-              panel === "stickers" ? "text-[#5eb5f7]" : "text-neutral-500 hover:text-white"
-            }`}>
-            <Sticker className="w-5 h-5" />
+            aria-label={t.stickers} className="w-8 h-[38px] flex items-center justify-center shrink-0"
+            style={{ color: panel === "stickers" ? TG.accent : TG.muted }}>
+            <Sticker className="w-[22px] h-[22px]" />
+          </button>
+          <button type="button" onClick={() => setPanel(panel === "emoji" ? null : "emoji")}
+            aria-label={t.emoji} className="w-8 h-[38px] flex items-center justify-center shrink-0"
+            style={{ color: panel === "emoji" ? TG.accent : TG.muted }}>
+            <Smile className="w-[22px] h-[22px]" />
           </button>
         </div>
 
         {canSend ? (
-          <div className="flex items-center gap-1 shrink-0">
-            <button type="button" onClick={() => setSilent((v) => !v)} aria-label={t.sendSilently}
-              className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${
-                silent ? "text-amber-400" : "text-neutral-600 hover:text-white"
-              }`}>
-              <VolumeX className="w-4 h-4" />
-            </button>
-            <button type="button" onClick={onOpenSchedule} aria-label={t.schedule}
-              className="w-9 h-9 rounded-xl flex items-center justify-center text-neutral-600 hover:text-white">
-              <Clock className="w-4 h-4" />
-            </button>
-            <button type="button" onClick={submit} aria-label={t.send}
-              className="w-10 h-10 rounded-full bg-[#3390ec] flex items-center justify-center text-white hover:brightness-110 active:scale-95 transition-all">
-              <Send className={`w-4 h-4 ${isRtl ? "scale-x-[-1]" : ""}`} />
-            </button>
-          </div>
+          <button type="button" onClick={() => submit()} aria-label={t.send}
+            onPointerDown={startHold} onPointerUp={endHold} onPointerLeave={endHold}
+            onContextMenu={(e) => { e.preventDefault(); setSendMenu(true); }}
+            className="w-9 h-9 rounded-full flex items-center justify-center text-white active:scale-95 transition-transform shrink-0 on-accent"
+            style={{ background: TG.accentDeep }}>
+            <ArrowUp className="w-5 h-5 stroke-[2.5]" />
+          </button>
         ) : (
           <button type="button" onClick={() => onAttach("voice")} aria-label={t.voiceMessage}
-            className="w-10 h-10 rounded-full bg-[#141416] border border-white/10 flex items-center justify-center text-neutral-400 hover:text-white shrink-0">
-            <Mic className="w-5 h-5" />
+            className={iconBtn(false)} style={{ color: TG.muted }}>
+            <Mic className="w-[22px] h-[22px]" />
           </button>
         )}
+
+        <AnimatePresence>
+          {sendMenu && canSend && (
+            <>
+              <button type="button" aria-label={t.close} onClick={() => setSendMenu(false)} className="fixed inset-0 z-10 cursor-default" />
+              <motion.div initial={{ opacity: 0, y: 6, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 6, scale: 0.96 }}
+                className="absolute bottom-12 end-2 z-20 min-w-[200px] rounded-2xl overflow-hidden backdrop-blur-xl divide-y"
+                style={{ background: TG.glass, boxShadow: "0 12px 32px rgba(0,0,0,.18)", borderColor: TG.sep }}>
+                <button type="button" onClick={() => submit(true)}
+                  className="w-full flex items-center justify-between gap-3 px-4 py-3 text-[15px] text-white text-start">
+                  {t.sendSilently} <VolumeX className="w-5 h-5 text-neutral-500" />
+                </button>
+                <button type="button" onClick={() => { setSendMenu(false); onOpenSchedule(); }}
+                  className="w-full flex items-center justify-between gap-3 px-4 py-3 text-[15px] text-white text-start">
+                  {t.schedule} <Clock className="w-5 h-5 text-neutral-500" />
+                </button>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

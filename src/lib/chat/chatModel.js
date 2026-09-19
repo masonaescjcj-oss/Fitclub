@@ -26,6 +26,9 @@ export function createUser(patch = {}) {
     emojiStatus: null,
     online: false,
     lastSeen: null,
+    phone: "",
+    username: "",
+    birthday: null,
     ...patch,
   };
 }
