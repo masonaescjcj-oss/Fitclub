@@ -117,6 +117,7 @@ function seed() {
     id: "squad", type: "group", title: "Squad Shred", titleFa: "گروه چالش",
     emoji: "⚡", color: "#e0567d", members: [ME, "sara", "amir", "lena", "mo"],
     admins: [ME, "sara"], folders: ["gym", "people"], lastReadAt: ago(12),
+    description: "14-day shred. Post your sessions, no excuses.", inviteLink: "fitclub.app/+SquadShred14", createdBy: "sara", createdAt: ago(60 * 24 * 20),
   });
   chats.push(squad);
   push("squad", { id: "m-squad-1", senderId: "sara", at: ago(300), status: "read",
@@ -140,6 +141,8 @@ function seed() {
     id: "news", type: "channel", title: "FitClub Announcements", titleFa: "اطلاعیه‌های فیت‌کلاب",
     emoji: "📣", color: "#f59e0b", members: [ME, "coach"], admins: ["coach"],
     verified: true, subscribers: 12480, muted: true, folders: ["gym", "work"], lastReadAt: ago(0),
+    description: "Schedules, closures and news from the FitClub team.", isPublic: true, username: "fitclub_news",
+    inviteLink: "fitclub.app/+FitClubNews2026", createdBy: "coach", createdAt: ago(60 * 24 * 90),
   });
   chats.push(channel);
   push("news", { senderId: "coach", at: ago(1440), status: "read", views: 11204,

@@ -49,12 +49,12 @@ export function ActionRow({ actions }) {
         const Icon = a.icon;
         return (
           <button key={a.id} type="button" onClick={a.onClick} aria-label={a.label}
-            className="flex flex-col items-center gap-1.5 w-[62px] active:scale-95 transition-transform">
+            className="flex flex-col items-center gap-1.5 min-w-[62px] active:scale-95 transition-transform">
             <span className="w-[56px] h-[56px] rounded-full flex items-center justify-center backdrop-blur-xl"
               style={{ background: TG.action, color: TG.actionFg }}>
               <Icon className="w-6 h-6" />
             </span>
-            <span className="text-[12px] font-medium text-white">{a.label}</span>
+            <span className="text-[12px] font-medium text-white whitespace-nowrap">{a.label}</span>
           </button>
         );
       })}

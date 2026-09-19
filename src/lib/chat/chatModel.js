@@ -54,6 +54,12 @@ export function createChat(patch = {}) {
     verified: false,
     premium: false,
     subscribers: 0,
+    description: "",    // groups and channels: the "about" text
+    username: "",       // public link slug, e.g. fitclub.app/<username>
+    isPublic: false,    // public = anyone can find it by link; private = invite link only
+    inviteLink: "",     // fitclub.app/+<token>, for private groups and channels
+    createdBy: null,
+    createdAt: null,
     ...patch,
   };
 }
@@ -87,6 +93,78 @@ export function createMessage(patch = {}) {
     ...patch,
   };
 }
+
+/* ──────────────────────────── groups & channels ──────────────────────────── */
+
+/** Where public links live. There is no server yet; the host is the app's own. */
+export const LINK_HOST = "fitclub.app";
+
+/** Public usernames follow Telegram's rules: a–z, 0–9, underscores, five or more. */
+export const USERNAME_MIN = 5;
+export const USERNAME_MAX = 32;
+const USERNAME_RE = /^[a-z0-9_]+$/;
+
+/** Slugs the app keeps for itself. */
+const RESERVED = ["admin", "fitclub", "support", "help", "settings", "me", "saved"];
+
+/**
+ * Checks a public link slug against the rules and the other chats.
+ * Returns null when it is fine, otherwise an error code the UI translates:
+ * "short" | "long" | "chars" | "start" | "taken".
+ */
+export function validateUsername(raw, chats = [], selfId = null) {
+  const slug = String(raw || "").trim().toLowerCase();
+  if (slug.length < USERNAME_MIN) return "short";
+  if (slug.length > USERNAME_MAX) return "long";
+  if (!USERNAME_RE.test(slug)) return "chars";
+  if (/^[0-9_]/.test(slug)) return "start";
+  if (RESERVED.includes(slug)) return "taken";
+  const clash = chats.some((c) => c.id !== selfId && (c.username || "").toLowerCase() === slug);
+  return clash ? "taken" : null;
+}
+
+/** A fresh private invite link, the way Telegram's `t.me/+…` ones look. */
+export function makeInviteLink() {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+  let token = "";
+  for (let i = 0; i < 16; i += 1) token += alphabet[Math.floor(Math.random() * alphabet.length)];
+  return `${LINK_HOST}/+${token}`;
+}
+
+/** The link people join through: the public one when there is a username. */
+export const chatLink = (chat) =>
+  chat.isPublic && chat.username ? `${LINK_HOST}/${chat.username}` : chat.inviteLink || "";
+
+export const isAdminOf = (chat, userId = ME) => (chat.admins || []).includes(userId);
+
+/** A group the athlete just made: everyone picked is in, the creator is admin. */
+export function buildGroupChat({ title, memberIds = [], emoji = "👥", color = "#2fa6ff", description = "", now = new Date().toISOString() }) {
+  const others = [...new Set(memberIds.filter((id) => id && id !== ME))];
+  return createChat({
+    type: "group", title, titleFa: title, emoji, color, description,
+    members: [ME, ...others], admins: [ME], folders: ["people"],
+    inviteLink: makeInviteLink(), createdBy: ME, createdAt: now, lastReadAt: now,
+  });
+}
+
+/** A channel the athlete just made; subscribers count the people added. */
+export function buildChannelChat({ title, description = "", isPublic = false, username = "", memberIds = [], emoji = "📣", color = "#f59e0b", now = new Date().toISOString() }) {
+  const others = [...new Set(memberIds.filter((id) => id && id !== ME))];
+  return createChat({
+    type: "channel", title, titleFa: title, emoji, color, description,
+    isPublic: !!isPublic, username: isPublic ? String(username).trim().toLowerCase() : "",
+    members: [ME, ...others], admins: [ME], subscribers: 1 + others.length,
+    inviteLink: makeInviteLink(), createdBy: ME, createdAt: now, lastReadAt: now,
+  });
+}
+
+/** The "Channel created" pill Telegram drops into a brand-new chat. */
+export const createdSystemMessage = (chat) =>
+  createMessage({
+    chatId: chat.id, senderId: ME, kind: "system", status: "read", at: chat.createdAt || new Date().toISOString(),
+    text: chat.type === "channel" ? "Channel created" : "Group created",
+    textFa: chat.type === "channel" ? "کانال ساخته شد" : "گروه ساخته شد",
+  });
 
 /* ──────────────────────────── selectors ──────────────────────────── */
 

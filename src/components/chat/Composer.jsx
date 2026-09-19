@@ -136,8 +136,8 @@ export default function Composer({
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submit(); }
             }}
-            placeholder={t.message}
-            aria-label={t.message}
+            placeholder={chat.type === "channel" ? t.broadcast : t.message}
+            aria-label={chat.type === "channel" ? t.broadcast : t.message}
             className="flex-1 min-w-0 bg-transparent py-3 text-[16px] leading-[22px] text-white placeholder:text-neutral-500 resize-none focus:outline-none max-h-28"
           />
           <button type="button" onClick={() => setPanel(panel === "stickers" ? null : "stickers")}

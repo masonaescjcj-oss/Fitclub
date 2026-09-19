@@ -1,11 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, MessageCircle, Settings, UserCircle2, X } from "lucide-react";
+import { ArrowLeft, Check, MessageCircle, Settings, UserCircle2, X } from "lucide-react";
 import { useChatT } from "../../lib/chat/chatI18n";
 import { useChatStore } from "../../lib/chat/chatContext";
 import { STORIES, findUser } from "../../lib/chat/chatStore";
 import { TG } from "../../lib/chat/extras";
-import { ME, relativeTime } from "../../lib/chat/chatModel";
+import { ME, makeInviteLink, relativeTime } from "../../lib/chat/chatModel";
 import { localized } from "../../lib/checklistModel";
 import ChatList from "../../components/chat/ChatList";
 import ChatView from "../../components/chat/ChatView";
@@ -15,6 +15,7 @@ import SettingsScreen from "../../components/chat/SettingsScreen";
 import ProfileScreen from "../../components/chat/ProfileScreen";
 import PeerProfileScreen from "../../components/chat/PeerProfileScreen";
 import BuddyDiscoverScreen, { BuddyPrefsSheet, ChallengeSheet, CrewSheet, ReportSheet } from "../../components/chat/BuddyScreens";
+import { ChatDetailsScreen, ChatTypeScreen, MemberActionsSheet, MemberPickerScreen } from "../../components/chat/CreateScreens";
 import { useBuddyT } from "../../lib/buddy/buddyI18n";
 import {
   botAnon, botChallenge, botChallengeDone, botCrewCreated, botFallback, botLeaderboard, botMatched, botMatches, botMenu,
@@ -139,6 +140,11 @@ export default function CommunityPage({ isRtl, onExit }) {
   const [challengeFor, setChallengeFor] = useState(null); // crew chat id awaiting a challenge
   const [reporting, setReporting] = useState(false);
   const [prefsOpen, setPrefsOpen] = useState(false);
+  // Making a group or channel walks through a few pushed screens; this is where it stands.
+  const [creating, setCreating] = useState(null); // { kind, step, draft }
+  const [editing, setEditing] = useState(null);   // { chatId, screen: "details" | "type" }
+  const [addingTo, setAddingTo] = useState(null); // chat id getting new members
+  const [memberAction, setMemberAction] = useState(null); // member an admin tapped
   const pending = useRef([]); // timers for teammates who answer later
 
   // The athlete's match card, rebuilt from live data whenever it changes.
@@ -281,11 +287,46 @@ export default function CommunityPage({ isRtl, onExit }) {
     pending.current.push(setTimeout(() => store.buddyReveal(chatId), 2500));
   };
 
+  /* ── groups & channels ── */
+  const startGroup = () => setCreating({ kind: "group", step: "members", draft: { memberIds: [] } });
+  const startChannel = () => setCreating({ kind: "channel", step: "details", draft: { inviteLink: makeInviteLink(), isPublic: false, username: "" } });
+  const finishCreate = (draft) => {
+    const chatId = draft.kind === "channel" ? store.createChannel(draft) : store.createGroup(draft);
+    setCreating(null);
+    store.setScreen("list");
+    store.openChat(chatId);
+  };
+  const advance = (patch) => {
+    const next = { ...creating, draft: { ...creating.draft, ...patch } };
+    if (next.kind === "group") {
+      if (next.step === "members") { setCreating({ ...next, step: "details" }); return; }
+      finishCreate({ kind: "group", ...next.draft });
+      return;
+    }
+    if (next.step === "details") { setCreating({ ...next, step: "type" }); return; }
+    if (next.step === "type") { setCreating({ ...next, step: "members" }); return; }
+    finishCreate({ kind: "channel", ...next.draft });
+  };
+  const retreat = () => {
+    if (!creating) return;
+    const order = creating.kind === "group" ? ["members", "details"] : ["details", "type", "members"];
+    const i = order.indexOf(creating.step);
+    if (i <= 0) setCreating(null); else setCreating({ ...creating, step: order[i - 1] });
+  };
+  const editingChat = editing ? store.chats.find((c) => c.id === editing.chatId) : null;
+  const leaveOrDelete = (chat, own) => {
+    if (!window.confirm(own ? t.deleteOwnedConfirm : t.leaveConfirm)) return;
+    setProfileOpen(false);
+    if (own) store.deleteChat(chat.id); else store.leaveChat(chat.id);
+    store.closeChat();
+  };
+
   const screenView = () => {
     switch (store.screen) {
       case "contacts":
         return <ContactsScreen store={store} isRtl={isRtl} t={t}
-          onBack={() => store.setScreen("list")} onGoCalls={() => store.setScreen("calls")} />;
+          onBack={() => store.setScreen("list")} onGoCalls={() => store.setScreen("calls")}
+          onNewGroup={startGroup} onNewChannel={startChannel} />;
       case "calls":
         return <CallsScreen isRtl={isRtl} t={t}
           onBack={() => store.setScreen("list")} onToast={setToast} />;
@@ -350,7 +391,69 @@ export default function CommunityPage({ isRtl, onExit }) {
               if (window.confirm(t.blockConfirm(name))) { store.blockUser(openPeer.id); setProfileOpen(false); }
             }}
             onUnblock={() => { store.unblockUser(openPeer.id); setToast(t.unblocked); }}
-            onOpenChat={(id) => { setProfileOpen(false); if (id && id !== open.id) store.openChat(id); }} />
+            onOpenChat={(id) => { setProfileOpen(false); if (id && id !== open.id) store.openChat(id); }}
+            onEditInfo={() => setEditing({ chatId: open.id, screen: "details" })}
+            onOpenSettings={() => setEditing({ chatId: open.id, screen: "type" })}
+            onAddMembers={() => setAddingTo(open.id)}
+            onMemberAction={setMemberAction}
+            onLeave={() => leaveOrDelete(open, false)}
+            onDeleteChat={() => leaveOrDelete(open, true)} />
+        )}
+      </AnimatePresence>
+
+      {/* ── making a group or channel ── */}
+      <AnimatePresence>
+        {creating && creating.step === "members" && (
+          <MemberPickerScreen key={`${creating.kind}-members`} store={store} isRtl={isRtl} t={t}
+            title={creating.kind === "channel" ? t.addSubscribers : t.newGroup}
+            placeholder={creating.kind === "channel" ? t.addPeopleChannelPh : t.addPeoplePh}
+            initial={creating.draft.memberIds || []}
+            doneIcon={creating.kind === "channel" ? Check : undefined} doneLabel={creating.kind === "channel" ? t.create : t.next}
+            onBack={retreat} onDone={(memberIds) => advance({ memberIds })} />
+        )}
+        {creating && creating.step === "details" && (
+          <ChatDetailsScreen key={`${creating.kind}-details`} kind={creating.kind} initial={creating.draft} isRtl={isRtl} t={t}
+            title={creating.kind === "channel" ? t.newChannel : t.newGroup}
+            nextIcon={creating.kind === "group" ? Check : undefined} nextLabel={creating.kind === "group" ? t.create : t.next}
+            onBack={retreat} onNext={advance} />
+        )}
+        {creating && creating.step === "type" && (
+          <ChatTypeScreen key="channel-type" kind="channel" draft={creating.draft} chats={store.chats} isRtl={isRtl} t={t}
+            onBack={retreat} onDone={advance} onToast={setToast} />
+        )}
+      </AnimatePresence>
+
+      {/* ── running one: edit info, change type / link, add people ── */}
+      <AnimatePresence>
+        {editingChat && editing.screen === "details" && (
+          <ChatDetailsScreen key="edit-details" kind={editingChat.type} initial={editingChat} isRtl={isRtl} t={t}
+            title={t.edit} nextIcon={Check} nextLabel={t.saveChanges}
+            onBack={() => setEditing(null)}
+            onNext={(patch) => { store.updateChatInfo(editingChat.id, patch); setEditing(null); setToast(t.chatInfoSaved); }} />
+        )}
+        {editingChat && editing.screen === "type" && (
+          <ChatTypeScreen key="edit-type" kind={editingChat.type} draft={editingChat} chats={store.chats} selfId={editingChat.id} isRtl={isRtl} t={t}
+            nextIcon={Check} nextLabel={t.saveChanges}
+            onBack={() => setEditing(null)} onToast={setToast}
+            onRevoke={() => { store.regenerateInviteLink(editingChat.id); setToast(t.linkRevoked); }}
+            onDone={(patch) => { store.updateChatInfo(editingChat.id, patch); setEditing(null); setToast(t.chatInfoSaved); }} />
+        )}
+        {addingTo && open && (
+          <MemberPickerScreen key="add-members" store={store} isRtl={isRtl} t={t}
+            title={open.type === "channel" ? t.addSubscribers : t.addMembers}
+            placeholder={open.type === "channel" ? t.addPeopleChannelPh : t.addPeoplePh}
+            exclude={open.members} allowEmpty={false} doneIcon={Check} doneLabel={t.done}
+            onBack={() => setAddingTo(null)}
+            onDone={(ids) => { store.addMembers(open.id, ids); setAddingTo(null); }} />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {memberAction && open && (
+          <MemberActionsSheet user={memberAction} chat={open} isRtl={isRtl} t={t}
+            onToggleAdmin={() => { store.toggleAdmin(open.id, memberAction.id); setMemberAction(null); }}
+            onRemove={() => { store.removeMember(open.id, memberAction.id); setMemberAction(null); }}
+            onClose={() => setMemberAction(null)} />
         )}
       </AnimatePresence>
 

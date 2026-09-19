@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { AnimatePresence } from "framer-motion";
-import { ArrowLeft, Phone, Search, UserPlus } from "lucide-react";
+import { ArrowLeft, Megaphone, Phone, Search, UserPlus, Users } from "lucide-react";
 import { PEOPLE } from "../../lib/chat/chatStore";
 import { TG } from "../../lib/chat/extras";
 import { timeOf } from "../../lib/chat/chatModel";
@@ -40,7 +40,7 @@ function AddContactSheet({ isRtl, t, onSave, onClose }) {
 }
 
 /** Contact directory, sorted the way Telegram sorts it: online first, then last seen. */
-export default function ContactsScreen({ store, isRtl, t, onBack, onGoCalls }) {
+export default function ContactsScreen({ store, isRtl, t, onBack, onGoCalls, onNewGroup, onNewChannel }) {
   const [query, setQuery] = useState("");
   const [adding, setAdding] = useState(false);
 
@@ -79,8 +79,24 @@ export default function ContactsScreen({ store, isRtl, t, onBack, onGoCalls }) {
         </div>
       </div>
 
-      {/* Quick rows */}
+      {/* Quick rows — new group and channel first, the way the Android client leads with them */}
       <div className="mx-3 mt-3 rounded-2xl overflow-hidden" style={{ background: TG.surface }}>
+        <button type="button" onClick={onNewGroup}
+          className="w-full flex items-center gap-3.5 px-4 py-3 hover:bg-white/[0.04] transition-colors text-start">
+          <span className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "#2fa6ff" }}>
+            <Users className="w-4 h-4 text-white" />
+          </span>
+          <span className="text-sm font-bold text-white">{t.newGroup}</span>
+        </button>
+        <div className="border-t border-white/[0.05]" />
+        <button type="button" onClick={onNewChannel}
+          className="w-full flex items-center gap-3.5 px-4 py-3 hover:bg-white/[0.04] transition-colors text-start">
+          <span className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "#f59e0b" }}>
+            <Megaphone className="w-4 h-4 text-white" />
+          </span>
+          <span className="text-sm font-bold text-white">{t.newChannel}</span>
+        </button>
+        <div className="border-t border-white/[0.05]" />
         <button type="button" onClick={() => setAdding(true)}
           className="w-full flex items-center gap-3.5 px-4 py-3 hover:bg-white/[0.04] transition-colors text-start">
           <span className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "#3390ec" }}>

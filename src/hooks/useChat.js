@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ME, createChat, createMessage, findPrivateChatWith, sortChats, toggleReaction,
-  totalUnread, unreadCount, visibleMessages, votePoll,
+  ME, buildChannelChat, buildGroupChat, createChat, createMessage, createdSystemMessage, findPrivateChatWith,
+  makeInviteLink, sortChats, toggleReaction, totalUnread, unreadCount, visibleMessages, votePoll,
 } from "../lib/chat/chatModel";
 import { REVEALED, loadChat, saveChat } from "../lib/chat/chatStore";
 import { BOT_CHAT_ID, BOT_ID, findBuddy } from "../lib/buddy/buddyModel";
@@ -186,6 +186,50 @@ export default function useChat(lang = "en") {
       setState((s) => ({ ...s, chats: [...s.chats, chat] }));
       return chat.id;
     },
+
+    /* ── groups & channels ── */
+    /** A group of the athlete's own: the picked contacts join, the creator runs it. Returns the chat id. */
+    createGroup: ({ title, memberIds, emoji, color, description }) => {
+      const chat = buildGroupChat({ title, memberIds, emoji, color, description });
+      setState((s) => ({ ...s, chats: [...s.chats, chat], messages: [...s.messages, createdSystemMessage(chat)] }));
+      return chat.id;
+    },
+    /** A channel: public with a username, or private behind an invite link. Returns the chat id. */
+    createChannel: ({ title, description, isPublic, username, memberIds, emoji, color }) => {
+      const chat = buildChannelChat({ title, description, isPublic, username, memberIds, emoji, color });
+      setState((s) => ({ ...s, chats: [...s.chats, chat], messages: [...s.messages, createdSystemMessage(chat)] }));
+      return chat.id;
+    },
+    /** Name, description, picture, type and link — whatever the settings screen changed. */
+    updateChatInfo: (chatId, patch) =>
+      patchChat(chatId, (c) => {
+        const next = { ...c, ...patch };
+        if ("title" in patch) next.titleFa = patch.title;
+        if (next.isPublic === false) next.username = "";
+        return next;
+      }),
+    regenerateInviteLink: (chatId) => patchChat(chatId, (c) => ({ ...c, inviteLink: makeInviteLink() })),
+    addMembers: (chatId, userIds) =>
+      patchChat(chatId, (c) => {
+        const members = [...new Set([...c.members, ...userIds])];
+        const grew = members.length - c.members.length;
+        return { ...c, members, subscribers: c.type === "channel" ? (c.subscribers || 0) + grew : c.subscribers };
+      }),
+    removeMember: (chatId, userId) =>
+      patchChat(chatId, (c) => ({
+        ...c,
+        members: c.members.filter((id) => id !== userId),
+        admins: c.admins.filter((id) => id !== userId),
+        subscribers: c.type === "channel" && c.members.includes(userId) ? Math.max((c.subscribers || 1) - 1, 0) : c.subscribers,
+      })),
+    toggleAdmin: (chatId, userId) =>
+      patchChat(chatId, (c) => ({ ...c, admins: c.admins.includes(userId) ? c.admins.filter((id) => id !== userId) : [...c.admins, userId] })),
+    /** Leaving drops the chat from the list; its history goes with it, as Telegram does. */
+    leaveChat: (chatId) => {
+      setOpenChatId((id) => (id === chatId ? null : id));
+      setState((s) => ({ ...s, chats: s.chats.filter((c) => c.id !== chatId), messages: s.messages.filter((m) => m.chatId !== chatId) }));
+    },
+
     buddySetPrefs: (patch) =>
       setState((s) => ({ ...s, buddy: { ...s.buddy, prefs: { ...s.buddy.prefs, ...patch } } })),
     buddyPass: (id) =>
