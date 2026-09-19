@@ -1,7 +1,8 @@
 // Chat persistence and the seeded world the athlete opens into.
 
-import { ME, createChat, createMessage, createUser } from "./chatModel";
+import { ME, createChat, createMessage, createUser, uniqueUsername } from "./chatModel";
 import { BOT_CHAT_ID, BOT_ID, BUDDIES, DEFAULT_PREFS, botWelcome } from "../buddy/buddyModel";
+import { loadSession } from "../session";
 
 const KEY = "fitclub.chat.v1";
 
@@ -30,6 +31,7 @@ export const PEOPLE = [
 
 /** The athlete's own messenger profile — editable from the Profile screen. */
 export const DEFAULT_ME = {
+  name: "",
   avatar: "🏋️",
   emojiStatus: "⭐",
   bio: "Be healthy. Be stronger.",
@@ -57,14 +59,86 @@ export const BOT_USER = createUser({
   bio: "Pairs you with people working on the same goals.", username: "fitclub_teammate_bot",
 });
 
+/**
+ * Public communities anyone can find by @username or link and join. They live
+ * outside the athlete's chat list until joined; leaving puts them back here.
+ */
+export const DIRECTORY = [
+  createChat({
+    id: "dir_recipes", type: "channel", title: "FitClub Recipes", titleFa: "دستور غذاهای فیت‌کلاب", emoji: "🥗", color: "#10b981",
+    members: ["lena", "mo"], admins: ["lena"], subscribers: 3842, isPublic: true, username: "fitclub_recipes",
+    description: "High-protein meals, macros included.", inviteLink: "fitclub.app/+RecipesClub2026", createdBy: "lena", createdAt: ago(60 * 24 * 200), verified: true,
+  }),
+  createChat({
+    id: "dir_runclub", type: "group", title: "Sunrise Run Club", titleFa: "کلاب دوی صبحگاهی", emoji: "🏃", color: "#f59e0b",
+    members: ["sara", "yuki", "mo"], admins: ["sara"], isPublic: true, username: "sunrise_run_club",
+    description: "5k before 7am. Every day. Post your splits.", inviteLink: "fitclub.app/+SunriseRun5k", createdBy: "sara", createdAt: ago(60 * 24 * 120),
+  }),
+  createChat({
+    id: "dir_power", type: "channel", title: "Powerlifting Daily", titleFa: "پاورلیفتینگ روزانه", emoji: "🏋️", color: "#844783",
+    members: ["amir", "coach"], admins: ["amir"], subscribers: 9120, isPublic: true, username: "powerlifting_daily",
+    description: "One cue a day. Squat, bench, deadlift.", inviteLink: "fitclub.app/+PowerDaily2026", createdBy: "amir", createdAt: ago(60 * 24 * 300),
+  }),
+  createChat({
+    id: "dir_yoga", type: "group", title: "Morning Mobility", titleFa: "تحرک صبحگاهی", emoji: "🧘", color: "#8b5cf6",
+    members: ["yuki", "lena"], admins: ["yuki"], isPublic: true, username: "morning_mobility",
+    description: "20 minutes of mobility, together, at 6:30.", inviteLink: "fitclub.app/+MobilityAM", createdBy: "yuki", createdAt: ago(60 * 24 * 45),
+  }),
+];
+
+/** The first posts a newcomer sees after joining a public community. */
+export function directoryMessages(chatId) {
+  const at = (mins) => ago(mins);
+  const m = (senderId, text, patch = {}) => createMessage({ chatId, senderId, status: "read", text, ...patch });
+  switch (chatId) {
+    case "dir_recipes": return [
+      m("lena", "Overnight oats, 42g protein: oats, skyr, whey, chia. Macros in the pinned post.", { at: at(2000), views: 3120, reactions: { "🔥": ["mo", "sara"] } }),
+      m("lena", "Tonight: sheet-pan chicken thighs with sweet potato. 610 kcal, 48P/52C/22F.", { at: at(180), views: 2210 }),
+    ];
+    case "dir_runclub": return [
+      m("sara", "5.2k in 26:40 this morning. Legs felt heavy but done ✅", { at: at(400) }),
+      m("yuki", "Easy 4k + mobility. See everyone at 6:30 tomorrow?", { at: at(120), reactions: { "👍": ["sara", "mo"] } }),
+    ];
+    case "dir_power": return [
+      m("amir", "Cue of the day: on the deadlift, push the floor away — don't pull the bar up.", { at: at(1500), views: 8010, reactions: { "💪": ["coach", "sara"] } }),
+      m("amir", "Bench: elbows under the bar at the bottom. If they flare, the weight is too heavy.", { at: at(90), views: 4120 }),
+    ];
+    case "dir_yoga": return [
+      m("yuki", "Tomorrow's flow: hips and thoracic. Bring a strap if you have one.", { at: at(600) }),
+    ];
+    default: return [];
+  }
+}
+
 /** Teammates whose identity both sides agreed to show. Kept in step by the chat hook. */
 export const REVEALED = new Set();
+
+/** People the athlete added by hand. findUser() is a plain function, so the hook keeps this in step with state. */
+export const CUSTOM = new Map();
+export function registerCustomUsers(list = []) {
+  CUSTOM.clear();
+  for (const u of list) CUSTOM.set(u.id, u);
+}
+
+/** Every username already spoken for: contacts, added people, the bot, me, and every chat that has one. */
+export function takenUsernames(state) {
+  return [
+    ...PEOPLE.map((p) => p.username),
+    ...(state?.customUsers || []).map((u) => u.username),
+    BOT_USER.username,
+    state?.me?.username,
+    ...(state?.chats || []).map((c) => c.username),
+    ...DIRECTORY.map((c) => c.username),
+  ].filter(Boolean);
+}
 
 export const findUser = (id) => {
   if (id === ME) return createUser({ id: ME, name: "You", nameFa: "شما", avatar: "🏋️", color: "#844783", premium: true, online: true });
   if (id === BOT_ID) return BOT_USER;
   const person = PEOPLE.find((p) => p.id === id);
   if (person) return person;
+  const custom = CUSTOM.get(id);
+  if (custom) return createUser(custom);
   const buddy = BUDDIES.find((x) => x.id === id);
   if (buddy) {
     const shown = REVEALED.has(id);
@@ -186,10 +260,22 @@ function seed() {
   push("yuki", { senderId: "yuki", at: ago(4300), status: "read", text: "Thanks for the mobility routine!" });
 
   return {
-    chats, messages, folder: "all", me: { ...DEFAULT_ME }, customUsers: [], seenStories: [],
+    chats, messages, folder: "all", me: meFromSession(DEFAULT_ME), customUsers: [], seenStories: [],
     buddy: { prefs: { ...DEFAULT_PREFS }, liked: [], passed: [], matches: [] },
     blocked: [],
   };
+}
+
+/**
+ * The messenger identity of the signed-in athlete: their own name and the
+ * username they picked at signup, unless they changed it here since.
+ */
+function meFromSession(me) {
+  const session = loadSession();
+  const next = { ...me };
+  if (session.name) next.name = session.name;
+  if (session.username && (!me.username || me.username === DEFAULT_ME.username)) next.username = session.username;
+  return next;
 }
 
 function normalize(state) {
@@ -206,8 +292,8 @@ function normalize(state) {
     chats,
     messages,
     folder: state.folder || "all",
-    me: { ...DEFAULT_ME, ...(state.me || {}) },
-    customUsers: state.customUsers || [],
+    me: meFromSession({ ...DEFAULT_ME, ...(state.me || {}) }),
+    customUsers: withUsernames(state.customUsers || []),
     seenStories: state.seenStories || [],
     buddy: {
       prefs: { ...DEFAULT_PREFS, ...(state.buddy?.prefs || {}) },
@@ -215,6 +301,17 @@ function normalize(state) {
     },
     blocked: state.blocked || [],
   };
+}
+
+/** Contacts added before usernames existed get one, so they can be found by @handle. */
+function withUsernames(list) {
+  const taken = PEOPLE.map((p) => p.username);
+  return list.map((u) => {
+    if (u.username) { taken.push(u.username); return u; }
+    const username = uniqueUsername(u.name, taken);
+    taken.push(username);
+    return { ...u, username };
+  });
 }
 
 export function loadChat() {

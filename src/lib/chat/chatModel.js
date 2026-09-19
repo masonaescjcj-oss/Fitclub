@@ -131,6 +131,42 @@ export function makeInviteLink() {
   return `${LINK_HOST}/+${token}`;
 }
 
+/** Turns a display name into a link-safe username, padded to the minimum length. */
+export function slugifyUsername(name) {
+  let slug = String(name || "").toLowerCase().normalize("NFKD").replace(/[^a-z0-9_ ]+/g, "").trim().replace(/\s+/g, "_");
+  if (/^[0-9_]/.test(slug)) slug = `u_${slug}`;
+  if (slug.length < USERNAME_MIN) slug = `${slug || "user"}_${Math.random().toString(36).slice(2, 6)}`;
+  return slug.slice(0, USERNAME_MAX);
+}
+
+/** A username nobody in `taken` has yet, adding a counter when the plain one is in use. */
+export function uniqueUsername(name, taken = []) {
+  const set = new Set(taken.map((u) => String(u || "").toLowerCase()));
+  const base = slugifyUsername(name);
+  if (!set.has(base)) return base;
+  for (let i = 2; i < 1000; i += 1) {
+    const candidate = `${base.slice(0, USERNAME_MAX - String(i).length - 1)}_${i}`;
+    if (!set.has(candidate)) return candidate;
+  }
+  return `${base.slice(0, USERNAME_MAX - 5)}_${Date.now().toString(36).slice(-4)}`;
+}
+
+/** Bilingual system pills for membership changes; `who` are display names, already localised per language. */
+export function membershipMessage(chatId, kind, { names = [], namesFa = [], title = "" } = {}) {
+  const en = names.join(", ");
+  const fa = (namesFa.length ? namesFa : names).join("، ");
+  const copy = {
+    added: [`You added ${en}`, `${fa} را اضافه کردید`],
+    removed: [`${en} was removed`, `${fa} حذف شد`],
+    promoted: [`${en} is now an admin`, `${fa} مدیر شد`],
+    demoted: [`${en} is no longer an admin`, `${fa} دیگر مدیر نیست`],
+    joinedGroup: ["You joined the group", "به گروه پیوستید"],
+    joinedChannel: ["You joined the channel", "به کانال پیوستید"],
+    renamed: [`Name changed to “${title}”`, `نام به «${title}» تغییر کرد`],
+  }[kind];
+  return createMessage({ chatId, senderId: ME, kind: "system", status: "read", text: copy[0], textFa: copy[1] });
+}
+
 /** The link people join through: the public one when there is a username. */
 export const chatLink = (chat) =>
   chat.isPublic && chat.username ? `${LINK_HOST}/${chat.username}` : chat.inviteLink || "";
@@ -288,6 +324,8 @@ export function groupByDay(messages) {
 /** Consecutive messages from one sender collapse into a visual group. */
 export function isGroupedWith(prev, message) {
   if (!prev || prev.separator) return false;
+  // System pills stand alone, even though they carry the sender who caused them.
+  if (prev.kind === "system" || message.kind === "system") return false;
   if (prev.senderId !== message.senderId) return false;
   return new Date(message.at) - new Date(prev.at) < 5 * 60 * 1000;
 }

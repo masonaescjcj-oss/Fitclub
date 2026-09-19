@@ -3,29 +3,48 @@ import { AnimatePresence } from "framer-motion";
 import { ArrowLeft, Megaphone, Phone, Search, UserPlus, Users } from "lucide-react";
 import { PEOPLE } from "../../lib/chat/chatStore";
 import { TG } from "../../lib/chat/extras";
-import { timeOf } from "../../lib/chat/chatModel";
+import { timeOf, validateUsername } from "../../lib/chat/chatModel";
 import { Avatar, NameBadges } from "./ChatBits";
 import { Sheet } from "./ChatSheets";
 
 const AVATAR_CHOICES = ["👤", "🧑", "👩", "🧔", "👩‍🦰", "🧑‍🦱", "👨‍🦳", "👧", "🦾", "🏋️"];
 
-function AddContactSheet({ isRtl, t, onSave, onClose }) {
+const USERNAME_ERROR = { short: "usernameShort", long: "usernameLong", chars: "usernameChars", start: "usernameStart", taken: "usernameTaken" };
+
+/** A person added by hand gets the same identity as everyone else: name, @username, phone. */
+function AddContactSheet({ store, isRtl, t, onSave, onClose }) {
   const [name, setName] = useState("");
+  const [username, setUsername] = useState("");
+  const [phone, setPhone] = useState("");
   const [avatar, setAvatar] = useState("👤");
+  const slug = username.trim().replace(/^@/, "").toLowerCase();
+  const error = slug ? validateUsername(slug, [], null) || (store.takenUsernames().map((u) => u.toLowerCase()).includes(slug) ? "taken" : null) : null;
+  const field = "w-full h-11 px-3 rounded-2xl text-sm font-bold text-white placeholder:text-neutral-500 focus:outline-none";
   return (
     <Sheet title={t.addContact} isRtl={isRtl} t={t} onClose={onClose}
       footer={
         <>
           <button type="button" onClick={onClose}
             className="flex-1 h-12 rounded-2xl bg-white/5 border border-white/10 text-neutral-300 font-black text-sm">{t.cancel}</button>
-          <button type="button" disabled={!name.trim()} onClick={() => onSave({ name: name.trim(), avatar })}
+          <button type="button" disabled={!name.trim() || !!error} onClick={() => onSave({ name: name.trim(), avatar, username: slug, phone: phone.trim() })}
             className="flex-1 h-12 rounded-2xl text-white font-black text-sm disabled:opacity-40 on-accent"
             style={{ background: TG.accentDeep }}>{t.startChat}</button>
         </>
       }>
-      <div className="p-4 space-y-4">
-        <input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder={t.contactName}
-          className="w-full h-11 px-3 rounded-2xl bg-[#1c2733] border border-white/10 text-sm font-bold text-white placeholder:text-neutral-600 focus:outline-none focus:border-white/30" />
+      <div className="p-4 space-y-3">
+        <input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder={t.contactName} aria-label={t.contactName}
+          className={field} style={{ background: TG.card }} />
+        <div>
+          <div className="flex items-center h-11 px-3 rounded-2xl" style={{ background: TG.card }} dir="ltr">
+            <span className="text-sm font-bold text-neutral-500">@</span>
+            <input value={username} onChange={(e) => setUsername(e.target.value.replace(/\s+/g, ""))} placeholder={t.contactUsername} aria-label={t.contactUsername}
+              autoCapitalize="none" spellCheck={false} maxLength={32}
+              className="flex-1 min-w-0 bg-transparent text-sm font-bold text-white placeholder:text-neutral-500 focus:outline-none" />
+          </div>
+          <p className="mt-1 px-1 text-[12px]" style={{ color: error ? "#ef4444" : TG.muted }}>{error ? t[USERNAME_ERROR[error]] : slug ? t.usernameFree : t.contactAutoId}</p>
+        </div>
+        <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={t.contactPhone} aria-label={t.contactPhone} inputMode="tel" dir="ltr"
+          className={field} style={{ background: TG.card }} />
         <div className="flex flex-wrap gap-1.5">
           {AVATAR_CHOICES.map((a) => (
             <button key={a} type="button" onClick={() => setAvatar(a)}
@@ -47,7 +66,7 @@ export default function ContactsScreen({ store, isRtl, t, onBack, onGoCalls, onN
   const contacts = useMemo(() => {
     const q = query.trim().toLowerCase();
     return [...PEOPLE, ...store.customUsers]
-      .filter((u) => !q || u.name.toLowerCase().includes(q) || (u.nameFa || "").includes(q))
+      .filter((u) => !q || u.name.toLowerCase().includes(q) || (u.nameFa || "").includes(q) || (u.username || "").toLowerCase().includes(q.replace(/^@/, "")) || (u.phone || "").replace(/\s+/g, "").includes(q))
       .sort((a, b) => {
         if (a.online !== b.online) return a.online ? -1 : 1;
         return new Date(b.lastSeen || 0) - new Date(a.lastSeen || 0);
@@ -55,6 +74,7 @@ export default function ContactsScreen({ store, isRtl, t, onBack, onGoCalls, onN
   }, [store.customUsers, query]);
 
   const subtitleOf = (u) => {
+    if (u.username && query.trim().startsWith("@")) return { text: `@${u.username}`, tone: "#6b7c8a" };
     if (u.online) return { text: t.online, tone: TG.accent };
     if (u.lastSeen) return { text: `${t.lastSeenAt} ${timeOf(u.lastSeen)}`, tone: "#6b7c8a" };
     return { text: t.lastSeenRecently, tone: "#6b7c8a" };
@@ -146,7 +166,7 @@ export default function ContactsScreen({ store, isRtl, t, onBack, onGoCalls, onN
 
       <AnimatePresence>
         {adding && (
-          <AddContactSheet isRtl={isRtl} t={t}
+          <AddContactSheet store={store} isRtl={isRtl} t={t}
             onSave={(v) => { const user = store.addContact(v); setAdding(false); store.openOrCreatePrivateChat(user); }}
             onClose={() => setAdding(false)} />
         )}

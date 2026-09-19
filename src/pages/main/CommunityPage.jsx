@@ -15,7 +15,7 @@ import SettingsScreen from "../../components/chat/SettingsScreen";
 import ProfileScreen from "../../components/chat/ProfileScreen";
 import PeerProfileScreen from "../../components/chat/PeerProfileScreen";
 import BuddyDiscoverScreen, { BuddyPrefsSheet, ChallengeSheet, CrewSheet, ReportSheet } from "../../components/chat/BuddyScreens";
-import { ChatDetailsScreen, ChatTypeScreen, MemberActionsSheet, MemberPickerScreen } from "../../components/chat/CreateScreens";
+import { ChatDetailsScreen, ChatTypeScreen, MemberActionsSheet, MemberPickerScreen, addablePeople } from "../../components/chat/CreateScreens";
 import { useBuddyT } from "../../lib/buddy/buddyI18n";
 import {
   botAnon, botChallenge, botChallengeDone, botCrewCreated, botFallback, botLeaderboard, botMatched, botMatches, botMenu,
@@ -347,7 +347,10 @@ export default function CommunityPage({ isRtl, onExit }) {
           onMenu={setMenuChat}
           onCompose={() => store.setScreen("contacts")}
           onOpenStory={openStory}
-          onAddStory={() => setToast(t.storiesSoon)} />;
+          onAddStory={() => setToast(t.storiesSoon)}
+          people={addablePeople(store)}
+          onOpenUser={(u) => store.openOrCreatePrivateChat(u)}
+          onJoin={(c) => { store.joinChat(c.id); setToast(t.joinedToast(isRtl ? c.titleFa || c.title : c.title)); }} />;
     }
   };
 

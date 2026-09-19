@@ -62,3 +62,29 @@ export function scheduleReply(chat, sourceText, lang, { onTyping, onReply }) {
 
   return () => { clearTimeout(t1); clearTimeout(t2); };
 }
+
+/**
+ * A channel post's afterlife: subscribers open it and a few react. Views climb
+ * in a handful of ticks scaled to the audience, then a reaction or two lands.
+ * Returns a cancel function, like scheduleReply.
+ */
+export function scheduleChannelLife(chat, messageId, { onViews, onReaction }) {
+  const audience = Math.max((chat.subscribers || chat.members.length) - 1, 0);
+  if (audience === 0) return () => {};
+  const ticks = Math.min(4 + Math.floor(Math.random() * 3), audience);
+  // Reach most of the audience early, then trail off: the counts are fixed up front.
+  const counts = [];
+  let seen = 1;
+  for (let i = 0; i < ticks; i += 1) {
+    seen = Math.min(audience + 1, seen + Math.max(1, Math.round(audience * (0.12 + Math.random() * 0.28))));
+    counts.push(seen);
+  }
+  const timers = counts.map((views, i) => setTimeout(() => onViews(messageId, views), 1500 + i * (1800 + Math.random() * 2200)));
+  const others = (chat.members || []).filter((m) => m !== "me");
+  const reactors = others.sort(() => Math.random() - 0.5).slice(0, Math.min(others.length, 1 + Math.floor(Math.random() * 2)));
+  const EMOJI = ["👍", "🔥", "❤️", "👏", "💪"];
+  reactors.forEach((userId, i) => {
+    timers.push(setTimeout(() => onReaction(messageId, EMOJI[Math.floor(Math.random() * EMOJI.length)], userId), 4000 + i * 3000 + Math.random() * 2500));
+  });
+  return () => timers.forEach(clearTimeout);
+}

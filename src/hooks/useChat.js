@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ME, buildChannelChat, buildGroupChat, createChat, createMessage, createdSystemMessage, findPrivateChatWith,
-  makeInviteLink, sortChats, toggleReaction, totalUnread, unreadCount, visibleMessages, votePoll,
+  makeInviteLink, membershipMessage, sortChats, toggleReaction, totalUnread, uniqueUsername, unreadCount, visibleMessages, votePoll,
 } from "../lib/chat/chatModel";
-import { REVEALED, loadChat, saveChat } from "../lib/chat/chatStore";
+import { CUSTOM, DIRECTORY, REVEALED, directoryMessages, findUser, loadChat, registerCustomUsers, saveChat, takenUsernames } from "../lib/chat/chatStore";
 import { BOT_CHAT_ID, BOT_ID, findBuddy } from "../lib/buddy/buddyModel";
-import { scheduleReply } from "../lib/chat/simulator";
+import { saveSession } from "../lib/session";
+import { scheduleChannelLife, scheduleReply } from "../lib/chat/simulator";
 import { TRANSCRIPTS } from "../lib/chat/extras";
 import { uid } from "../lib/chat/chatModel";
 
@@ -19,15 +20,19 @@ export default function useChat(lang = "en") {
   const [typing, setTyping] = useState({});   // chatId -> userId
   const first = useRef(true);
   const timers = useRef([]);
+  // The latest state for callbacks that read it without wanting to be rebuilt on every change.
+  const latest = useRef(state);
+  latest.current = state;
 
   useEffect(() => {
     if (first.current) { first.current = false; return; }
     saveChat(state);
   }, [state]);
 
-  // findUser() is a plain function, so it learns about revealed teammates through this set.
+  // findUser() is a plain function, so it learns about revealed teammates and added people through these.
   REVEALED.clear();
   for (const m of state.buddy.matches) if (m.revealed) REVEALED.add(m.buddyId);
+  if (CUSTOM.size !== state.customUsers.length || state.customUsers.some((u) => CUSTOM.get(u.id) !== u)) registerCustomUsers(state.customUsers);
 
   // Never leave a simulated reply firing into an unmounted tree.
   useEffect(() => () => { timers.current.forEach((cancel) => cancel()); }, []);
@@ -61,7 +66,14 @@ export default function useChat(lang = "en") {
 
       const chat = state.chats.find((c) => c.id === chatId);
       const isSelf = chatId === "saved";
-      if (chat && !isSelf && !message.scheduledFor) {
+      if (chat && chat.type === "channel" && !message.scheduledFor) {
+        // A broadcast is read, not answered: views climb and a few subscribers react.
+        patchMessage(message.id, (m) => ({ ...m, views: 1 }));
+        timers.current.push(scheduleChannelLife(chat, message.id, {
+          onViews: (id, views) => patchMessage(id, (m) => ({ ...m, views: Math.max(m.views || 0, views) })),
+          onReaction: (id, emoji, userId) => patchMessage(id, (m) => toggleReaction(m, emoji, userId)),
+        }));
+      } else if (chat && !isSelf && !message.scheduledFor) {
         const cancel = scheduleReply(chat, message.text, lang, {
           onTyping: (userId, on) =>
             setTyping((t) => {
@@ -142,7 +154,13 @@ export default function useChat(lang = "en") {
         return { ...m, voice: { ...m.voice, transcript: pool[(m.voice?.seconds ?? 0) % pool.length] } };
       }),
 
-    updateMe: (patch) => setState((s) => ({ ...s, me: { ...s.me, ...patch } })),
+    updateMe: (patch) => {
+      if (patch.username) saveSession({ username: patch.username });
+      if (patch.name) saveSession({ name: patch.name });
+      setState((s) => ({ ...s, me: { ...s.me, ...patch } }));
+    },
+    /** Usernames nobody else has, for the profile editor's live check. */
+    takenUsernames: () => takenUsernames(latest.current),
     setPref: (key, value) =>
       setState((s) => ({ ...s, me: { ...s.me, prefs: { ...(s.me.prefs || {}), [key]: value } } })),
 
@@ -166,12 +184,17 @@ export default function useChat(lang = "en") {
     },
 
     /** Adds a person to contacts and starts the conversation. */
-    addContact: ({ name, avatar, color }) => {
+    addContact: ({ name, avatar, color, username, phone, bio }) => {
+      const handle = (username || "").trim().replace(/^@/, "").toLowerCase() || uniqueUsername(name, takenUsernames(latest.current));
       const user = { id: uid(), name, nameFa: name, avatar: avatar || "👤", color: color || "#3390ec",
+        username: handle, phone: (phone || "").trim(), bio: (bio || "").trim(),
         online: false, lastSeen: new Date().toISOString(), premium: false };
       setState((s) => ({ ...s, customUsers: [...s.customUsers, user] }));
+      registerCustomUsers([...latest.current.customUsers, user]);
       return user;
     },
+    updateContact: (userId, patch) =>
+      setState((s) => ({ ...s, customUsers: s.customUsers.map((u) => (u.id === userId ? { ...u, ...patch } : u)) })),
 
     /* ── teammates ── */
     botPost: (patch, chatId = BOT_CHAT_ID) =>
@@ -202,28 +225,78 @@ export default function useChat(lang = "en") {
     },
     /** Name, description, picture, type and link — whatever the settings screen changed. */
     updateChatInfo: (chatId, patch) =>
-      patchChat(chatId, (c) => {
-        const next = { ...c, ...patch };
+      setState((s) => {
+        const before = s.chats.find((c) => c.id === chatId);
+        if (!before) return s;
+        const next = { ...before, ...patch };
         if ("title" in patch) next.titleFa = patch.title;
         if (next.isPublic === false) next.username = "";
-        return next;
+        const renamed = "title" in patch && patch.title !== before.title;
+        return {
+          ...s,
+          chats: s.chats.map((c) => (c.id === chatId ? next : c)),
+          messages: renamed ? [...s.messages, membershipMessage(chatId, "renamed", { title: patch.title })] : s.messages,
+        };
       }),
     regenerateInviteLink: (chatId) => patchChat(chatId, (c) => ({ ...c, inviteLink: makeInviteLink() })),
     addMembers: (chatId, userIds) =>
-      patchChat(chatId, (c) => {
-        const members = [...new Set([...c.members, ...userIds])];
-        const grew = members.length - c.members.length;
-        return { ...c, members, subscribers: c.type === "channel" ? (c.subscribers || 0) + grew : c.subscribers };
+      setState((s) => {
+        const chat = s.chats.find((c) => c.id === chatId);
+        if (!chat) return s;
+        const fresh = userIds.filter((id) => !chat.members.includes(id));
+        if (!fresh.length) return s;
+        const members = [...chat.members, ...fresh];
+        const next = { ...chat, members, subscribers: chat.type === "channel" ? (chat.subscribers || 0) + fresh.length : chat.subscribers };
+        const people = fresh.map((id) => findUser(id));
+        return {
+          ...s,
+          chats: s.chats.map((c) => (c.id === chatId ? next : c)),
+          messages: [...s.messages, membershipMessage(chatId, "added", { names: people.map((u) => u.name), namesFa: people.map((u) => u.nameFa || u.name) })],
+        };
       }),
     removeMember: (chatId, userId) =>
-      patchChat(chatId, (c) => ({
-        ...c,
-        members: c.members.filter((id) => id !== userId),
-        admins: c.admins.filter((id) => id !== userId),
-        subscribers: c.type === "channel" && c.members.includes(userId) ? Math.max((c.subscribers || 1) - 1, 0) : c.subscribers,
-      })),
+      setState((s) => {
+        const chat = s.chats.find((c) => c.id === chatId);
+        if (!chat || !chat.members.includes(userId)) return s;
+        const u = findUser(userId);
+        const next = {
+          ...chat,
+          members: chat.members.filter((id) => id !== userId),
+          admins: chat.admins.filter((id) => id !== userId),
+          subscribers: chat.type === "channel" ? Math.max((chat.subscribers || 1) - 1, 0) : chat.subscribers,
+        };
+        return {
+          ...s,
+          chats: s.chats.map((c) => (c.id === chatId ? next : c)),
+          messages: [...s.messages, membershipMessage(chatId, "removed", { names: [u.name], namesFa: [u.nameFa || u.name] })],
+        };
+      }),
     toggleAdmin: (chatId, userId) =>
-      patchChat(chatId, (c) => ({ ...c, admins: c.admins.includes(userId) ? c.admins.filter((id) => id !== userId) : [...c.admins, userId] })),
+      setState((s) => {
+        const chat = s.chats.find((c) => c.id === chatId);
+        if (!chat) return s;
+        const isAdmin = chat.admins.includes(userId);
+        const u = findUser(userId);
+        return {
+          ...s,
+          chats: s.chats.map((c) => (c.id === chatId ? { ...c, admins: isAdmin ? c.admins.filter((id) => id !== userId) : [...c.admins, userId] } : c)),
+          messages: [...s.messages, membershipMessage(chatId, isAdmin ? "demoted" : "promoted", { names: [u.name], namesFa: [u.nameFa || u.name] })],
+        };
+      }),
+    /** Joins a public community from the directory: it lands in the list with its recent posts. */
+    joinChat: (dirId) => {
+      const source = DIRECTORY.find((c) => c.id === dirId);
+      if (!source) return null;
+      const existing = state.chats.find((c) => c.id === dirId);
+      if (existing) { openChat(dirId); return dirId; }
+      const now = new Date().toISOString();
+      const chat = { ...source, members: [...source.members, ME], subscribers: source.type === "channel" ? (source.subscribers || 0) + 1 : 0,
+        folders: [], lastReadAt: now, muted: false, pinned: false, archived: false };
+      const joined = membershipMessage(dirId, source.type === "channel" ? "joinedChannel" : "joinedGroup");
+      setState((s) => ({ ...s, chats: [...s.chats, chat], messages: [...s.messages, ...directoryMessages(dirId), joined] }));
+      openChat(dirId);
+      return dirId;
+    },
     /** Leaving drops the chat from the list; its history goes with it, as Telegram does. */
     leaveChat: (chatId) => {
       setOpenChatId((id) => (id === chatId ? null : id));
@@ -329,6 +402,7 @@ export default function useChat(lang = "en") {
     folder: state.folder,
     me: state.me,
     customUsers: state.customUsers,
+    directory: DIRECTORY,
     seenStories: state.seenStories,
     buddy: state.buddy,
     blocked: state.blocked,

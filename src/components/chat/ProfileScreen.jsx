@@ -4,7 +4,7 @@ import { Settings, Share2, Smile, Sparkles } from "lucide-react";
 import { GIFTS, TG } from "../../lib/chat/extras";
 import { Sheet } from "./ChatSheets";
 import { ActionRow, Card, ChatPreviewCard, Hero, InfoRow, SectionHeader } from "./ProfileBits";
-import { lastMessage, previewOf, relativeTime } from "../../lib/chat/chatModel";
+import { LINK_HOST, lastMessage, previewOf, relativeTime, validateUsername } from "../../lib/chat/chatModel";
 
 const AVATARS = ["🏋️", "💪", "🧗", "🏃", "🚴", "🧘", "🥇", "🦾", "😎", "🐺"];
 const STATUSES = ["⭐", "🏆", "🔥", "💪", "⚡", "🥇", "🧊", "🌙", "❤️", "🫡"];
@@ -24,29 +24,47 @@ function EmojiPickSheet({ title, options, isRtl, t, onPick, onClose }) {
   );
 }
 
-function EditInfoSheet({ me, isRtl, t, onSave, onClose }) {
+const USERNAME_ERROR = { short: "usernameShort", long: "usernameLong", chars: "usernameChars", start: "usernameStart", taken: "usernameTaken" };
+
+/** Name, bio and the @username others find you by — checked live against everyone else's. */
+function EditInfoSheet({ me, name, taken, isRtl, t, onSave, onClose }) {
+  const [displayName, setDisplayName] = useState(me.name || name);
   const [bio, setBio] = useState(me.bio);
   const [username, setUsername] = useState(me.username);
-  const field = "w-full h-11 px-3 rounded-2xl bg-[#1c2733] border border-white/10 text-sm font-bold text-white placeholder:text-neutral-600 focus:outline-none focus:border-white/30";
+  const slug = username.trim().replace(/^@/, "").toLowerCase();
+  const others = taken.filter((u) => u.toLowerCase() !== (me.username || "").toLowerCase());
+  const error = validateUsername(slug, [], null) || (others.map((u) => u.toLowerCase()).includes(slug) ? "taken" : null);
+  const field = "w-full h-11 px-3 rounded-2xl text-sm font-bold text-white placeholder:text-neutral-500 focus:outline-none";
   return (
     <Sheet title={t.editInfo} isRtl={isRtl} t={t} onClose={onClose}
       footer={
         <>
           <button type="button" onClick={onClose}
             className="flex-1 h-12 rounded-2xl bg-white/5 border border-white/10 text-neutral-300 font-black text-sm">{t.cancel}</button>
-          <button type="button" onClick={() => onSave({ bio: bio.trim(), username: username.trim() || me.username })}
-            className="flex-1 h-12 rounded-2xl text-white font-black text-sm on-accent" style={{ background: TG.accentDeep }}>{t.save}</button>
+          <button type="button" disabled={!!error || !displayName.trim()} onClick={() => onSave({ name: displayName.trim(), bio: bio.trim(), username: slug })}
+            className="flex-1 h-12 rounded-2xl text-white font-black text-sm on-accent disabled:opacity-40" style={{ background: TG.accentDeep }}>{t.save}</button>
         </>
       }>
       <div className="p-4 space-y-4">
         <label className="block">
-          <span className="block text-[10px] font-black text-neutral-500 uppercase tracking-wider mb-1.5">{t.bio}</span>
-          <input value={bio} onChange={(e) => setBio(e.target.value)} className={field} />
+          <span className="block text-[10px] font-black text-neutral-500 uppercase tracking-wider mb-1.5">{t.nameLabel}</span>
+          <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} className={field} style={{ background: TG.card }} aria-label={t.nameLabel} />
         </label>
         <label className="block">
-          <span className="block text-[10px] font-black text-neutral-500 uppercase tracking-wider mb-1.5">{t.usernameLabel}</span>
-          <input value={username} onChange={(e) => setUsername(e.target.value)} className={field} dir="ltr" />
+          <span className="block text-[10px] font-black text-neutral-500 uppercase tracking-wider mb-1.5">{t.bio}</span>
+          <input value={bio} onChange={(e) => setBio(e.target.value)} className={field} style={{ background: TG.card }} aria-label={t.bio} />
         </label>
+        <div>
+          <span className="block text-[10px] font-black text-neutral-500 uppercase tracking-wider mb-1.5">{t.usernameLabel}</span>
+          <div className="flex items-center h-11 px-3 rounded-2xl" style={{ background: TG.card }} dir="ltr">
+            <span className="text-sm font-bold text-neutral-500">@</span>
+            <input value={username} onChange={(e) => setUsername(e.target.value.replace(/\s+/g, ""))} aria-label={t.usernameLabel}
+              autoCapitalize="none" spellCheck={false} maxLength={32}
+              className="flex-1 min-w-0 bg-transparent text-sm font-bold text-white focus:outline-none" />
+          </div>
+          <p className="mt-1 px-1 text-[12px]" style={{ color: error ? "#ef4444" : "#1f9d4d" }}>{error ? t[USERNAME_ERROR[error]] : t.usernameFree}</p>
+          <p className="mt-1 px-1 text-[12px]" style={{ color: TG.muted }}>{t.usernameHint} <span dir="ltr">{LINK_HOST}/{slug || "…"}</span></p>
+        </div>
       </div>
     </Sheet>
   );
@@ -66,9 +84,14 @@ export default function ProfileScreen({ store, name, isRtl, t, onBack, onGoSetti
   const last = channel ? lastMessage(store.messages, channel.id) : null;
 
   const share = () => {
-    navigator.clipboard?.writeText(`https://t.me/${me.username}`).catch(() => {});
+    navigator.clipboard?.writeText(`${LINK_HOST}/${me.username}`).catch(() => {});
     onToast?.(t.linkCopied);
   };
+  const copyId = () => {
+    navigator.clipboard?.writeText(`@${me.username}`).catch(() => {});
+    onToast?.(t.idCopied);
+  };
+  const shownName = me.name || name;
 
   const actions = [
     { id: "photo", icon: Smile, label: t.photo, onClick: () => setSheet("photo") },
@@ -79,7 +102,7 @@ export default function ProfileScreen({ store, name, isRtl, t, onBack, onGoSetti
 
   return (
     <div className="w-full min-h-[100dvh] text-white pb-12" style={{ background: TG.bg }}>
-      <Hero color="#844783" emoji={me.avatar} name={name} subtitle={t.online} isRtl={isRtl} t={t} onBack={onBack}
+      <Hero color="#844783" emoji={me.avatar} name={shownName} subtitle={`@${me.username}`} isRtl={isRtl} t={t} onBack={onBack}
         badges={<button type="button" onClick={() => setSheet("status")} aria-label={t.emojiStatus} className="text-[22px] leading-none">{me.emojiStatus}</button>}
         editLabel={t.edit} onEdit={() => setSheet("edit")} />
       <ActionRow actions={actions} />
@@ -97,7 +120,9 @@ export default function ProfileScreen({ store, name, isRtl, t, onBack, onGoSetti
       <SectionHeader label={t.infoLabel} />
       <Card>
         <InfoRow label={t.mobile} value={me.phone} dir="ltr" link />
-        <InfoRow label={t.usernameLabel} value={`@${me.username}`} dir="ltr" link />
+        <button type="button" onClick={copyId} className="w-full text-start">
+          <InfoRow label={`${t.usernameLabel} · ${t.copyId}`} value={`@${me.username}`} dir="ltr" link />
+        </button>
         <InfoRow label={t.birthday} value={`${birthdayLabel} (${age} ${t.yearsOld})`} />
         <InfoRow label={t.bio} value={me.bio} />
       </Card>
@@ -144,8 +169,8 @@ export default function ProfileScreen({ store, name, isRtl, t, onBack, onGoSetti
       </AnimatePresence>
       <AnimatePresence>
         {sheet === "edit" && (
-          <EditInfoSheet me={me} isRtl={isRtl} t={t}
-            onSave={(patch) => { store.updateMe(patch); setSheet(null); }} onClose={() => setSheet(null)} />
+          <EditInfoSheet me={me} name={name} taken={store.takenUsernames()} isRtl={isRtl} t={t}
+            onSave={(patch) => { store.updateMe(patch); setSheet(null); onToast?.(t.chatInfoSaved); }} onClose={() => setSheet(null)} />
         )}
       </AnimatePresence>
     </div>
