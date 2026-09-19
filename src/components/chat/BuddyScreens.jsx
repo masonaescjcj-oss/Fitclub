@@ -1,9 +1,11 @@
 import React, { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, Heart, MapPin, Settings2, X } from "lucide-react";
+import { Check, Heart, MapPin, Settings2, Users, X } from "lucide-react";
 import { TG } from "../../lib/chat/extras";
 import { GENDERS, HABIT_LABEL, LOOKING_FOR, TIMES, WANT_LABEL, aliasOf } from "../../lib/buddy/buddyModel";
 import { Sheet } from "./ChatSheets";
+import { Avatar } from "./ChatBits";
+import { findUser } from "../../lib/chat/chatStore";
 
 /** Compatibility as a ring with the number inside, the way match apps show it. */
 function ScoreRing({ score, size = 72 }) {
@@ -187,6 +189,57 @@ export function BuddyPrefsSheet({ prefs, isRtl, t, onSave, onClose }) {
             label={(o) => t[o.id === "any" ? "genderAny" : o.id === "male" ? "genderMale" : "genderFemale"]} />
         </div>
         <p className="text-[11px]" style={{ color: TG.muted }}>{t.safety}</p>
+      </div>
+    </Sheet>
+  );
+}
+
+/** Who joins the crew. Teammates only — the people you already matched with. */
+export function CrewSheet({ matches, isRtl, t, onCreate, onClose }) {
+  const [name, setName] = useState("");
+  const [picked, setPicked] = useState(matches.slice(0, 3).map((m) => m.buddyId));
+  const toggle = (id) => setPicked((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
+  const label = (m) => (m.revealed ? (isRtl ? m.nameFa : m.name) : (isRtl ? m.aliasFa : m.alias));
+  return (
+    <Sheet title={t.crewTitle} isRtl={isRtl} t={t} onClose={onClose}
+      footer={
+        <>
+          <button type="button" onClick={onClose} className="flex-1 h-12 rounded-2xl bg-white/5 border border-white/10 text-neutral-300 font-black text-sm">{t.cancel}</button>
+          <button type="button" disabled={!picked.length} onClick={() => onCreate({ name: name.trim() || t.crewLabel, memberIds: picked })}
+            className="flex-1 h-12 rounded-2xl text-white font-black text-sm disabled:opacity-40 on-accent" style={{ background: TG.accentDeep }}>{t.create}</button>
+        </>
+      }>
+      <div className="p-4 space-y-4">
+        <label className="block">
+          <span className="block text-[12px] font-semibold mb-1.5" style={{ color: TG.muted }}>{t.crewName}</span>
+          <span className="flex items-center gap-2 h-11 px-3 rounded-2xl" style={{ background: TG.card }}>
+            <Users className="w-4 h-4 shrink-0" style={{ color: TG.muted }} />
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t.crewNamePh} aria-label={t.crewName}
+              className="flex-1 min-w-0 bg-transparent text-[15px] text-white placeholder:text-neutral-500 focus:outline-none" />
+          </span>
+        </label>
+        <div>
+          <span className="block text-[12px] font-semibold mb-1.5" style={{ color: TG.muted }}>{t.crewPick}</span>
+          <div className="rounded-2xl overflow-hidden divide-y divide-white/[0.04]" style={{ background: TG.card }}>
+            {matches.map((m) => {
+              const on = picked.includes(m.buddyId);
+              return (
+                <button key={m.buddyId} type="button" onClick={() => toggle(m.buddyId)} role="checkbox" aria-checked={on} aria-label={label(m)}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 text-start">
+                  <Avatar user={findUser(m.buddyId)} size={40} showStatus={false} />
+                  <span className="flex-1 min-w-0">
+                    <span className="block text-[15px] font-semibold text-white truncate">{label(m)}</span>
+                    <span className="block text-[12px]" style={{ color: TG.muted }}>{m.score}% {t.compatible}</span>
+                  </span>
+                  <span className={`w-6 h-6 rounded-full flex items-center justify-center border-2 ${on ? "on-accent" : ""}`}
+                    style={{ background: on ? TG.accentDeep : "transparent", borderColor: on ? TG.accentDeep : TG.muted }}>
+                    {on && <Check className="w-3.5 h-3.5 text-white stroke-[3]" />}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
     </Sheet>
   );

@@ -2,7 +2,7 @@
 // there, how well they fit, and what the bot says. Pure functions only.
 
 import { overallStreak } from "../checklistModel";
-import { sessionVolume } from "../training/programModel";
+import { sessionVolume, weeklyVolume } from "../training/programModel";
 
 export const BOT_ID = "buddy_bot";
 export const BOT_CHAT_ID = "buddy_bot";
@@ -169,7 +169,7 @@ export const realNameOf = (c, isRtl) => (isRtl ? c.nameFa || c.name : c.name);
 const msg = (text, textFa, buttons = null) => ({ senderId: BOT_ID, text, textFa, buttons, status: "read" });
 const row = (...ids) => ids.map((id) => ({ id, label: `btn_${id.split(":")[0]}` }));
 
-export const MENU = [row("find"), row("anon"), row("matches", "profile"), row("prefs")];
+export const MENU = [row("find"), row("anon"), row("matches", "profile"), row("crew:new", "leaderboard"), row("prefs")];
 
 export function botWelcome() {
   return msg(
@@ -243,3 +243,106 @@ export const botRevealed = (c, isRtl) => ({
   text: `🎭 → 🙂 You both revealed. Say hello to ${c.name}!`,
   textFa: `🎭 → 🙂 هر دو هویت‌تون رو نشون دادید. به ${c.nameFa} سلام کن!`,
 });
+
+/* ──────────────────────────── crews & the week ────────────────────────────
+ * A crew is a small group of teammates. Its leaderboard compares real numbers
+ * for the athlete with plausible, deterministic ones for the stand-ins, so the
+ * table is stable within a week and moves the next.
+ */
+
+export const weekKeyOf = (now = new Date()) => {
+  const d = new Date(now); d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - ((d.getDay() - 6 + 7) % 7)); // weeks start Saturday, like the training charts
+  return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+};
+
+const LEVEL_VOLUME = { beginner: 1500, intermediate: 3200, advanced: 5200 };
+
+/** One stand-in's week: volume scaled by level and days, nudged by a per-week seed. */
+export function buddyWeekStats(buddy, weekKey = weekKeyOf()) {
+  const seed = hash(`${buddy.id}:${weekKey}`);
+  const wobble = 0.8 + (seed % 41) / 100;                 // 0.80 – 1.20
+  const sessions = Math.max(1, Math.min(buddy.days, 1 + (seed % buddy.days)));
+  const volumeKg = Math.round((LEVEL_VOLUME[buddy.level] || 3000) * (sessions / 4) * wobble / 10) * 10;
+  return { volumeKg, sessions, streak: buddy.streak + (seed % 3) };
+}
+
+/** My week from the actual log and checklists. */
+export function myWeekStats(sessions, streak, now = new Date()) {
+  const [bucket] = weeklyVolume(sessions || [], 1, now);
+  return { volumeKg: Math.round(bucket.volume), sessions: bucket.sessions, streak };
+}
+
+/** Ranked rows for a set of member ids, the athlete included. */
+export function leaderboard(memberIds, { mySessions, myStreak, isRtl, now = new Date() }) {
+  const week = weekKeyOf(now);
+  const rows = memberIds.map((id) => {
+    if (id === "me") return { id, me: true, name: isRtl ? "شما" : "You", nameEn: "You", nameFa: "شما", ...myWeekStats(mySessions, myStreak, now) };
+    const b = findBuddy(id);
+    if (!b) return null;
+    // Both languages travel with the row: the bot's message is stored once and read in either.
+    return { id, me: false, name: isRtl ? b.aliasFa : b.alias, nameEn: b.alias, nameFa: b.aliasFa, ...buddyWeekStats(b, week) };
+  }).filter(Boolean);
+  return rows.sort((a, b) => b.volumeKg - a.volumeKg || b.streak - a.streak).map((r, i) => ({ ...r, rank: i + 1 }));
+}
+
+/**
+ * A slot most of the crew can make: the majority's time of day, tomorrow
+ * (or the day after, when asked for another option).
+ */
+export function suggestSession(meTime, members, { alt = false, now = new Date() } = {}) {
+  const times = [meTime, ...members.map((m) => m.time)];
+  const morning = times.filter((x) => x === "morning").length + times.filter((x) => x === "any").length * 0.5;
+  const evening = times.filter((x) => x === "evening").length + times.filter((x) => x === "any").length * 0.5;
+  let slot = morning >= evening ? "morning" : "evening";
+  if (alt) slot = slot === "morning" ? "evening" : "morning";
+  const at = new Date(now); at.setDate(at.getDate() + (alt ? 2 : 1)); at.setHours(slot === "morning" ? 7 : 18, 0, 0, 0);
+  const fits = times.filter((x) => x === slot || x === "any").length;
+  return { at, slot, fits, total: times.length };
+}
+
+const MEDAL = ["🥇", "🥈", "🥉"];
+const fmtRows = (rows, isRtl) => rows.map((r) =>
+  `${MEDAL[r.rank - 1] || `${r.rank}.`} ${isRtl ? r.nameFa : r.nameEn} — ${r.volumeKg.toLocaleString()} ${isRtl ? "کیلو" : "kg"} · ${r.sessions} ${isRtl ? "جلسه" : "sessions"} · 🔥${r.streak}`
+).join("\n");
+
+export function botLeaderboard(rows, chatId, isRtl) {
+  const mine = rows.find((r) => r.me);
+  const enLead = mine?.rank === 1 ? "You're on top this week. Keep the streak alive." : `You're #${mine?.rank} — ${(rows[0].volumeKg - (mine?.volumeKg || 0)).toLocaleString()} kg behind the leader.`;
+  const faLead = mine?.rank === 1 ? "این هفته اولی. استریک رو نگه دار." : `تو نفر ${mine?.rank} هستی — ${(rows[0].volumeKg - (mine?.volumeKg || 0)).toLocaleString()} کیلو با نفر اول فاصله داری.`;
+  return msg(
+    `🏆 This week\n${fmtRows(rows, false)}\n\n${enLead}`,
+    `🏆 این هفته\n${fmtRows(rows, true)}\n\n${faLead}`,
+    chatId ? [[{ id: `session:${chatId}`, label: "btn_session" }], [{ id: `leaderboard:${chatId}`, label: "btn_leaderboard" }]] : [row("crew:new", "menu")]
+  );
+}
+
+const dayName = (d, fa) => d.toLocaleDateString(fa ? "fa-IR" : undefined, { weekday: "long" });
+const hourLabel = (d, fa) => d.toLocaleTimeString(fa ? "fa-IR" : undefined, { hour: "2-digit", minute: "2-digit" });
+
+export function botSession(sug, chatId, isRtl) {
+  const iso = sug.at.toISOString();
+  return msg(
+    `📅 Crew session: ${dayName(sug.at, false)} at ${hourLabel(sug.at, false)} — ${sug.fits} of ${sug.total} of you train ${sug.slot === "morning" ? "mornings" : "evenings"}.\nAdd it to your checklist and the whole crew is on the hook.`,
+    `📅 جلسه‌ی کرو: ${dayName(sug.at, true)} ساعت ${hourLabel(sug.at, true)} — ${sug.fits} از ${sug.total} نفرتون ${sug.slot === "morning" ? "صبح‌ها" : "عصرها"} تمرین می‌کنید.\nبه چک‌لیستت اضافه‌اش کن تا کل کرو پای کار باشه.`,
+    [[{ id: `addtask:${chatId}:${iso}`, label: "btn_addtask" }], [{ id: `session2:${chatId}`, label: "btn_another" }]]
+  );
+}
+
+export const botCrewCreated = (name, count) => msg(
+  `👥 Crew "${name}" is live with ${count} teammates. I'll keep the weekly leaderboard here and suggest sessions when you ask.`,
+  `👥 کروی «${name}» با ${count} هم‌تیمی راه افتاد. لیدربورد هفتگی رو همین‌جا نگه می‌دارم و هر وقت بخوای جلسه پیشنهاد می‌دم.`,
+  [[{ id: "leaderboard:self", label: "btn_leaderboard" }], [{ id: "session:self", label: "btn_session" }]]
+);
+
+export const botNeedTeammates = () => msg(
+  "A crew needs at least one teammate. Find one first?",
+  "برای کرو حداقل یک هم‌تیمی لازمه. اول یکی پیدا کنیم؟",
+  [row("find", "anon"), row("menu")]
+);
+
+export const botTaskAdded = (listName) => msg(
+  `✅ Added to "${listName}". Show up and tick it off.`,
+  `✅ به «${listName}» اضافه شد. برو و تیکش رو بزن.`,
+  null
+);

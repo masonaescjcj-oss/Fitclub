@@ -174,8 +174,18 @@ export default function useChat(lang = "en") {
     },
 
     /* ── teammates ── */
-    botPost: (patch) =>
-      setState((s) => ({ ...s, messages: [...s.messages, createMessage({ chatId: BOT_CHAT_ID, senderId: BOT_ID, status: "read", ...patch })] })),
+    botPost: (patch, chatId = BOT_CHAT_ID) =>
+      setState((s) => ({ ...s, messages: [...s.messages, createMessage({ chatId, senderId: BOT_ID, status: "read", ...patch })] })),
+    /** A small group of teammates, with the bot keeping score in it. Returns the chat id. */
+    createCrew: ({ name, memberIds }) => {
+      const chat = createChat({
+        type: "group", title: name, titleFa: name, emoji: "👥", color: "#2fa6ff",
+        members: [ME, ...memberIds], admins: [ME], folders: ["gym", "people"], crew: true,
+        lastReadAt: new Date().toISOString(),
+      });
+      setState((s) => ({ ...s, chats: [...s.chats, chat] }));
+      return chat.id;
+    },
     buddySetPrefs: (patch) =>
       setState((s) => ({ ...s, buddy: { ...s.buddy, prefs: { ...s.buddy.prefs, ...patch } } })),
     buddyPass: (id) =>

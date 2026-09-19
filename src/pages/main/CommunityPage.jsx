@@ -6,6 +6,7 @@ import { useChatStore } from "../../lib/chat/chatContext";
 import { STORIES, findUser } from "../../lib/chat/chatStore";
 import { TG } from "../../lib/chat/extras";
 import { ME, relativeTime } from "../../lib/chat/chatModel";
+import { localized } from "../../lib/checklistModel";
 import ChatList from "../../components/chat/ChatList";
 import ChatView from "../../components/chat/ChatView";
 import ContactsScreen from "../../components/chat/ContactsScreen";
@@ -13,11 +14,12 @@ import CallsScreen from "../../components/chat/CallsScreen";
 import SettingsScreen from "../../components/chat/SettingsScreen";
 import ProfileScreen from "../../components/chat/ProfileScreen";
 import PeerProfileScreen from "../../components/chat/PeerProfileScreen";
-import BuddyDiscoverScreen, { BuddyPrefsSheet } from "../../components/chat/BuddyScreens";
+import BuddyDiscoverScreen, { BuddyPrefsSheet, CrewSheet } from "../../components/chat/BuddyScreens";
 import { useBuddyT } from "../../lib/buddy/buddyI18n";
 import {
-  botAnon, botFallback, botMatched, botMatches, botMenu, botNoOne, botPrefsSaved, botProfile,
-  deriveMyProfile, likesBack, rankCandidates,
+  botAnon, botCrewCreated, botFallback, botLeaderboard, botMatched, botMatches, botMenu, botNeedTeammates, botNoOne,
+  botPrefsSaved, botProfile, botSession, botTaskAdded, deriveMyProfile, findBuddy, leaderboard, likesBack, rankCandidates,
+  suggestSession,
 } from "../../lib/buddy/buddyModel";
 import { useNutritionStore } from "../../lib/nutrition/nutritionContext";
 import { useTrainingStore } from "../../lib/training/trainingContext";
@@ -130,8 +132,10 @@ export default function CommunityPage({ isRtl, onExit }) {
   const store = useChatStore();
   const nutrition = useNutritionStore();
   const training = useTrainingStore();
-  const { lists } = useChecklistStore();
+  const checklist = useChecklistStore();
+  const { lists } = checklist;
   const [discover, setDiscover] = useState(false);
+  const [crewOpen, setCrewOpen] = useState(false);
   const [prefsOpen, setPrefsOpen] = useState(false);
   const pending = useRef([]); // timers for teammates who answer later
 
@@ -202,8 +206,39 @@ export default function CommunityPage({ isRtl, onExit }) {
     return null;
   };
 
-  const botAction = (id) => {
+  /** Rows for a crew, or for me plus every teammate when there is no crew yet. */
+  const rowsFor = (memberIds) => leaderboard(memberIds, { mySessions: training.sessions, myStreak: myCard.streak, isRtl });
+  const crewMembers = (chat) => (chat?.members || []).filter((id) => id !== ME).map((id) => findBuddy(id)).filter(Boolean);
+
+  const botAction = (id, fromChatId = null) => {
     if (id.startsWith("open:")) { store.openChat(id.slice(5)); return; }
+    const target = (raw) => (raw === "self" ? fromChatId : raw);
+    if (id.startsWith("leaderboard:")) {
+      const chatId = target(id.slice(12));
+      const chat = store.chats.find((c) => c.id === chatId);
+      if (chat) store.botPost(botLeaderboard(rowsFor(chat.members), chatId, isRtl), chatId);
+      return;
+    }
+    if (id.startsWith("session:") || id.startsWith("session2:")) {
+      const alt = id.startsWith("session2:");
+      const chatId = target(id.slice(alt ? 9 : 8));
+      const chat = store.chats.find((c) => c.id === chatId);
+      if (chat) store.botPost(botSession(suggestSession(myCard.time, crewMembers(chat), { alt }), chatId, isRtl), chatId);
+      return;
+    }
+    if (id.startsWith("addtask:")) {
+      const [, chatId, iso] = id.split(":").length > 3 ? [null, id.split(":")[1], id.split(":").slice(2).join(":")] : id.split(":");
+      const chat = store.chats.find((c) => c.id === chatId);
+      const list = checklist.activeList;
+      if (list) {
+        const when = new Date(iso);
+        const label = when.toLocaleString(isRtl ? "fa-IR" : undefined, { weekday: "short", hour: "2-digit", minute: "2-digit" });
+        checklist.addItem(list.id, { text: `${isRtl ? "جلسه‌ی کرو" : "Crew session"} · ${chat?.title || ""} · ${label}`, priority: "high", due: iso.slice(0, 10) });
+        store.botPost(botTaskAdded(localized(list, isRtl)), chatId);
+        setToast(t.sessionAdded);
+      }
+      return;
+    }
     switch (id) {
       case "find": setDiscover(true); break;
       case "anon": {
@@ -215,6 +250,12 @@ export default function CommunityPage({ isRtl, onExit }) {
         break;
       }
       case "matches": store.botPost(botMatches(store.buddy.matches, isRtl)); break;
+      case "crew:new": if (store.buddy.matches.length) setCrewOpen(true); else store.botPost(botNeedTeammates()); break;
+      case "leaderboard": {
+        const ids = [ME, ...store.buddy.matches.map((m) => m.buddyId)];
+        store.botPost(ids.length > 1 ? botLeaderboard(rowsFor(ids), null, isRtl) : botNeedTeammates());
+        break;
+      }
       case "profile": store.botPost(botProfile(myCard)); break;
       case "prefs": setPrefsOpen(true); break;
       case "menu": store.botPost(botMenu()); break;
@@ -269,7 +310,7 @@ export default function CommunityPage({ isRtl, onExit }) {
             ? <ChatView store={store} chat={open} isRtl={isRtl} t={t} onBack={store.closeChat}
                 onOpenProfile={() => setProfileOpen(true)}
                 searching={searching} onSearchClose={() => setSearching(false)}
-                onBotAction={botAction} />
+                onBotAction={(id) => botAction(id, open.id)} />
             : screenView()}
         </motion.div>
       </AnimatePresence>
@@ -286,6 +327,7 @@ export default function CommunityPage({ isRtl, onExit }) {
             onSearch={() => { setProfileOpen(false); setSearching(true); }}
             onMore={() => setMenuChat(open)}
             onRequestReveal={() => requestReveal(open.id)}
+            leaderboardRows={open.crew ? rowsFor(open.members) : null}
             onOpenChat={(id) => { setProfileOpen(false); if (id && id !== open.id) store.openChat(id); }} />
         )}
       </AnimatePresence>
@@ -297,6 +339,20 @@ export default function CommunityPage({ isRtl, onExit }) {
             onOpenPrefs={() => setPrefsOpen(true)}
             onOpenChat={(chatId) => { setDiscover(false); store.openChat(chatId); }}
             onClose={() => setDiscover(false)} />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {crewOpen && (
+          <CrewSheet matches={store.buddy.matches} isRtl={isRtl} t={t}
+            onCreate={({ name, memberIds }) => {
+              const chatId = store.createCrew({ name, memberIds });
+              store.botPost(botCrewCreated(name, memberIds.length), chatId);
+              store.botPost(botLeaderboard(rowsFor([ME, ...memberIds]), chatId, isRtl), chatId);
+              setCrewOpen(false);
+              store.openChat(chatId);
+            }}
+            onClose={() => setCrewOpen(false)} />
         )}
       </AnimatePresence>
 

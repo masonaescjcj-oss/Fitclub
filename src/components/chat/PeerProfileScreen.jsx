@@ -14,7 +14,7 @@ const birthdayLabel = (iso) => new Date(`${iso}T00:00:00`).toLocaleDateString(un
  * Who you are talking to: a person's profile, or a group's / channel's info.
  * Pushed over the conversation the way the iOS client does it.
  */
-export default function PeerProfileScreen({ store, chat, user, isRtl, t, onBack, onToast, onSearch, onMore, onOpenChat, onRequestReveal }) {
+export default function PeerProfileScreen({ store, chat, user, isRtl, t, onBack, onToast, onSearch, onMore, onOpenChat, onRequestReveal, leaderboardRows = null }) {
   const match = chat.buddy ? store.buddy.matches.find((m) => m.chatId === chat.id) : null;
   const name = user ? (isRtl ? user.nameFa || user.name : user.name) : (isRtl ? chat.titleFa || chat.title : chat.title);
   const subtitle = user
@@ -103,6 +103,25 @@ export default function PeerProfileScreen({ store, chat, user, isRtl, t, onBack,
             <InfoRow label={t.usernameLabel} value={user.username ? `@${user.username}` : ""} dir="ltr" link />
             <InfoRow label={t.birthday} value={user.birthday ? `${birthdayLabel(user.birthday)} (${ageOf(user.birthday)} ${t.yearsOld})` : ""} />
             <InfoRow label={t.bio} value={user.bio} />
+          </Card>
+        </>
+      )}
+
+      {!user && chat.crew && leaderboardRows && (
+        <>
+          <SectionHeader label={`🏆 ${t.thisWeek}`} trailing={`${leaderboardRows.length} ${t.members}`} />
+          <Card>
+            {leaderboardRows.map((r) => (
+              <div key={r.id} className="flex items-center gap-3 px-3 py-2.5">
+                <span className="w-7 text-center text-[17px]">{["🥇", "🥈", "🥉"][r.rank - 1] || <span className="text-[14px] text-neutral-500">{r.rank}</span>}</span>
+                <Avatar user={findUser(r.id === "me" ? ME : r.id)} size={40} showStatus={false} />
+                <span className="flex-1 min-w-0">
+                  <span className="block text-[15px] font-semibold text-white truncate">{r.name}</span>
+                  <span className="block text-[12px]" style={{ color: TG.muted }}>{r.sessions} {t.sessionsLabel} · 🔥 {r.streak}</span>
+                </span>
+                <span className="text-[15px] font-bold text-white tabular-nums" dir="ltr">{r.volumeKg.toLocaleString()} <span className="text-[12px] font-medium text-neutral-500">{t.volumeKg}</span></span>
+              </div>
+            ))}
           </Card>
         </>
       )}
