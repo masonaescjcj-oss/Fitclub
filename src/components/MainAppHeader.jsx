@@ -10,6 +10,7 @@ export default function MainAppHeader({
   onNotificationClick,
   onWalletClick,
   onStreakClick,
+  alerts = 0,
   isRtl,
 }) {
   return (
@@ -78,8 +79,11 @@ export default function MainAppHeader({
           className="w-9 h-9 rounded-xl bg-[#141416] border border-white/10 flex items-center justify-center text-gray-300 hover:text-white hover:border-[#844783]/50 transition-all relative"
         >
           <Bell className="w-4 h-4" />
-          <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-[#844783] animate-ping" />
-          <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-[#844783]" />
+          {alerts > 0 && (
+            <span aria-label={`${alerts}`} className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-[#844783] text-white text-[10px] font-black flex items-center justify-center border-2 border-black on-accent">
+              {alerts > 9 ? "9+" : alerts}
+            </span>
+          )}
         </button>
 
       </div>

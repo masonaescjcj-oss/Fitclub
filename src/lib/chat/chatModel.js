@@ -1,5 +1,7 @@
 // Data model for the messenger. Pure functions only.
 
+import { mentions } from "./mentions";
+
 export const uid = () =>
   `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
 
@@ -230,6 +232,36 @@ export function unreadCount(messages, chat, now = Date.now()) {
   return visibleMessages(messages, chat.id, now).filter(
     (m) => m.senderId !== ME && new Date(m.at).getTime() > marker
   ).length;
+}
+
+/** Incoming, unread messages in this chat that name the athlete's @username. */
+export function unreadMentions(messages, chat, username, now = Date.now()) {
+  if (!username) return [];
+  const marker = chat.lastReadAt ? new Date(chat.lastReadAt).getTime() : 0;
+  return visibleMessages(messages, chat.id, now).filter(
+    (m) => m.senderId !== ME && !m.deleted && new Date(m.at).getTime() > marker && mentions(m.text, username)
+  );
+}
+
+/**
+ * What the notifications centre shows for the messenger, newest first:
+ * mentions of the athlete, and the system pills that concern them (joins,
+ * being added, admin changes, renames). Derived, never stored.
+ */
+export function messengerNotifications({ chats, messages, username }, { limit = 20, now = Date.now(), days = 7 } = {}) {
+  const since = now - days * 86400000;
+  const byChat = Object.fromEntries(chats.map((c) => [c.id, c]));
+  const out = [];
+  for (const m of messages) {
+    const chat = byChat[m.chatId];
+    if (!chat || chat.archived || m.deleted) continue;
+    const at = new Date(m.at).getTime();
+    if (at < since || at > now) continue;
+    const unread = at > (chat.lastReadAt ? new Date(chat.lastReadAt).getTime() : 0);
+    if (m.senderId !== ME && m.kind !== "system" && mentions(m.text, username)) out.push({ id: m.id, kind: "mention", chatId: chat.id, messageId: m.id, senderId: m.senderId, text: m.text, at: m.at, unread });
+    else if (m.kind === "system" && chat.type !== "private" && chat.type !== "bot") out.push({ id: m.id, kind: "system", chatId: chat.id, messageId: m.id, text: m.text, textFa: m.textFa, at: m.at, unread });
+  }
+  return out.sort((a, b) => (a.at < b.at ? 1 : -1)).slice(0, limit);
 }
 
 /** Chats in the order Telegram shows them: pinned first, then most recent. */

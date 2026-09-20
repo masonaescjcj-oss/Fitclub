@@ -72,7 +72,7 @@ function useLongPress(onLongPress) {
 }
 
 /** One row, laid out the way the iOS client lays it out. */
-function Row({ chat, message, unread, typingUser, isRtl, t, editing, onOpen, onMenu }) {
+function Row({ chat, message, unread, mentioned = 0, typingUser, isRtl, t, editing, onOpen, onMenu, onOpenMention }) {
   const title = isRtl ? chat.titleFa || chat.title : chat.title;
   const peer = chat.type === "private" && chat.id !== "saved"
     ? findUser(chat.members.find((m) => m !== ME))
@@ -126,6 +126,12 @@ function Row({ chat, message, unread, typingUser, isRtl, t, editing, onOpen, onM
 
           <span className="flex items-center gap-1 shrink-0 mt-2.5">
             {chat.muted && unread === 0 && <VolumeX className="w-4 h-4" style={{ color: TG.muted }} />}
+            {mentioned > 0 && (
+              <button type="button" aria-label={t.mentionedYou} title={t.mentionedYou}
+                onClick={(e) => { e.stopPropagation(); onOpenMention?.(); }}
+                className="w-[22px] h-[22px] rounded-full text-[13px] font-bold text-white flex items-center justify-center on-accent"
+                style={{ background: TG.accentDeep }}>@</button>
+            )}
             {unread > 0 ? (
               <span className={`min-w-[22px] h-[22px] px-1.5 rounded-full text-[13px] font-semibold text-white flex items-center justify-center ${chat.muted ? "" : "on-accent"}`}
                 style={{ background: chat.muted ? "#c7c7cc" : TG.accentDeep, color: chat.muted ? "#fff" : undefined }}>
@@ -230,14 +236,14 @@ function SearchResults({ query, store, people, isRtl, t, onOpen, onOpenUser, onJ
   );
 }
 
-export default function ChatList({ store, isRtl, t, onOpen, onMenu, onCompose, onOpenStory, onAddStory, onOpenUser, onJoin, people = [] }) {
+export default function ChatList({ store, isRtl, t, onOpen, onOpenAt, onMenu, onCompose, onOpenStory, onAddStory, onOpenUser, onJoin, people = [] }) {
   const [editing, setEditing] = useState(false);
   const [query, setQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const searching = searchOpen || query.trim().length > 0;
 
   const rows = useMemo(() => store.orderedChats
-    .map((chat) => ({ chat, message: lastMessage(store.messages, chat.id), unread: store.unreadOf(chat) }))
+    .map((chat) => ({ chat, message: lastMessage(store.messages, chat.id), unread: store.unreadOf(chat), mentions: store.mentionsOf(chat) }))
     .filter(({ chat, unread }) => matchesFolder(chat, store.folder, unread)), [store]);
 
   const archivedCount = store.chats.filter((c) => c.archived).length;
@@ -326,12 +332,13 @@ export default function ChatList({ store, isRtl, t, onOpen, onMenu, onCompose, o
         {rows.length === 0 && (
           <p className="py-16 text-center text-sm font-medium" style={{ color: TG.muted }}>{t.noChats}</p>
         )}
-        {rows.map(({ chat, message, unread }) => (
+        {rows.map(({ chat, message, unread, mentions }) => (
           <motion.div key={chat.id} layout="position">
-            <Row chat={chat} message={message} unread={unread}
+            <Row chat={chat} message={message} unread={unread} mentioned={mentions.length}
               typingUser={store.typing[chat.id]}
               isRtl={isRtl} t={t} editing={editing}
               onOpen={() => onOpen(chat.id)}
+              onOpenMention={() => (onOpenAt ? onOpenAt(chat.id, mentions[0].id) : onOpen(chat.id))}
               onMenu={() => onMenu(chat)} />
           </motion.div>
         ))}

@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import MainAppHeader from "../components/MainAppHeader";
 import { ChecklistProvider, useChecklistStore } from "../lib/checklistContext";
 import { NutritionProvider } from "../lib/nutrition/nutritionContext";
-import { ChatProvider } from "../lib/chat/chatContext";
+import { ChatProvider, useChatStore } from "../lib/chat/chatContext";
 import { TrainingProvider, useTrainingStore } from "../lib/training/trainingContext";
 import { CoachProvider } from "../lib/coach/coachContext";
 import { useNutritionStore } from "../lib/nutrition/nutritionContext";
@@ -64,6 +64,9 @@ function MainAppShell({ onNavigate }) {
   const [shareCode, setShareCode] = useState(() => readShareFromLocation());
   // An invite to a group or channel (…#join=<id>) lands in the messenger, which resolves it.
   const [joinCode, setJoinCode] = useState(() => readJoinFromLocation());
+  // A chat the notifications centre asked to open, at a message.
+  const [openTarget, setOpenTarget] = useState(null);
+  const chat = useChatStore();
   const training = useTrainingStore();
   const nutrition = useNutritionStore();
   const tt = useTrainingT((localStorage.getItem("language") || "en") === "fa");
@@ -120,6 +123,7 @@ function MainAppShell({ onNavigate }) {
           onNotificationClick={() => setSubPage("notifications")}
           onWalletClick={() => setSubPage("wallet")}
           onStreakClick={() => setSubPage("streakDetail")}
+          alerts={chat.unreadMentionTotal + chat.notifications.filter((n) => n.unread && n.kind === "system").length}
           isRtl={isRtl}
         />
       )}
@@ -141,7 +145,8 @@ function MainAppShell({ onNavigate }) {
           {subPage === "myRank" && <MyRankPage onBack={() => setSubPage("streakDetail")} isRtl={isRtl} />}
           {subPage === "history" && <HistoryPage onBack={() => setSubPage(null)} isRtl={isRtl} />}
           {subPage === "tutorials" && <TutorialsPage onBack={() => setSubPage(null)} isRtl={isRtl} />}
-          {subPage === "notifications" && <NotificationsPage onBack={() => setSubPage(null)} isRtl={isRtl} />}
+          {subPage === "notifications" && <NotificationsPage onBack={() => setSubPage(null)} isRtl={isRtl}
+            onOpenChat={(chatId, messageId) => { setOpenTarget({ chatId, messageId }); setSubPage(null); setActiveTab("chat"); }} />}
           {subPage === "workoutReport" && <WorkoutReportPage onBack={() => setSubPage(null)} isRtl={isRtl} />}
           {subPage === "team" && <TeamPage onBack={() => setSubPage(null)} isRtl={isRtl} />}
           {subPage === "wallet" && <WalletPage onBack={() => setSubPage(null)} isRtl={isRtl} />}
@@ -155,7 +160,8 @@ function MainAppShell({ onNavigate }) {
               {activeTab === "fitness" && <WorkoutPage isRtl={isRtl} />}
               {activeTab === "diet" && <DietPage isRtl={isRtl} onGoToRecipe={() => setSubPage("recipeExplore")} onGoToGuide={() => setSubPage("dietGuide")} />}
               {activeTab === "aiCoach" && <AiCoachPage isRtl={isRtl} />}
-              {activeTab === "chat" && <CommunityPage isRtl={isRtl} onExit={() => setActiveTab("fitness")} joinCode={joinCode} onJoinHandled={() => setJoinCode(null)} />}
+              {activeTab === "chat" && <CommunityPage isRtl={isRtl} onExit={() => setActiveTab("fitness")} joinCode={joinCode} onJoinHandled={() => setJoinCode(null)}
+                openTarget={openTarget} onOpenHandled={() => setOpenTarget(null)} />}
               {activeTab === "checklist" && <ChecklistPage isRtl={isRtl} onGoToStreak={() => setSubPage("streakDetail")} />}
             </>
           )}

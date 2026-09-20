@@ -127,7 +127,7 @@ function StoryViewer({ stories, index, isRtl, t, onIndex, onClose }) {
 }
 
 /** The messenger: chat list plus the Telegram-style shell around it. */
-export default function CommunityPage({ isRtl, onExit, joinCode = null, onJoinHandled }) {
+export default function CommunityPage({ isRtl, onExit, joinCode = null, onJoinHandled, openTarget = null, onOpenHandled }) {
   const chatT = useChatT(isRtl);
   const buddyT = useBuddyT(isRtl);
   const t = useMemo(() => ({ ...chatT, ...buddyT }), [chatT, buddyT]);
@@ -147,6 +147,7 @@ export default function CommunityPage({ isRtl, onExit, joinCode = null, onJoinHa
   const [addingTo, setAddingTo] = useState(null); // chat id getting new members
   const [memberAction, setMemberAction] = useState(null); // member an admin tapped
   const [editingContact, setEditingContact] = useState(null); // an added person being edited
+  const [jumpTo, setJumpTo] = useState(null); // message to land on when the chat opens
   const pending = useRef([]); // timers for teammates who answer later
 
   // The athlete's match card, rebuilt from live data whenever it changes.
@@ -303,6 +304,15 @@ export default function CommunityPage({ isRtl, onExit, joinCode = null, onJoinHa
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [joinCode]);
 
+  // The notifications centre (or the @ badge) asked for a chat at a specific message.
+  const openAt = (chatId, messageId) => { setJumpTo(messageId || null); store.openChat(chatId); store.setScreen("list"); };
+  useEffect(() => {
+    if (!openTarget) return;
+    openAt(openTarget.chatId, openTarget.messageId);
+    onOpenHandled?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openTarget]);
+
   /** A tapped @handle: the person's chat when we know them, otherwise the community by that name. */
   const openMention = (username) => {
     const hit = resolveJoin(username, { chats: store.chats, directory: store.directory, people: [...addablePeople(store), { ...findUser(ME), username: store.me.username }] });
@@ -370,6 +380,7 @@ export default function CommunityPage({ isRtl, onExit, joinCode = null, onJoinHa
       default:
         return <ChatList store={store} isRtl={isRtl} t={t}
           onOpen={store.openChat}
+          onOpenAt={openAt}
           onMenu={setMenuChat}
           onCompose={() => store.setScreen("contacts")}
           onOpenStory={openStory}
@@ -395,7 +406,8 @@ export default function CommunityPage({ isRtl, onExit, joinCode = null, onJoinHa
                 onBotAction={(id) => botAction(id, open.id)}
                 blocked={!!openPeer && store.blocked.includes(openPeer.id)}
                 onUnblock={() => { store.unblockUser(openPeer.id); setToast(t.unblocked); }}
-                onMention={openMention} />
+                onMention={openMention}
+                jumpTo={jumpTo} onJumped={() => setJumpTo(null)} />
             : screenView()}
         </motion.div>
       </AnimatePresence>

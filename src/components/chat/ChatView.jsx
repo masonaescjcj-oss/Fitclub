@@ -18,7 +18,7 @@ const WAVEFORM = () => Array.from({ length: 22 }, () => 20 + Math.random() * 80)
 /** A frosted pill floating over the wallpaper, the iOS navigation-bar idiom. */
 const glass = { background: TG.glass, boxShadow: "0 1px 6px rgba(0,0,0,.08)" };
 
-export default function ChatView({ store, chat, isRtl, t, onBack, onOpenProfile, searching = false, onSearchClose, onBotAction, blocked = false, onUnblock, onMention }) {
+export default function ChatView({ store, chat, isRtl, t, onBack, onOpenProfile, searching = false, onSearchClose, onBotAction, blocked = false, onUnblock, onMention, jumpTo = null, onJumped }) {
   const [replyTo, setReplyTo] = useState(null);
   const [editing, setEditing] = useState(null);
   const [actionsFor, setActionsFor] = useState(null);
@@ -27,7 +27,9 @@ export default function ChatView({ store, chat, isRtl, t, onBack, onOpenProfile,
   const [translateAll, setTranslateAll] = useState(false);
   const [query, setQuery] = useState("");
   const [toast, setToast] = useState("");
+  const [flash, setFlash] = useState(null); // message id lit up after a jump
   const endRef = useRef(null);
+  const bubbleRefs = useRef({});
 
   const all = store.messagesOf(chat.id);
   const byId = useMemo(() => Object.fromEntries(all.map((m) => [m.id, m])), [all]);
@@ -47,9 +49,22 @@ export default function ChatView({ store, chat, isRtl, t, onBack, onOpenProfile,
   // Who can be @mentioned here: everyone else in a group or channel.
   const mentionable = chat.type === "group" || chat.type === "channel" ? chat.members.filter((id) => id !== ME).map((id) => findUser(id)) : [];
 
+  /** Scrolls a message into view and lights it up; the reply quote, the @ badge and notifications all land here. */
+  const jump = (id) => {
+    const el = bubbleRefs.current[id];
+    if (!el) return false;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    setFlash(id);
+    setTimeout(() => setFlash((f) => (f === id ? null : f)), 1600);
+    return true;
+  };
+
   useEffect(() => {
+    if (jumpTo) { const id = requestAnimationFrame(() => { jump(jumpTo); onJumped?.(); }); return () => cancelAnimationFrame(id); }
     if (!q) endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [all.length, typingUser, q]);
+    return undefined;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [all.length, typingUser, q, jumpTo]);
 
   useEffect(() => {
     if (!toast) return undefined;
@@ -58,6 +73,13 @@ export default function ChatView({ store, chat, isRtl, t, onBack, onOpenProfile,
   }, [toast]);
 
   useEffect(() => { if (!searching) setQuery(""); }, [searching]);
+
+  // Whatever lands while the conversation is on screen has been seen.
+  const newest = all.length ? all[all.length - 1].at : null;
+  useEffect(() => {
+    if (newest && (!chat.lastReadAt || newest > chat.lastReadAt)) store.markRead(chat.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [newest, chat.id]);
 
   const subtitle = typingUser
     ? t.typing
@@ -213,8 +235,8 @@ export default function ChatView({ store, chat, isRtl, t, onBack, onOpenProfile,
             );
           }
           return (
+            <div key={row.id} ref={(el) => { bubbleRefs.current[row.id] = el; }} className={flash === row.id ? "tg-flash" : ""} data-message-id={row.id}>
             <MessageBubble
-              key={row.id}
               message={row}
               chat={chat}
               replyTarget={row.replyTo ? byId[row.replyTo] : null}
@@ -228,10 +250,11 @@ export default function ChatView({ store, chat, isRtl, t, onBack, onOpenProfile,
               onLongPress={(m) => (selectionMode ? toggleSelect(m.id) : setActionsFor(m))}
               onReact={store.react}
               onVote={(i2) => store.vote(row.id, i2)}
-              onJumpToReply={() => {}}
+              onJumpToReply={(id) => jump(id)}
               onButton={onBotAction}
               onMention={onMention}
             />
+            </div>
           );
         })}
 

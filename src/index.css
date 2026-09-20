@@ -109,3 +109,7 @@
 .tg-tail.tg-out::after { inset-inline-end: -6px; background: var(--tg-out-bubble); clip-path: polygon(0 0, 100% 100%, 0 100%); }
 [dir="rtl"] .tg-tail.tg-in::after { clip-path: polygon(0 0, 100% 100%, 0 100%); }
 [dir="rtl"] .tg-tail.tg-out::after { clip-path: polygon(100% 0, 0 100%, 100% 100%); }
+
+/* A message the athlete jumped to (from a reply quote, a mention badge or a notification) glows for a moment. */
+@keyframes tg-flash { 0% { background: rgba(51, 144, 236, 0.28); } 100% { background: transparent; } }
+.tg-flash { animation: tg-flash 1.6s ease-out 1; border-radius: 12px; }

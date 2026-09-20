@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ME, buildChannelChat, buildGroupChat, createChat, createMessage, createdSystemMessage, findPrivateChatWith,
-  makeInviteLink, membershipMessage, sortChats, toggleReaction, totalUnread, uniqueUsername, unreadCount, visibleMessages, votePoll,
+  makeInviteLink, membershipMessage, messengerNotifications, sortChats, toggleReaction, totalUnread, uniqueUsername, unreadCount,
+  unreadMentions, visibleMessages, votePoll,
 } from "../lib/chat/chatModel";
 import { CUSTOM, DIRECTORY, REVEALED, directoryMessages, findUser, loadChat, registerCustomUsers, saveChat, takenUsernames } from "../lib/chat/chatStore";
 import { BOT_CHAT_ID, BOT_ID, findBuddy } from "../lib/buddy/buddyModel";
 import { saveSession } from "../lib/session";
-import { scheduleChannelLife, scheduleReply } from "../lib/chat/simulator";
+import { scheduleChannelLife, scheduleGreeting, scheduleReply } from "../lib/chat/simulator";
 import { TRANSCRIPTS } from "../lib/chat/extras";
 import { uid } from "../lib/chat/chatModel";
 
@@ -92,7 +93,7 @@ export default function useChat(lang = "en") {
                 createMessage({ chatId, senderId: userId, text, translation, status: "sent" }),
               ],
             })),
-        });
+        }, { meUsername: latest.current.me.username });
         timers.current.push(cancel);
       }
       return message;
@@ -318,8 +319,13 @@ export default function useChat(lang = "en") {
         folders: [], lastReadAt: now, muted: false, pinned: false, archived: false };
       const joined = membershipMessage(dirId, source.type === "channel" ? "joinedChannel" : "joinedGroup");
       // Idempotent inside the updater: a double tap or a re-run effect must not add the chat twice.
+      const fresh = !latest.current.chats.some((c) => c.id === dirId);
       setState((s) => (s.chats.some((c) => c.id === dirId) ? s : { ...s, chats: [...s.chats, chat], messages: [...s.messages, ...directoryMessages(dirId), joined] }));
       openChat(dirId);
+      if (fresh) {
+        timers.current.push(scheduleGreeting(chat, lang, latest.current.me.username, (from, text, translation) =>
+          setState((s) => ({ ...s, messages: [...s.messages, createMessage({ chatId: dirId, senderId: from, text, translation, status: "sent" })] }))));
+      }
       return dirId;
     },
     /** Leaving drops the chat from the list; its history goes with it, as Telegram does. */
@@ -415,6 +421,17 @@ export default function useChat(lang = "en") {
     [state.messages]
   );
 
+  /** Unread messages in this chat that name me. */
+  const mentionsOf = useCallback(
+    (chat) => unreadMentions(state.messages, chat, state.me.username),
+    [state.messages, state.me.username]
+  );
+
+  const notifications = useMemo(
+    () => messengerNotifications({ chats: state.chats, messages: state.messages, username: state.me.username }),
+    [state.chats, state.messages, state.me.username]
+  );
+
   const ordered = useMemo(
     () => sortChats(state.chats, state.messages),
     [state.chats, state.messages]
@@ -439,6 +456,9 @@ export default function useChat(lang = "en") {
     typing,
     messagesOf,
     unreadOf,
+    mentionsOf,
+    notifications,
+    unreadMentionTotal: state.chats.reduce((n, c) => n + (c.archived ? 0 : unreadMentions(state.messages, c, state.me.username).length), 0),
     ...api,
   };
 }
