@@ -2,7 +2,8 @@ import React, { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowUp, Clock, Image, Mic, Paperclip, Smile, Sticker, VolumeX, X } from "lucide-react";
 import { TG } from "../../lib/chat/extras";
-import { senderColor, senderName } from "./ChatBits";
+import { applyMention, mentionCandidates, mentionQuery } from "../../lib/chat/mentions";
+import { Avatar, senderColor, senderName } from "./ChatBits";
 
 const EMOJI = ["😀","😁","😂","🤣","😊","😍","😘","😎","🤔","😴","🙄","😮","😢","😤","🥵","🤝","🙏","👍","👎","👏","💪","🔥","⚡","🏆","🥇","🎯","💯","❤️","🩶","✅","🏋️","🏃","🚴","🧘","🥗","🍗","💧","😮‍💨"];
 const STICKERS = ["🏋️","🥇","🔥","💪","🧘","🏃","🚴","🥗","😤","🎯","🏆","⚡","🦾","🥵","🫡","🙌"];
@@ -42,13 +43,24 @@ function ContextStrip({ mode, message, isRtl, t, onCancel }) {
  * offers silent and scheduled sending, as the real client does.
  */
 export default function Composer({
-  chat, draft, replyTo, editing, isRtl, t,
+  chat, draft, replyTo, editing, isRtl, t, members = [],
   onChangeDraft, onSend, onAttach, onCancelContext, onOpenSchedule,
 }) {
   const [panel, setPanel] = useState(null); // "emoji" | "stickers" | "attach"
   const [sendMenu, setSendMenu] = useState(false);
+  const [caret, setCaret] = useState(null);
   const inputRef = useRef(null);
   const holdTimer = useRef(null);
+
+  // @mentions: in a group, typing "@" offers the members; picking one drops in their handle.
+  const mention = members.length ? mentionQuery(draft, caret ?? draft.length) : null;
+  const suggestions = mention ? mentionCandidates(mention.query, members) : [];
+  const pickMention = (u) => {
+    const next = applyMention(draft, mention.start, caret ?? draft.length, u.username);
+    onChangeDraft(next.text);
+    setCaret(next.caret);
+    requestAnimationFrame(() => { const el = inputRef.current; if (el) { el.focus(); el.setSelectionRange(next.caret, next.caret); } });
+  };
 
   useEffect(() => {
     if (editing || replyTo) inputRef.current?.focus();
@@ -81,6 +93,20 @@ export default function Composer({
       />
 
       <AnimatePresence>
+        {suggestions.length > 0 && (
+          <motion.div key="mentions" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 6 }}
+            className="rounded-2xl mb-1.5 backdrop-blur-xl overflow-hidden divide-y" role="listbox" aria-label="@"
+            style={{ background: TG.glass, boxShadow: "0 1px 6px rgba(0,0,0,.08)", borderColor: TG.sep }}>
+            {suggestions.map((u) => (
+              <button key={u.id} type="button" role="option" aria-selected="false" onMouseDown={(e) => e.preventDefault()} onClick={() => pickMention(u)}
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-start active:bg-black/[0.04]">
+                <Avatar user={u} size={32} showStatus={false} />
+                <span className="flex-1 min-w-0 text-[15px] font-medium text-white truncate">{isRtl ? u.nameFa || u.name : u.name}</span>
+                <span className="text-[13px] shrink-0" style={{ color: TG.muted }} dir="ltr">@{u.username}</span>
+              </button>
+            ))}
+          </motion.div>
+        )}
         {panel && (
           <motion.div
             initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}
@@ -132,9 +158,15 @@ export default function Composer({
             ref={inputRef}
             rows={1}
             value={draft}
-            onChange={(e) => onChangeDraft(e.target.value)}
+            onChange={(e) => { onChangeDraft(e.target.value); setCaret(e.target.selectionStart); }}
+            onKeyUp={(e) => setCaret(e.target.selectionStart)}
+            onClick={(e) => setCaret(e.target.selectionStart)}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submit(); }
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                if (suggestions.length) pickMention(suggestions[0]); else submit();
+              }
+              if (e.key === "Tab" && suggestions.length) { e.preventDefault(); pickMention(suggestions[0]); }
             }}
             placeholder={chat.type === "channel" ? t.broadcast : t.message}
             aria-label={chat.type === "channel" ? t.broadcast : t.message}

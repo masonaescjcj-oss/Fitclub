@@ -11,24 +11,28 @@ const AVATAR_CHOICES = ["👤", "🧑", "👩", "🧔", "👩‍🦰", "🧑‍�
 
 const USERNAME_ERROR = { short: "usernameShort", long: "usernameLong", chars: "usernameChars", start: "usernameStart", taken: "usernameTaken" };
 
-/** A person added by hand gets the same identity as everyone else: name, @username, phone. */
-function AddContactSheet({ store, isRtl, t, onSave, onClose }) {
-  const [name, setName] = useState("");
-  const [username, setUsername] = useState("");
-  const [phone, setPhone] = useState("");
-  const [avatar, setAvatar] = useState("👤");
+/**
+ * A person added by hand gets the same identity as everyone else: name,
+ * @username, phone. With `initial` it edits that person instead.
+ */
+export function ContactSheet({ store, initial = null, isRtl, t, onSave, onClose }) {
+  const [name, setName] = useState(initial?.name || "");
+  const [username, setUsername] = useState(initial?.username || "");
+  const [phone, setPhone] = useState(initial?.phone || "");
+  const [avatar, setAvatar] = useState(initial?.avatar || "👤");
   const slug = username.trim().replace(/^@/, "").toLowerCase();
-  const error = slug ? validateUsername(slug, [], null) || (store.takenUsernames().map((u) => u.toLowerCase()).includes(slug) ? "taken" : null) : null;
+  const taken = store.takenUsernames().map((u) => u.toLowerCase()).filter((u) => u !== (initial?.username || "").toLowerCase());
+  const error = slug ? validateUsername(slug, [], null) || (taken.includes(slug) ? "taken" : null) : null;
   const field = "w-full h-11 px-3 rounded-2xl text-sm font-bold text-white placeholder:text-neutral-500 focus:outline-none";
   return (
-    <Sheet title={t.addContact} isRtl={isRtl} t={t} onClose={onClose}
+    <Sheet title={initial ? t.editContact : t.addContact} isRtl={isRtl} t={t} onClose={onClose}
       footer={
         <>
           <button type="button" onClick={onClose}
             className="flex-1 h-12 rounded-2xl bg-white/5 border border-white/10 text-neutral-300 font-black text-sm">{t.cancel}</button>
           <button type="button" disabled={!name.trim() || !!error} onClick={() => onSave({ name: name.trim(), avatar, username: slug, phone: phone.trim() })}
             className="flex-1 h-12 rounded-2xl text-white font-black text-sm disabled:opacity-40 on-accent"
-            style={{ background: TG.accentDeep }}>{t.startChat}</button>
+            style={{ background: TG.accentDeep }}>{initial ? t.save : t.startChat}</button>
         </>
       }>
       <div className="p-4 space-y-3">
@@ -166,7 +170,7 @@ export default function ContactsScreen({ store, isRtl, t, onBack, onGoCalls, onN
 
       <AnimatePresence>
         {adding && (
-          <AddContactSheet store={store} isRtl={isRtl} t={t}
+          <ContactSheet store={store} isRtl={isRtl} t={t}
             onSave={(v) => { const user = store.addContact(v); setAdding(false); store.openOrCreatePrivateChat(user); }}
             onClose={() => setAdding(false)} />
         )}

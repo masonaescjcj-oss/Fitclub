@@ -6,6 +6,7 @@ import {
 } from "../../lib/chat/chatModel";
 import { TG } from "../../lib/chat/extras";
 import { Ticks, senderColor, senderName } from "./ChatBits";
+import { splitMentions } from "../../lib/chat/mentions";
 
 /** The quoted block above a reply. */
 function ReplyQuote({ message, isRtl, t, onJump }) {
@@ -137,7 +138,7 @@ function Challenge({ message, isRtl, t }) {
 
 export default function MessageBubble({
   message, chat, replyTarget, grouped, tail = true, isRtl, t, selected, selectionMode, translateAll,
-  onSelect, onLongPress, onReact, onVote, onJumpToReply, onButton,
+  onSelect, onLongPress, onReact, onVote, onJumpToReply, onButton, onMention,
 }) {
   const shown = (isRtl && message.textFa) || message.text;
   const mine = isMine(message);
@@ -247,7 +248,10 @@ export default function MessageBubble({
               <p className="text-[16px] font-normal whitespace-pre-wrap break-words leading-[21px]" dir="auto">
                 {(translateAll || message.showTranslation) && message.translation
                   ? message.translation
-                  : shown}
+                  : splitMentions(shown).map((run, i) => (run.type === "mention"
+                    ? <button key={i} type="button" onClick={(e) => { e.stopPropagation(); onMention?.(run.username); }}
+                        className="font-semibold underline-offset-2 hover:underline" style={{ color: mine ? "inherit" : TG.accent }} dir="ltr">{run.value}</button>
+                    : <React.Fragment key={i}>{run.value}</React.Fragment>))}
               </p>
               {(translateAll || message.showTranslation) && message.translation && (
                 <span className="block text-[9px] font-bold text-white/50 mt-0.5">🌐 {t.translated}</span>

@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { User, UserSquare, Check, X } from "lucide-react";
 import Header from "../components/Header";
+import { validateUsername } from "../lib/chat/chatModel";
+import { loadChat, takenUsernames } from "../lib/chat/chatStore";
 
 export default function ProfileSetupPage({ onNavigate }) {
   const [name, setName] = useState("");
@@ -25,6 +27,13 @@ export default function ProfileSetupPage({ onNavigate }) {
       usernameValid: "Username is available",
       usernameInvalid: "Username is taken or invalid",
       checking: "Checking availability...",
+      reasons: {
+        short: "At least 5 characters.",
+        long: "At most 32 characters.",
+        chars: "Only a–z, 0–9 and underscores.",
+        start: "Can't start with a number or an underscore.",
+        taken: "This username is already taken.",
+      },
     },
     fa: {
       title: "تکمیل پروفایل شما",
@@ -38,11 +47,22 @@ export default function ProfileSetupPage({ onNavigate }) {
       usernameValid: "نام کاربری در دسترس است",
       usernameInvalid: "این نام کاربری قبلاً استفاده شده است",
       checking: "در حال بررسی...",
+      reasons: {
+        short: "حداقل ۵ کاراکتر.",
+        long: "حداکثر ۳۲ کاراکتر.",
+        chars: "فقط a–z، 0–9 و زیرخط.",
+        start: "نمی‌تواند با عدد یا زیرخط شروع شود.",
+        taken: "این نام کاربری قبلاً گرفته شده.",
+      },
     }
   };
 
   const t = profileTranslations[language];
 
+  const [reason, setReason] = useState(null);
+
+  // The same rules and the same taken list the messenger uses, so the ID picked
+  // here is the one people find you by later.
   const handleUsernameChange = (val) => {
     const cleanVal = val.toLowerCase().replace(/[^a-z0-9_]/g, "");
     setUsername(cleanVal);
@@ -50,6 +70,7 @@ export default function ProfileSetupPage({ onNavigate }) {
 
     if (!cleanVal) {
       setUsernameStatus(null);
+      setReason(null);
       setIsValidating(false);
       return;
     }
@@ -57,11 +78,10 @@ export default function ProfileSetupPage({ onNavigate }) {
     setIsValidating(true);
     setTimeout(() => {
       setIsValidating(false);
-      if (cleanVal.length >= 3) {
-        setUsernameStatus("valid");
-      } else {
-        setUsernameStatus("invalid");
-      }
+      const problem = validateUsername(cleanVal, [], null)
+        || (takenUsernames(loadChat()).some((u) => u.toLowerCase() === cleanVal) ? "taken" : null);
+      setReason(problem);
+      setUsernameStatus(problem ? "invalid" : "valid");
     }, 400);
   };
 
@@ -175,7 +195,7 @@ export default function ProfileSetupPage({ onNavigate }) {
                     : usernameStatus === "valid"
                     ? t.usernameValid
                     : usernameStatus === "invalid"
-                    ? t.usernameInvalid
+                    ? (t.reasons[reason] || t.usernameInvalid)
                     : ""}
                 </span>
               </div>

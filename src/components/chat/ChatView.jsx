@@ -18,7 +18,7 @@ const WAVEFORM = () => Array.from({ length: 22 }, () => 20 + Math.random() * 80)
 /** A frosted pill floating over the wallpaper, the iOS navigation-bar idiom. */
 const glass = { background: TG.glass, boxShadow: "0 1px 6px rgba(0,0,0,.08)" };
 
-export default function ChatView({ store, chat, isRtl, t, onBack, onOpenProfile, searching = false, onSearchClose, onBotAction, blocked = false, onUnblock }) {
+export default function ChatView({ store, chat, isRtl, t, onBack, onOpenProfile, searching = false, onSearchClose, onBotAction, blocked = false, onUnblock, onMention }) {
   const [replyTo, setReplyTo] = useState(null);
   const [editing, setEditing] = useState(null);
   const [actionsFor, setActionsFor] = useState(null);
@@ -44,6 +44,8 @@ export default function ChatView({ store, chat, isRtl, t, onBack, onOpenProfile,
     ? findUser(chat.members.find((m) => m !== ME))
     : null;
   const typingUser = store.typing[chat.id];
+  // Who can be @mentioned here: everyone else in a group or channel.
+  const mentionable = chat.type === "group" || chat.type === "channel" ? chat.members.filter((id) => id !== ME).map((id) => findUser(id)) : [];
 
   useEffect(() => {
     if (!q) endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -228,6 +230,7 @@ export default function ChatView({ store, chat, isRtl, t, onBack, onOpenProfile,
               onVote={(i2) => store.vote(row.id, i2)}
               onJumpToReply={() => {}}
               onButton={onBotAction}
+              onMention={onMention}
             />
           );
         })}
@@ -270,6 +273,7 @@ export default function ChatView({ store, chat, isRtl, t, onBack, onOpenProfile,
           replyTo={replyTo}
           editing={editing}
           isRtl={isRtl} t={t}
+          members={mentionable}
           onChangeDraft={(v) => store.setDraft(chat.id, v)}
           onSend={send}
           onAttach={attach}

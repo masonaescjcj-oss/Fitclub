@@ -9,6 +9,7 @@ import { CoachProvider } from "../lib/coach/coachContext";
 import { useNutritionStore } from "../lib/nutrition/nutritionContext";
 import { useTrainingT } from "../lib/training/trainingI18n";
 import { clearShareFromLocation, readShareFromLocation } from "../lib/training/programModel";
+import { clearJoinFromLocation, readJoinFromLocation } from "../lib/chat/search";
 import { ImportSheet } from "../components/training/TrainingSheets";
 import { applyMealPlan } from "./main/WorkoutPage";
 import { loadSession } from "../lib/session";
@@ -61,16 +62,22 @@ function MainAppShell({ onNavigate }) {
   // A plan shared by link lands here; the sheet decides whether it is a
   // program or a nutrition plan and hands it to the right store.
   const [shareCode, setShareCode] = useState(() => readShareFromLocation());
+  // An invite to a group or channel (…#join=<id>) lands in the messenger, which resolves it.
+  const [joinCode, setJoinCode] = useState(() => readJoinFromLocation());
   const training = useTrainingStore();
   const nutrition = useNutritionStore();
   const tt = useTrainingT((localStorage.getItem("language") || "en") === "fa");
   const [flash, setFlash] = useState("");
   useEffect(() => { if (shareCode) clearShareFromLocation(); }, [shareCode]);
   useEffect(() => {
-    const onHash = () => { const c = readShareFromLocation(); if (c) setShareCode(c); };
+    const onHash = () => {
+      const c = readShareFromLocation(); if (c) setShareCode(c);
+      const j = readJoinFromLocation(); if (j) setJoinCode(j);
+    };
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
+  useEffect(() => { if (joinCode) { clearJoinFromLocation(); setSubPage(null); setActiveTab("chat"); } }, [joinCode]);
   useEffect(() => { if (!flash) return undefined; const id = setTimeout(() => setFlash(""), 1800); return () => clearTimeout(id); }, [flash]);
 
   const { lists } = useChecklistStore();
@@ -148,7 +155,7 @@ function MainAppShell({ onNavigate }) {
               {activeTab === "fitness" && <WorkoutPage isRtl={isRtl} />}
               {activeTab === "diet" && <DietPage isRtl={isRtl} onGoToRecipe={() => setSubPage("recipeExplore")} onGoToGuide={() => setSubPage("dietGuide")} />}
               {activeTab === "aiCoach" && <AiCoachPage isRtl={isRtl} />}
-              {activeTab === "chat" && <CommunityPage isRtl={isRtl} onExit={() => setActiveTab("fitness")} />}
+              {activeTab === "chat" && <CommunityPage isRtl={isRtl} onExit={() => setActiveTab("fitness")} joinCode={joinCode} onJoinHandled={() => setJoinCode(null)} />}
               {activeTab === "checklist" && <ChecklistPage isRtl={isRtl} onGoToStreak={() => setSubPage("streakDetail")} />}
             </>
           )}

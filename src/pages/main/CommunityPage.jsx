@@ -6,10 +6,11 @@ import { useChatStore } from "../../lib/chat/chatContext";
 import { STORIES, findUser } from "../../lib/chat/chatStore";
 import { TG } from "../../lib/chat/extras";
 import { ME, makeInviteLink, relativeTime } from "../../lib/chat/chatModel";
+import { resolveJoin } from "../../lib/chat/search";
 import { localized } from "../../lib/checklistModel";
 import ChatList from "../../components/chat/ChatList";
 import ChatView from "../../components/chat/ChatView";
-import ContactsScreen from "../../components/chat/ContactsScreen";
+import ContactsScreen, { ContactSheet } from "../../components/chat/ContactsScreen";
 import CallsScreen from "../../components/chat/CallsScreen";
 import SettingsScreen from "../../components/chat/SettingsScreen";
 import ProfileScreen from "../../components/chat/ProfileScreen";
@@ -126,7 +127,7 @@ function StoryViewer({ stories, index, isRtl, t, onIndex, onClose }) {
 }
 
 /** The messenger: chat list plus the Telegram-style shell around it. */
-export default function CommunityPage({ isRtl, onExit }) {
+export default function CommunityPage({ isRtl, onExit, joinCode = null, onJoinHandled }) {
   const chatT = useChatT(isRtl);
   const buddyT = useBuddyT(isRtl);
   const t = useMemo(() => ({ ...chatT, ...buddyT }), [chatT, buddyT]);
@@ -145,6 +146,7 @@ export default function CommunityPage({ isRtl, onExit }) {
   const [editing, setEditing] = useState(null);   // { chatId, screen: "details" | "type" }
   const [addingTo, setAddingTo] = useState(null); // chat id getting new members
   const [memberAction, setMemberAction] = useState(null); // member an admin tapped
+  const [editingContact, setEditingContact] = useState(null); // an added person being edited
   const pending = useRef([]); // timers for teammates who answer later
 
   // The athlete's match card, rebuilt from live data whenever it changes.
@@ -287,6 +289,30 @@ export default function CommunityPage({ isRtl, onExit }) {
     pending.current.push(setTimeout(() => store.buddyReveal(chatId), 2500));
   };
 
+  // Someone opened an invite link: open it if it's ours, join it if it's public, or say it leads nowhere.
+  const handledJoin = useRef(null);
+  useEffect(() => {
+    if (!joinCode || handledJoin.current === joinCode) return;
+    handledJoin.current = joinCode;
+    const hit = resolveJoin(joinCode, { chats: store.chats, directory: store.directory, people: addablePeople(store) });
+    if (hit.chat && hit.joined) store.openChat(hit.chat.id);
+    else if (hit.chat) { store.joinChat(hit.chat.id); setToast(t.joinedToast(isRtl ? hit.chat.titleFa || hit.chat.title : hit.chat.title)); }
+    else if (hit.user) store.openOrCreatePrivateChat(hit.user);
+    else setToast(t.joinNotFound);
+    onJoinHandled?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [joinCode]);
+
+  /** A tapped @handle: the person's chat when we know them, otherwise the community by that name. */
+  const openMention = (username) => {
+    const hit = resolveJoin(username, { chats: store.chats, directory: store.directory, people: [...addablePeople(store), { ...findUser(ME), username: store.me.username }] });
+    if (hit.user && hit.user.id === ME) { store.closeChat(); store.setScreen("profile"); return; }
+    if (hit.user) { store.openOrCreatePrivateChat(hit.user); return; }
+    if (hit.chat && hit.joined) { store.openChat(hit.chat.id); return; }
+    if (hit.chat) { store.joinChat(hit.chat.id); return; }
+    setToast(t.noSearchResults);
+  };
+
   /* ── groups & channels ── */
   const startGroup = () => setCreating({ kind: "group", step: "members", draft: { memberIds: [] } });
   const startChannel = () => setCreating({ kind: "channel", step: "details", draft: { inviteLink: makeInviteLink(), isPublic: false, username: "" } });
@@ -368,7 +394,8 @@ export default function CommunityPage({ isRtl, onExit }) {
                 searching={searching} onSearchClose={() => setSearching(false)}
                 onBotAction={(id) => botAction(id, open.id)}
                 blocked={!!openPeer && store.blocked.includes(openPeer.id)}
-                onUnblock={() => { store.unblockUser(openPeer.id); setToast(t.unblocked); }} />
+                onUnblock={() => { store.unblockUser(openPeer.id); setToast(t.unblocked); }}
+                onMention={openMention} />
             : screenView()}
         </motion.div>
       </AnimatePresence>
@@ -400,7 +427,23 @@ export default function CommunityPage({ isRtl, onExit }) {
             onAddMembers={() => setAddingTo(open.id)}
             onMemberAction={setMemberAction}
             onLeave={() => leaveOrDelete(open, false)}
-            onDeleteChat={() => leaveOrDelete(open, true)} />
+            onDeleteChat={() => leaveOrDelete(open, true)}
+            onEditContact={() => setEditingContact(openPeer)}
+            onDeleteContact={() => {
+              const who = isRtl ? openPeer.nameFa || openPeer.name : openPeer.name;
+              if (!window.confirm(t.deleteContactConfirm(who))) return;
+              setProfileOpen(false);
+              store.deleteContact(openPeer.id);
+              setToast(t.contactDeleted);
+            }} />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {editingContact && (
+          <ContactSheet store={store} initial={editingContact} isRtl={isRtl} t={t}
+            onSave={(patch) => { store.updateContact(editingContact.id, patch); setEditingContact(null); setToast(t.chatInfoSaved); }}
+            onClose={() => setEditingContact(null)} />
         )}
       </AnimatePresence>
 

@@ -8,6 +8,7 @@ import { PEOPLE, findUser } from "../../lib/chat/chatStore";
 import { TG } from "../../lib/chat/extras";
 import { Avatar, NameBadges } from "./ChatBits";
 import { Sheet } from "./ChatSheets";
+import { appLinkFor } from "../../lib/chat/search";
 
 /*
  * Making and running groups and channels, laid out like the Android client:
@@ -178,7 +179,7 @@ export function ChatTypeScreen({ kind, draft, chats, selfId = null, isRtl, t, on
   const isChannel = kind === "channel";
   const slug = username.trim().toLowerCase();
   const error = isPublic ? validateUsername(slug, chats, selfId) : null;
-  const copy = () => { navigator.clipboard?.writeText(chatLink({ ...draft, isPublic: false })).catch(() => {}); onToast(t.chatLinkCopied); };
+  const copy = () => { navigator.clipboard?.writeText(appLinkFor({ ...draft, isPublic: false }) || chatLink({ ...draft, isPublic: false })).catch(() => {}); onToast(t.chatLinkCopied); };
   return (
     <StepScreen title={isChannel ? t.channelSettings : t.groupSettings} isRtl={isRtl} t={t} onBack={onBack}
       fab={() => onDone({ isPublic, username: isPublic ? slug : "" })} fabDisabled={!!error} fabIcon={nextIcon} fabLabel={nextLabel || t.next}>

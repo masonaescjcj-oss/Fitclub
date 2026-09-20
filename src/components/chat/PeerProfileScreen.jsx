@@ -1,12 +1,13 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
-import { Ban, Bell, BellOff, ChevronRight, Flag, LogOut, MoreHorizontal, Phone, PlusCircle, Radio, Search, Settings, Share2, ShieldCheck, Trash2, UserPlus, Video } from "lucide-react";
+import { Ban, Bell, BellOff, ChevronRight, Flag, LogOut, MoreHorizontal, Phone, PlusCircle, Radio, Search, Settings, Share2, ShieldCheck, Trash2, UserMinus, UserPlus, Video } from "lucide-react";
 import { ME, chatLink, lastMessage, previewOf, relativeTime } from "../../lib/chat/chatModel";
 import { PEOPLE, findUser } from "../../lib/chat/chatStore";
 import { TG } from "../../lib/chat/extras";
 import { Avatar, NameBadges } from "./ChatBits";
 import { ActionRow, Card, ChatPreviewCard, Hero, InfoRow, SectionHeader } from "./ProfileBits";
 import { InviteLinkCard } from "./CreateScreens";
+import { appLinkFor } from "../../lib/chat/search";
 
 const ageOf = (iso) => Math.floor((Date.now() - new Date(`${iso}T00:00:00`)) / (365.25 * 86400000));
 const birthdayLabel = (iso) => new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
@@ -30,8 +31,9 @@ function LinkRow({ icon: Icon, label, trailing, onClick, tone }) {
 export default function PeerProfileScreen({
   store, chat, user, isRtl, t, onBack, onToast, onSearch, onMore, onOpenChat, onRequestReveal,
   leaderboardRows = null, challenge = null, blocked = false, onReport, onBlock, onUnblock,
-  onEditInfo, onOpenSettings, onAddMembers, onMemberAction, onLeave, onDeleteChat,
+  onEditInfo, onOpenSettings, onAddMembers, onMemberAction, onLeave, onDeleteChat, onEditContact, onDeleteContact,
 }) {
+  const isContact = !!user && store.customUsers.some((u) => u.id === user.id);
   const [memberFilter, setMemberFilter] = useState("all"); // all | admins
   const match = chat.buddy ? store.buddy.matches.find((m) => m.chatId === chat.id) : null;
   const isChannel = chat.type === "channel";
@@ -47,7 +49,9 @@ export default function PeerProfileScreen({
       ? (chat.subscribers > 1 ? `${chat.subscribers.toLocaleString()} ${t.subscribers}` : typeTag)
       : `${chat.members.length} ${t.members}`;
 
-  const copyLink = () => { navigator.clipboard?.writeText(link).catch(() => {}); onToast(t.chatLinkCopied); };
+  // What gets copied is the app's own openable URL; the card shows the short form.
+  const copyLink = () => { navigator.clipboard?.writeText(appLinkFor(chat) || link).catch(() => {}); onToast(t.chatLinkCopied); };
+  const copyId = () => { navigator.clipboard?.writeText(`@${user.username}`).catch(() => {}); onToast(t.idCopied); };
 
   const actions = user
     ? [
@@ -87,7 +91,7 @@ export default function PeerProfileScreen({
       <Hero color={user?.color || chat.color} emoji={user?.avatar || chat.emoji} name={name} subtitle={subtitle}
         badges={<NameBadges verified={chat.verified || user?.verified} premium={chat.premium || user?.premium} size={18} />}
         isRtl={isRtl} t={t} onBack={onBack}
-        editLabel={t.edit} onEdit={user ? (!match ? () => onToast(t.uiOnlyNote) : null) : (iAdmin ? onEditInfo : null)} />
+        editLabel={t.edit} onEdit={user ? (isContact ? onEditContact : !match ? () => onToast(t.uiOnlyNote) : null) : (iAdmin ? onEditInfo : null)} />
       <ActionRow actions={actions} />
 
       {ownChannel && (
@@ -138,7 +142,11 @@ export default function PeerProfileScreen({
           <SectionHeader label={t.infoLabel} />
           <Card>
             <InfoRow label={t.mobile} value={user.phone} dir="ltr" link />
-            <InfoRow label={t.usernameLabel} value={user.username ? `@${user.username}` : ""} dir="ltr" link />
+            {user.username && (
+              <button type="button" onClick={copyId} className="w-full text-start">
+                <InfoRow label={`${t.usernameLabel} · ${t.copyId}`} value={`@${user.username}`} dir="ltr" link />
+              </button>
+            )}
             <InfoRow label={t.birthday} value={user.birthday ? `${birthdayLabel(user.birthday)} (${ageOf(user.birthday)} ${t.yearsOld})` : ""} />
             <InfoRow label={t.bio} value={user.bio} />
           </Card>
@@ -220,6 +228,12 @@ export default function PeerProfileScreen({
               <Ban className="w-5 h-5 shrink-0 text-rose-500" />
               <span className="text-[16px] font-medium text-rose-500">{blocked ? t.unblock : t.block}</span>
             </button>
+            {isContact && (
+              <button type="button" onClick={onDeleteContact} className="w-full flex items-center gap-3 px-4 py-3 text-start">
+                <UserMinus className="w-5 h-5 shrink-0 text-rose-500" />
+                <span className="text-[16px] font-medium text-rose-500">{t.deleteContact}</span>
+              </button>
+            )}
           </Card>
         </>
       )}

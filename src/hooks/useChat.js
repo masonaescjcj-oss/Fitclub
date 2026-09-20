@@ -193,8 +193,34 @@ export default function useChat(lang = "en") {
       registerCustomUsers([...latest.current.customUsers, user]);
       return user;
     },
+    /** Edits a person the athlete added; their one-to-one chat follows the new name and picture. */
     updateContact: (userId, patch) =>
-      setState((s) => ({ ...s, customUsers: s.customUsers.map((u) => (u.id === userId ? { ...u, ...patch } : u)) })),
+      setState((s) => {
+        const customUsers = s.customUsers.map((u) => (u.id === userId ? { ...u, ...patch, nameFa: patch.name || u.nameFa } : u));
+        registerCustomUsers(customUsers);
+        const chats = s.chats.map((c) => (c.type === "private" && c.members.includes(userId) && c.members.length === 2
+          ? { ...c, title: patch.name ?? c.title, titleFa: patch.name ?? c.titleFa, emoji: patch.avatar ?? c.emoji, color: patch.color ?? c.color }
+          : c));
+        return { ...s, customUsers, chats };
+      }),
+    /** Removes an added person everywhere: contacts, their private chat, and any group they were put in. */
+    deleteContact: (userId) => {
+      setOpenChatId((id) => (id && latest.current.chats.some((c) => c.id === id && c.type === "private" && c.members.includes(userId)) ? null : id));
+      setState((s) => {
+        const gone = s.chats.filter((c) => c.type === "private" && c.members.includes(userId)).map((c) => c.id);
+        const customUsers = s.customUsers.filter((u) => u.id !== userId);
+        registerCustomUsers(customUsers);
+        return {
+          ...s,
+          customUsers,
+          chats: s.chats.filter((c) => !gone.includes(c.id)).map((c) => (c.members.includes(userId)
+            ? { ...c, members: c.members.filter((id) => id !== userId), admins: c.admins.filter((id) => id !== userId),
+              subscribers: c.type === "channel" ? Math.max((c.subscribers || 1) - 1, 0) : c.subscribers }
+            : c)),
+          messages: s.messages.filter((m) => !gone.includes(m.chatId)),
+        };
+      });
+    },
 
     /* ── teammates ── */
     botPost: (patch, chatId = BOT_CHAT_ID) =>
@@ -287,13 +313,12 @@ export default function useChat(lang = "en") {
     joinChat: (dirId) => {
       const source = DIRECTORY.find((c) => c.id === dirId);
       if (!source) return null;
-      const existing = state.chats.find((c) => c.id === dirId);
-      if (existing) { openChat(dirId); return dirId; }
       const now = new Date().toISOString();
       const chat = { ...source, members: [...source.members, ME], subscribers: source.type === "channel" ? (source.subscribers || 0) + 1 : 0,
         folders: [], lastReadAt: now, muted: false, pinned: false, archived: false };
       const joined = membershipMessage(dirId, source.type === "channel" ? "joinedChannel" : "joinedGroup");
-      setState((s) => ({ ...s, chats: [...s.chats, chat], messages: [...s.messages, ...directoryMessages(dirId), joined] }));
+      // Idempotent inside the updater: a double tap or a re-run effect must not add the chat twice.
+      setState((s) => (s.chats.some((c) => c.id === dirId) ? s : { ...s, chats: [...s.chats, chat], messages: [...s.messages, ...directoryMessages(dirId), joined] }));
       openChat(dirId);
       return dirId;
     },

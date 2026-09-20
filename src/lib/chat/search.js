@@ -11,6 +11,9 @@ import { LINK_HOST, ME } from "./chatModel";
 export function parseLink(raw) {
   const text = String(raw || "").trim();
   if (!text) return null;
+  // The app's own openable form: …/#join=<slug> or …/#join=+<token>
+  const j = text.match(/[#?&]join=(\+?[A-Za-z0-9_]+)/);
+  if (j) return j[1].startsWith("+") ? { kind: "invite", token: j[1].slice(1) } : { kind: "public", slug: j[1].toLowerCase() };
   const host = LINK_HOST.replace(/\./g, "\\.");
   const m = text.match(new RegExp(`^(?:https?://)?(?:www\\.)?(?:${host}|t\\.me)/(\\+?[A-Za-z0-9_]+)/?$`, "i"));
   if (m) return m[1].startsWith("+") ? { kind: "invite", token: m[1].slice(1) } : { kind: "public", slug: m[1].toLowerCase() };
@@ -55,4 +58,46 @@ export function globalSearch(query, { chats = [], people = [], directory = [] })
     else resolved = { chat: null, user: null, joined: false };
   }
   return { chats: myChats, people: contacts, global, link: resolved };
+}
+
+/**
+ * A link that really opens: the running app's own URL with the chat's public
+ * username or invite token in the hash. `chatLink()` stays the short display form.
+ */
+export function appLinkFor(chat, loc = typeof window !== "undefined" ? window.location : null) {
+  const code = chat.isPublic && chat.username ? chat.username : (chat.inviteLink || "").split("/+")[1] ? `+${chat.inviteLink.split("/+")[1]}` : "";
+  if (!code) return "";
+  const base = loc ? `${loc.origin}${loc.pathname}` : `https://${LINK_HOST}/`;
+  return `${base}#join=${code}`;
+}
+
+/** The join code in the current URL, if someone opened an invite. */
+export function readJoinFromLocation() {
+  if (typeof window === "undefined") return null;
+  const m = `${window.location.hash} ${window.location.search}`.match(/join=(\+?[A-Za-z0-9_]+)/);
+  return m ? m[1] : null;
+}
+
+export function clearJoinFromLocation() {
+  if (typeof window === "undefined") return;
+  try { window.history.replaceState(null, "", window.location.pathname); } catch { /* history may be read-only here */ }
+}
+
+/**
+ * What a join code points at: `{ chat, joined }` for a community (mine or in the
+ * directory), `{ user }` for a person's public handle, or `{}` when nothing matches.
+ */
+export function resolveJoin(code, { chats = [], directory = [], people = [] }) {
+  const link = parseLink(code.startsWith("+") || /^[A-Za-z0-9_]+$/.test(code) ? `${LINK_HOST}/${code}` : code);
+  if (!link) return {};
+  const mine = new Set(chats.map((c) => c.id));
+  if (link.kind === "invite") {
+    const chat = [...chats, ...directory].find((c) => (c.inviteLink || "").endsWith(`/+${link.token}`)) || null;
+    return chat ? { chat, joined: mine.has(chat.id) } : {};
+  }
+  const exact = (c) => norm(c.username) === link.slug;
+  const chat = chats.find(exact) || directory.find(exact);
+  if (chat) return { chat, joined: mine.has(chat.id) };
+  const user = people.find((u) => norm(u.username) === link.slug);
+  return user ? { user } : {};
 }

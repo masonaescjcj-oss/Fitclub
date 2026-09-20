@@ -323,6 +323,12 @@ const en = {
   contactAutoId: "Leave the ID empty and one is made from the name.",
   nameLabel: "Name",
   publicFolder: "Public",
+  editContact: "Edit contact",
+  deleteContact: "Delete contact",
+  deleteContactConfirm: (name) => `Delete ${name} from your contacts? Your chat with them goes too.`,
+  contactDeleted: "Contact deleted",
+  joinNotFound: "That invite doesn't lead anywhere.",
+  mentionYou: "mentioned you",
 };
 
 const fa = {
@@ -650,6 +656,12 @@ const fa = {
   contactAutoId: "اگر آیدی را خالی بگذارید از روی نام ساخته می‌شود.",
   nameLabel: "نام",
   publicFolder: "عمومی",
+  editContact: "ویرایش مخاطب",
+  deleteContact: "حذف مخاطب",
+  deleteContactConfirm: (name) => `${name} از مخاطبین حذف شود؟ گفتگویتان با او هم حذف می‌شود.`,
+  contactDeleted: "مخاطب حذف شد",
+  joinNotFound: "این دعوت به جایی نمی‌رسد.",
+  mentionYou: "شما را نام برد",
 };
 
 export const useChatT = (isRtl) => (isRtl ? fa : en);
