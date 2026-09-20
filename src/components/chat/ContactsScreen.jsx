@@ -69,13 +69,13 @@ export default function ContactsScreen({ store, isRtl, t, onBack, onGoCalls, onN
 
   const contacts = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return [...PEOPLE, ...store.customUsers]
+    return [...PEOPLE, ...store.customUsers, ...(store.remoteUsers || [])]
       .filter((u) => !q || u.name.toLowerCase().includes(q) || (u.nameFa || "").includes(q) || (u.username || "").toLowerCase().includes(q.replace(/^@/, "")) || (u.phone || "").replace(/\s+/g, "").includes(q))
       .sort((a, b) => {
         if (a.online !== b.online) return a.online ? -1 : 1;
         return new Date(b.lastSeen || 0) - new Date(a.lastSeen || 0);
       });
-  }, [store.customUsers, query]);
+  }, [store.customUsers, store.remoteUsers, query]);
 
   const subtitleOf = (u) => {
     if (u.username && query.trim().startsWith("@")) return { text: `@${u.username}`, tone: "#6b7c8a" };

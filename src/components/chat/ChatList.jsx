@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Archive, MoreHorizontal, PenSquare, Pin, Plus, PlusCircle, Search, VolumeX, X } from "lucide-react";
 import { ME, lastMessage, previewOf, relativeTime } from "../../lib/chat/chatModel";
@@ -177,10 +177,29 @@ function ResultRow({ chat, user, title, subtitle, action, actionTone, onClick, o
  * anyone can join by @username, plus links pasted straight in.
  */
 function SearchResults({ query, store, people, isRtl, t, onOpen, onOpenUser, onJoin }) {
-  const r = useMemo(() => globalSearch(query, { chats: store.chats, people, directory: store.directory }), [query, store.chats, people, store.directory]);
+  // People and communities on the server arrive a moment later and slot into the same sections.
+  const [remote, setRemote] = useState({ users: [], chats: [] });
+  const { online, searchRemote } = store;
+  useEffect(() => {
+    const q = query.trim();
+    if (!online || q.length < 2) { setRemote({ users: [], chats: [] }); return undefined; }
+    let live = true;
+    const id = setTimeout(() => searchRemote(q.replace(/^@/, "")).then((res) => { if (live) setRemote(res); }).catch(() => {}), 250);
+    return () => { live = false; clearTimeout(id); };
+  }, [query, online, searchRemote]);
+  const r = useMemo(() => {
+    const local = globalSearch(query, { chats: store.chats, people, directory: store.directory });
+    const known = new Set([...local.people.map((u) => u.id), ...people.map((u) => u.id)]);
+    const mine = new Set(store.chats.map((c) => c.id));
+    return {
+      ...local,
+      people: [...local.people, ...remote.users.filter((u) => !known.has(u.id))],
+      global: [...local.global, ...remote.chats.filter((c) => !mine.has(c.id))],
+    };
+  }, [query, store.chats, people, store.directory, remote]);
   const titleOf = (c) => (isRtl ? c.titleFa || c.title : c.title);
   const nameOf = (u) => (isRtl ? u.nameFa || u.name : u.name);
-  const countOf = (c) => (c.type === "channel" ? `${c.subscribers.toLocaleString()} ${t.subscribers}` : `${c.members.length} ${t.members}`);
+  const countOf = (c) => (c.type === "channel" ? `${(c.subscribers || c.memberCount || 0).toLocaleString()} ${t.subscribers}` : `${c.memberCount || c.members.length} ${t.members}`);
   const handle = (c) => (c.username ? `@${c.username} · ` : "");
   const section = (label) => <span className="block px-4 pt-4 pb-1 text-[13px] font-medium" style={{ color: TG.muted }}>{label}</span>;
   const empty = !r.link && !r.chats.length && !r.people.length && !r.global.length;
@@ -263,8 +282,8 @@ export default function ChatList({ store, isRtl, t, onOpen, onOpenAt, onMenu, on
             {editing ? t.done : t.edit}
           </button>
           <h1 className="flex items-center gap-1 text-[17px] font-semibold text-white">
-            {t.chats}
-            <PremiumStar />
+            {store.server?.status === "connecting" ? t.connecting : store.server?.status === "error" ? t.waitingNetwork : t.chats}
+            {(!store.server || store.server.status === "online") && <PremiumStar />}
           </h1>
           <div className="justify-self-end flex items-center gap-4" style={{ color: TG.accent }}>
             <button type="button" onClick={onAddStory} aria-label={t.addStory}><PlusCircle className="w-[22px] h-[22px]" /></button>

@@ -220,7 +220,7 @@ export function ChatTypeScreen({ kind, draft, chats, selfId = null, isRtl, t, on
 /** Everyone the athlete could add: contacts, people they added by hand, and teammates who showed their name. */
 export function addablePeople(store) {
   const revealed = (store.buddy?.matches || []).filter((m) => m.revealed).map((m) => findUser(m.buddyId));
-  return [...PEOPLE, ...store.customUsers, ...revealed].filter((u) => !(store.blocked || []).includes(u.id));
+  return [...PEOPLE, ...store.customUsers, ...(store.remoteUsers || []), ...revealed].filter((u) => !(store.blocked || []).includes(u.id));
 }
 
 /**

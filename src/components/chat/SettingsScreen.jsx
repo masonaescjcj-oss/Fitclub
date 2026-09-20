@@ -139,6 +139,63 @@ function GiftPicker({ me, isRtl, t, onPick, onClose }) {
   );
 }
 
+/** Where the messenger talks to: sign in to a server, or stay on this device. */
+function ServerSheet({ store, name, isRtl, t, onClose, onToast }) {
+  const [url, setUrl] = useState(store.server?.url || process.env.REACT_APP_CHAT_API || "http://localhost:4000");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const me = store.me;
+  const connected = !!store.server?.token;
+  const field = "w-full h-11 px-3 rounded-2xl text-sm font-bold text-white placeholder:text-neutral-500 focus:outline-none";
+  const connect = async () => {
+    setBusy(true); setError("");
+    try {
+      const user = await store.connectServer({ url: url.trim(), name: me.name || name, username: me.username });
+      onToast?.(t.connectedAs(user.name, user.username));
+      onClose();
+    } catch (e) {
+      setError(e.code === "username_taken" ? t.serverUsernameTaken : `${t.connectFailed} ${e.message || ""}`.trim());
+    } finally { setBusy(false); }
+  };
+  const status = store.server?.status || "offline";
+  return (
+    <Sheet title={t.serverTitle} isRtl={isRtl} t={t} onClose={onClose}
+      footer={
+        connected ? (
+          <>
+            <button type="button" onClick={() => { store.disconnectServer(); onClose(); }}
+              className="flex-1 h-12 rounded-2xl bg-white/5 border border-white/10 text-rose-400 font-black text-sm">{t.disconnect}</button>
+            <button type="button" onClick={() => { store.syncNow().then(() => onToast?.(t.done)).catch(() => onToast?.(t.serverSubError)); }}
+              className="flex-1 h-12 rounded-2xl text-white font-black text-sm on-accent" style={{ background: TG.accentDeep }}>{t.syncNow}</button>
+          </>
+        ) : (
+          <>
+            <button type="button" onClick={onClose}
+              className="flex-1 h-12 rounded-2xl bg-white/5 border border-white/10 text-neutral-300 font-black text-sm">{t.cancel}</button>
+            <button type="button" disabled={busy || !url.trim()} onClick={connect}
+              className="flex-1 h-12 rounded-2xl text-white font-black text-sm on-accent disabled:opacity-40" style={{ background: TG.accentDeep }}>{busy ? t.connecting : t.connect}</button>
+          </>
+        )
+      }>
+      <div className="p-4 space-y-4">
+        <label className="block">
+          <span className="block text-[10px] font-black text-neutral-500 uppercase tracking-wider mb-1.5">{t.serverUrl}</span>
+          <input value={url} onChange={(e) => setUrl(e.target.value)} disabled={connected} aria-label={t.serverUrl} dir="ltr" inputMode="url"
+            className={field} style={{ background: TG.card }} />
+        </label>
+        <p className="text-[12px] leading-snug" style={{ color: TG.muted }}>{t.serverHint}</p>
+        <div className="rounded-2xl px-3 py-2.5 text-[13px]" style={{ background: TG.card }}>
+          <span className="block font-semibold text-white">{connected ? t.connectedAs(store.server.me?.name || name, store.server.me?.username || me.username) : t.connectNameHint}</span>
+          <span className="block mt-0.5" style={{ color: status === "online" ? "#1f9d4d" : status === "error" ? "#ef4444" : TG.muted }} data-server-status={status}>
+            {status === "online" ? t.serverSubOnline(store.server.url) : status === "connecting" ? t.serverSubConnecting : status === "error" ? t.serverSubError : t.serverSubOffline}
+          </span>
+        </div>
+        {error && <p className="text-[12px] text-rose-500">{error}</p>}
+      </div>
+    </Sheet>
+  );
+}
+
 export default function SettingsScreen({ store, name, isRtl, t, onBack, onGoProfile, onToast, onToggleLanguage }) {
   const me = store.me;
   const [theme, setTheme] = useTheme();
@@ -188,6 +245,9 @@ export default function SettingsScreen({ store, name, isRtl, t, onBack, onGoProf
           onClick={onToggleLanguage} />
         <Toggle icon="🌙" tint="#5856d6" label={t.nightMode} sub={t.nightModeSub} isRtl={isRtl}
           on={theme === "dark"} onChange={(on) => setTheme(on ? "dark" : "light")} />
+        <Row isRtl={isRtl} icon="🛰️" tint={store.online ? "#1f9d4d" : "#6b7c8a"} label={t.serverRow}
+          sub={store.server?.status === "online" ? t.serverSubOnline(store.server.url) : store.server?.status === "connecting" ? t.serverSubConnecting : store.server?.status === "error" ? t.serverSubError : t.serverSubOffline}
+          onClick={() => setSheet("server")} />
       </div>
 
       {/* Premium block */}
@@ -211,6 +271,11 @@ export default function SettingsScreen({ store, name, isRtl, t, onBack, onGoProf
       <AnimatePresence>
         {detail && (
           <DetailSheet id={detail} me={me} store={store} isRtl={isRtl} t={t} onClose={() => setDetail(null)} />
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {sheet === "server" && (
+          <ServerSheet store={store} name={name} isRtl={isRtl} t={t} onClose={() => setSheet(null)} onToast={onToast} />
         )}
       </AnimatePresence>
 

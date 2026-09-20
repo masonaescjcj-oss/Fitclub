@@ -296,10 +296,14 @@ export default function CommunityPage({ isRtl, onExit, joinCode = null, onJoinHa
     if (!joinCode || handledJoin.current === joinCode) return;
     handledJoin.current = joinCode;
     const hit = resolveJoin(joinCode, { chats: store.chats, directory: store.directory, people: addablePeople(store) });
-    if (hit.chat && hit.joined) store.openChat(hit.chat.id);
-    else if (hit.chat) { store.joinChat(hit.chat.id); setToast(t.joinedToast(isRtl ? hit.chat.titleFa || hit.chat.title : hit.chat.title)); }
-    else if (hit.user) store.openOrCreatePrivateChat(hit.user);
-    else setToast(t.joinNotFound);
+    const act = (h) => {
+      if (h.chat && h.joined) store.openChat(h.chat.id);
+      else if (h.chat) { store.joinChat(h.chat); setToast(t.joinedToast(isRtl ? h.chat.titleFa || h.chat.title : h.chat.title)); }
+      else if (h.user) store.openOrCreatePrivateChat(h.user);
+      else setToast(t.joinNotFound);
+    };
+    if (hit.chat || hit.user || !store.online) act(hit);
+    else store.resolveRemote(joinCode).then(act).catch(() => setToast(t.joinNotFound));
     onJoinHandled?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [joinCode]);
@@ -319,7 +323,16 @@ export default function CommunityPage({ isRtl, onExit, joinCode = null, onJoinHa
     if (hit.user && hit.user.id === ME) { store.closeChat(); store.setScreen("profile"); return; }
     if (hit.user) { store.openOrCreatePrivateChat(hit.user); return; }
     if (hit.chat && hit.joined) { store.openChat(hit.chat.id); return; }
-    if (hit.chat) { store.joinChat(hit.chat.id); return; }
+    if (hit.chat) { store.joinChat(hit.chat); return; }
+    if (store.online) {
+      store.resolveRemote(username).then((h) => {
+        if (h.user) store.openOrCreatePrivateChat(h.user);
+        else if (h.chat && h.joined) store.openChat(h.chat.id);
+        else if (h.chat) store.joinChat(h.chat);
+        else setToast(t.noSearchResults);
+      }).catch(() => setToast(t.noSearchResults));
+      return;
+    }
     setToast(t.noSearchResults);
   };
 
@@ -327,10 +340,14 @@ export default function CommunityPage({ isRtl, onExit, joinCode = null, onJoinHa
   const startGroup = () => setCreating({ kind: "group", step: "members", draft: { memberIds: [] } });
   const startChannel = () => setCreating({ kind: "channel", step: "details", draft: { inviteLink: makeInviteLink(), isPublic: false, username: "" } });
   const finishCreate = (draft) => {
-    const chatId = draft.kind === "channel" ? store.createChannel(draft) : store.createGroup(draft);
+    const result = draft.kind === "channel" ? store.createChannel(draft) : store.createGroup(draft);
     setCreating(null);
     store.setScreen("list");
-    store.openChat(chatId);
+    if (result && result.remote) {
+      result.promise.then((chatId) => store.openChat(chatId)).catch((e) => setToast(e.code === "username_taken" ? t.linkTaken : `${t.connectFailed} ${e.message || ""}`));
+      return;
+    }
+    store.openChat(result);
   };
   const advance = (patch) => {
     const next = { ...creating, draft: { ...creating.draft, ...patch } };
@@ -387,7 +404,7 @@ export default function CommunityPage({ isRtl, onExit, joinCode = null, onJoinHa
           onAddStory={() => setToast(t.storiesSoon)}
           people={addablePeople(store)}
           onOpenUser={(u) => store.openOrCreatePrivateChat(u)}
-          onJoin={(c) => { store.joinChat(c.id); setToast(t.joinedToast(isRtl ? c.titleFa || c.title : c.title)); }} />;
+          onJoin={(c) => { store.joinChat(c); setToast(t.joinedToast(isRtl ? c.titleFa || c.title : c.title)); }} />;
     }
   };
 
