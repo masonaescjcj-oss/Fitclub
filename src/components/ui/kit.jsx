@@ -220,6 +220,7 @@ export function IconButton({ label, tone = "card", size = 44, className = "", ch
     inv: "bg-inv text-on-inv",
     hero: "bg-hero-2 text-hero-fg",
     accent: "bg-accent text-on-accent",
+    jet: "bg-jet text-accent dark:ring-1 dark:ring-inset dark:ring-line",
     ghost: "bg-transparent text-ink",
   };
   return (
@@ -431,7 +432,7 @@ export const Field = React.forwardRef(function Field({ label, hint, error, prefi
  * A bottom sheet. Render it conditionally (or pass `open`); Escape and the
  * scrim close it. `footer` sits pinned under the scrolling body.
  */
-export function Sheet({ open = true, title, onClose, isRtl, footer, children, closeLabel, tall = false }) {
+export function Sheet({ open = true, title, eyebrow, onClose, isRtl, footer, children, closeLabel, tall = false }) {
   useEffect(() => {
     if (!open) return undefined;
     const onKey = (e) => { if (e.key === "Escape") onClose?.(); };
@@ -451,7 +452,10 @@ export function Sheet({ open = true, title, onClose, isRtl, footer, children, cl
               tall ? "h-[92dvh]" : "max-h-[90dvh]")}>
             <span aria-hidden="true" className="mx-auto mt-2.5 w-10 h-1 rounded-full bg-line shrink-0" />
             <div className="flex items-center justify-between gap-3 px-5 pt-3 pb-2 shrink-0">
-              <h2 className="m-0 font-display font-extrabold text-[22px] tracking-[-0.02em] text-ink">{title}</h2>
+              <div className="flex flex-col gap-1 min-w-0">
+                {eyebrow && <Label>{eyebrow}</Label>}
+                <h2 className="m-0 font-display font-extrabold text-[22px] tracking-[-0.02em] text-ink">{title}</h2>
+              </div>
               <IconButton label={closeLabel || (isRtl ? "بستن" : "Close")} tone="card" size={40} onClick={onClose}>
                 <X className="w-[18px] h-[18px]" strokeWidth={2} />
               </IconButton>
