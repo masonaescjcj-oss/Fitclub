@@ -1,0 +1,247 @@
+{
+ "version": 1,
+ "source": "https://liftmanual.com",
+ "generatedAt": "2026-09-25T16:25:49.239Z",
+ "count": 6,
+ "exercises": [
+  {
+   "slug": "90-to-90-stretch",
+   "nameEn": "90 to 90 Stretch",
+   "nameFa": "کشش ۹۰/۹۰",
+   "type": "stretching",
+   "muscles": [
+    "glutes",
+    "hips"
+   ],
+   "musclesWorked": [
+    "Piriformis and deep hip rotators (front leg, external rotation)",
+    "Gluteus medius and minimus (front leg)",
+    "Tensor fasciae latae (back leg)",
+    "Adductors (both legs)"
+   ],
+   "equipment": [
+    "bodyweight"
+   ],
+   "description": {
+    "en": "A seated hip mobility drill with both legs on the floor at 90-degree angles: the front leg in external rotation and the back leg in internal rotation."
+   },
+   "steps": {
+    "en": [
+     "Sit on the floor. Bend your right knee to 90 degrees in front of you with the outside of your right leg on the floor.",
+     "Bend your left knee to 90 degrees behind you with the inside of your left leg on the floor.",
+     "Sit up tall and square your torso forward over your right shin.",
+     "For a deeper stretch, lean forward over your right shin, keeping your back flat.",
+     "Hold for 30 to 60 seconds, then switch sides."
+    ]
+   },
+   "benefits": {
+    "en": [
+     "Stretches both hip internal and external rotation at once",
+     "Improves squat depth and hip-hinge flexibility",
+     "No equipment needed"
+    ]
+   },
+   "variations": [
+    "pigeon-hip-stretch",
+    "standing-figure-four",
+    "standing-hip-circle"
+   ],
+   "mode": "time",
+   "source": "https://liftmanual.com/90-to-90-stretch/"
+  },
+  {
+   "slug": "barbell-bench-press",
+   "nameEn": "Barbell Bench Press",
+   "nameFa": "پرس سینه با هالتر",
+   "type": "strength",
+   "muscles": [
+    "chest",
+    "front-deltoid",
+    "triceps"
+   ],
+   "musclesWorked": [
+    "Pectoralis major",
+    "Anterior deltoids",
+    "Triceps brachii",
+    "Serratus anterior (stabilizer)"
+   ],
+   "equipment": [
+    "barbell"
+   ],
+   "description": {
+    "en": "The barbell bench press is the most popular upper-body pressing exercise in strength training. It primarily develops the pectoralis major while heavily recruiting the front deltoids and triceps."
+   },
+   "steps": {
+    "en": [
+     "Lie back on a flat bench with your eyes directly under the bar. Plant both feet firmly on the floor.",
+     "Pull your shoulder blades down and back, pinning them to the bench.",
+     "Grip the bar with hands slightly wider than shoulder-width and stack your wrists over your elbows.",
+     "Unrack the bar with straight arms, take a deep breath and brace your core.",
+     "Lower the bar under control to the lower portion of your chest, elbows at roughly 45 to 75 degrees from your torso.",
+     "Press the bar back up and slightly toward your face, finishing with your arms straight over your shoulders."
+    ]
+   },
+   "benefits": {
+    "en": [
+     "Builds size and strength in the chest, front deltoids, and triceps",
+     "One of the most reliable measures of upper-body pressing strength",
+     "Allows progressive overload across a long career of training"
+    ]
+   },
+   "variations": [
+    "dumbbell-bench-press",
+    "incline-barbell-bench-press",
+    "close-grip-bench-press",
+    "push-up"
+   ],
+   "mode": "reps",
+   "source": "https://liftmanual.com/barbell-bench-press/",
+   "media": {
+    "gif": "media/barbell-bench-press.gif"
+   }
+  },
+  {
+   "slug": "heel-glute-bridge",
+   "nameEn": "Heel Glute Bridge",
+   "nameFa": "پل باسن روی پاشنه",
+   "type": "strength",
+   "muscles": [
+    "glutes",
+    "hamstrings"
+   ],
+   "musclesWorked": [
+    "Gluteus maximus",
+    "Hamstrings (increased involvement)",
+    "Adductor magnus",
+    "Erector spinae (stabilizer)",
+    "Core (stabilizer)"
+   ],
+   "equipment": [
+    "bodyweight"
+   ],
+   "description": {
+    "en": "The heel glute bridge is a glute bridge variation performed with the toes lifted off the floor and weight pushed through the heels only. The toes-up position increases hamstring activation while still loading the glutes heavily."
+   },
+   "steps": {
+    "en": [
+     "Lie flat on your back with knees bent at 90 degrees and feet flat on the floor, hip-width apart.",
+     "Lift your toes off the floor. Keep only your heels in contact with the ground.",
+     "Brace your core. Press your lower back into the floor.",
+     "Drive through your heels and squeeze your glutes to lift your hips off the floor.",
+     "Continue lifting until your body forms a straight line from knees to shoulders.",
+     "Squeeze your glutes and hamstrings hard at the top for one to two seconds.",
+     "Lower under control back to the floor.",
+     "Repeat for the desired number of reps. Aim for 12 to 20 reps per set."
+    ],
+    "fa": [
+     "به پشت دراز بکشید، زانوها با زاویه‌ی ۹۰ درجه خم و کف پاها به اندازه‌ی عرض لگن روی زمین.",
+     "پنجه‌ها را از زمین بلند کنید تا فقط پاشنه‌ها روی زمین بمانند.",
+     "شکم را سفت کنید و کمر را به زمین بچسبانید.",
+     "با فشار پاشنه‌ها و منقبض کردن باسن، لگن را از زمین بلند کنید.",
+     "تا جایی بالا بیایید که زانو تا شانه در یک خط صاف باشد.",
+     "یک تا دو ثانیه باسن و پشت ران را در بالا محکم منقبض کنید.",
+     "آرام و کنترل‌شده به زمین برگردید.",
+     "به تعداد دلخواه تکرار کنید؛ ۱۲ تا ۲۰ تکرار در هر ست."
+    ]
+   },
+   "benefits": {
+    "en": [
+     "Increases hamstring activation vs standard glute bridge",
+     "Builds the glutes and hamstrings together",
+     "No equipment needed",
+     "Useful warm-up before deadlifts"
+    ]
+   },
+   "variations": [
+    "dumbbell-glute-bridge",
+    "barbell-glute-bridge",
+    "glute-bridge-march",
+    "single-leg-heel-glute-bridge"
+   ],
+   "mode": "reps",
+   "source": "https://liftmanual.com/heel-glute-bridge/",
+   "media": {
+    "gif": "media/heel-glute-bridge.gif"
+   }
+  },
+  {
+   "slug": "jump-squat",
+   "nameEn": "Jump Squat",
+   "type": "strength",
+   "muscles": [
+    "quadriceps",
+    "glutes",
+    "calves"
+   ],
+   "musclesWorked": [],
+   "equipment": [
+    "bodyweight"
+   ],
+   "steps": {
+    "en": [
+     "Stand tall.",
+     "Squat down.",
+     "Jump."
+    ]
+   },
+   "benefits": {
+    "en": []
+   },
+   "variations": [],
+   "mode": "reps",
+   "source": "https://liftmanual.com/jump-squat/",
+   "media": {
+    "gif": "media/jump-squat.gif"
+   }
+  },
+  {
+   "slug": "kettlebell-swing",
+   "nameEn": "Kettlebell Swing",
+   "type": "strength",
+   "muscles": [
+    "glutes",
+    "hamstrings"
+   ],
+   "musclesWorked": [],
+   "equipment": [
+    "kettlebell"
+   ],
+   "steps": {
+    "en": []
+   },
+   "benefits": {
+    "en": []
+   },
+   "variations": [],
+   "mode": "reps",
+   "source": "https://liftmanual.com/kettlebell-swing/",
+   "media": {
+    "gif": "media/kettlebell-swing.gif"
+   }
+  },
+  {
+   "slug": "ladder-drill",
+   "nameEn": "Ladder Drill",
+   "type": "cardio",
+   "muscles": [
+    "cardio"
+   ],
+   "musclesWorked": [],
+   "equipment": [
+    "bodyweight"
+   ],
+   "steps": {
+    "en": []
+   },
+   "benefits": {
+    "en": []
+   },
+   "variations": [],
+   "mode": "time",
+   "source": "https://liftmanual.com/ladder-drill/",
+   "media": {
+    "gif": "media/ladder-drill.gif"
+   }
+  }
+ ]
+}
