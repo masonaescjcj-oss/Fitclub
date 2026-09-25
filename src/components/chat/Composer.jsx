@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  ArrowUp, BarChart3, Clock, CornerUpLeft, Image, ListChecks, Megaphone, Mic, Paperclip, Pencil, Smile, Sticker, VolumeX, X,
+  ArrowUp, BarChart3, Clock, CornerUpLeft, Image, ListChecks, Megaphone, Mic, Paperclip, Pencil, Smile, Sticker, Target, VolumeX, X,
 } from "lucide-react";
 import { applyMention, mentionCandidates, mentionQuery } from "../../lib/chat/mentions";
 import { Avatar, senderName } from "./ChatBits";
@@ -18,6 +18,7 @@ const ATTACHMENTS = [
   { id: "voice", icon: Mic, label: "voiceMessage", tone: "sage" },
   { id: "poll", icon: BarChart3, label: "poll", tone: "inv" },
   { id: "checklist", icon: ListChecks, label: "checklist", tone: "inv" },
+  { id: "challenge", icon: Target, label: "challengeAttach", tone: "inv" },
 ];
 
 /** The bar above the input while replying to or editing a message. */

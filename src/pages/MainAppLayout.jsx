@@ -8,6 +8,10 @@ import { CoachProvider } from "../lib/coach/coachContext";
 import { useNutritionStore } from "../lib/nutrition/nutritionContext";
 import { useTrainingT } from "../lib/training/trainingI18n";
 import { appAlerts, unreadAppAlerts } from "../lib/notifications";
+import { publishActivity } from "../lib/activity";
+import { overallBest, overallStreak } from "../lib/checklistModel";
+import { backendOn } from "../lib/backend/supabase";
+import { loadSession } from "../lib/session";
 import { clearShareFromLocation, readShareFromLocation } from "../lib/training/programModel";
 import { clearJoinFromLocation, readJoinFromLocation } from "../lib/chat/search";
 import { ImportSheet } from "../components/training/TrainingSheets";
@@ -77,6 +81,18 @@ function MainAppShell({ onNavigate }) {
   const tt = useTrainingT((localStorage.getItem("language") || "en") === "fa");
   const [flash, setFlash] = useState("");
   useEffect(() => { if (shareCode) clearShareFromLocation(); }, [shareCode]);
+
+  // The leaderboards read each account's daily activity: sent a few seconds
+  // after the log changes, and only when it did (supabase/migrations/0006).
+  useEffect(() => {
+    if (!backendOn || !loadSession().userId) return undefined;
+    const timer = setTimeout(() => {
+      const streak = overallStreak(checklist.lists);
+      publishActivity({ sessions: training.sessions, lists: checklist.lists, diaryDays: nutrition.diary?.days },
+        streak, Math.max(overallBest(checklist.lists), streak)).catch(() => {});
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, [training.sessions, checklist.lists, nutrition.diary]);
   useEffect(() => {
     const onHash = () => {
       const c = readShareFromLocation(); if (c) setShareCode(c);
@@ -143,7 +159,7 @@ function MainAppShell({ onNavigate }) {
             onOpenChat={(chatId, messageId) => { setOpenTarget({ chatId, messageId }); setSubPage(null); setActiveTab("club"); }}
             onGo={(target) => { if (target.tab) { setSubPage(null); setActiveTab(target.tab); } else setSubPage(target.sub); }} />}
           {subPage === "workoutReport" && <WorkoutReportPage onBack={() => setSubPage(null)} isRtl={isRtl} />}
-          {subPage === "team" && <TeamPage onBack={() => setSubPage(null)} isRtl={isRtl} />}
+          {subPage === "team" && <TeamPage onBack={() => setSubPage(null)} isRtl={isRtl} onOpenClub={() => { setSubPage(null); setActiveTab("club"); }} />}
           {subPage === "wallet" && <WalletPage onBack={() => setSubPage(null)} isRtl={isRtl} />}
           {subPage === "subscription" && <SubscriptionPage onBack={() => setSubPage(null)} isRtl={isRtl} />}
           {subPage === "recipeExplore" && <RecipeExplorePage onBack={() => setSubPage(null)} isRtl={isRtl} />}

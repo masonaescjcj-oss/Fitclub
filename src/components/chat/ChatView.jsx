@@ -12,8 +12,10 @@ import MessageBubble from "./MessageBubble";
 import Composer from "./Composer";
 import { Button, Empty, IconButton, Label, cx, num } from "../ui/kit";
 import {
-  ChecklistSheet, ForwardSheet, MessageActionsSheet, PollSheet, ScheduleSheet,
+  ChatChallengeSheet, ChecklistSheet, ForwardSheet, MessageActionsSheet, PollSheet, ScheduleSheet,
 } from "./ChatSheets";
+import { boards } from "../../lib/activity";
+import { ymd } from "../../lib/checklistModel";
 
 const WAVEFORM = () => Array.from({ length: 22 }, () => 20 + Math.random() * 80);
 
@@ -35,6 +37,7 @@ export default function ChatView({ store, chat, isRtl, t, onBack, onOpenProfile,
   const endRef = useRef(null);
   // Real photos: the device's picker, then the chat's private folder.
   const photoInput = useRef(null);
+  const [challengeBusy, setChallengeBusy] = useState(false);
   const bubbleRefs = useRef({});
 
   // Search opens from the profile (the `searching` prop) or from the header here.
@@ -141,6 +144,7 @@ export default function ChatView({ store, chat, isRtl, t, onBack, onOpenProfile,
   const attach = (kind) => {
     if (kind === "poll") { setSheet("poll"); return; }
     if (kind === "checklist") { setSheet("checklist"); return; }
+    if (kind === "challenge") { setSheet("challenge"); return; }
     if (kind === "photo" && !DEMO_WORLD) { photoInput.current?.click(); return; }
     if (kind === "photo") {
       store.send(chat.id, { kind: "photo", media: { emoji: "🏋️" } });
@@ -347,7 +351,8 @@ export default function ChatView({ store, chat, isRtl, t, onBack, onOpenProfile,
             onOpenSchedule={() => setSheet("schedule")}
             // A real account sends what really exists: photos, polls and checklists; no pretend voice notes,
             // files or scheduled sends, which a server chat would deliver at once.
-            kinds={DEMO_WORLD ? undefined : ["photo", "poll", "checklist"]}
+            kinds={DEMO_WORLD ? ["photo", "file", "voice", "poll", "checklist"]
+              : ["photo", "poll", "checklist", ...(chat.remote && chat.type !== "channel" ? ["challenge"] : [])]}
             voice={DEMO_WORLD}
             schedule={DEMO_WORLD || !chat.remote}
           />
@@ -417,6 +422,20 @@ export default function ChatView({ store, chat, isRtl, t, onBack, onOpenProfile,
                 poll: { ...poll, quiz: false, options: poll.options.map((text) => ({ text, votes: [] })) },
               });
               setSheet(null);
+            }}
+            onClose={() => setSheet(null)} />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {sheet === "challenge" && (
+          <ChatChallengeSheet isRtl={isRtl} t={t} busy={challengeBusy}
+            onStart={({ metric, target, days, title }) => {
+              setChallengeBusy(true);
+              boards.createChallenge({ chatId: chat.id, metric, target, days, title, starts: ymd(new Date()) })
+                .then((r) => { store.acceptServerMessage(r.message); setSheet(null); })
+                .catch(() => setToast(t.challengeFailed))
+                .finally(() => setChallengeBusy(false));
             }}
             onClose={() => setSheet(null)} />
         )}

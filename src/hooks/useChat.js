@@ -372,6 +372,9 @@ export default function useChat(lang = "en") {
         .then((saved) => { upsertMessage(toLocalMessage(saved, latest.current.__myId)); return true; })
         .catch((e) => { patchMessage(id, () => before); throw e; });
     },
+    /** A message the server made on this account's behalf (a challenge card), shown at once. */
+    acceptServerMessage: (saved) => { if (saved) upsertMessage(toLocalMessage(saved, latest.current.__myId)); },
+
     /** Adds a task to a checklist message; the same round trip as markTask. */
     addTask: (id, text) => {
       const before = latest.current.messages.find((x) => x.id === id);

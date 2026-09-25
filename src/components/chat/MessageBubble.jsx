@@ -9,6 +9,7 @@ import { Avatar, senderName } from "./ChatBits";
 import { Bar, Label, cx, num } from "../ui/kit";
 import { splitMentions } from "../../lib/chat/mentions";
 import { photoUrl } from "../../lib/chat/photos";
+import { boards } from "../../lib/activity";
 
 // One message in the conversation, Telegram's layout in Ink & Volt: white
 // bubbles for others, ink bubbles for mine, radius 20 with a 6 px corner on
@@ -167,6 +168,57 @@ function ChecklistCard({ message, out, isRtl, t, onMark, onAdd, onRefused }) {
         </button>
       ))}
       <p className={cx("m-0 pt-1.5 text-center text-[13px] font-medium", soft)}>{t.checklistProgress(done, total)}</p>
+    </div>
+  );
+}
+
+const METRIC_LABEL = { workouts: "metricWorkouts", xp: "metricXp", checklist: "metricChecklist", food: "metricFood" };
+
+/**
+ * A challenge posted in a real chat: its goal, when it ends, and where every
+ * member stands, fetched from the server when the card shows (and again
+ * each time the message changes).
+ */
+function ServerChallenge({ message, out, isRtl, t }) {
+  const id = message.media?.challengeId;
+  const [board, setBoard] = useState(null);
+  useEffect(() => {
+    let live = true;
+    if (id) boards.challenge(id).then((b) => { if (live) setBoard(b); }).catch(() => {});
+    return () => { live = false; };
+  }, [id, message.at]);
+  const soft = out ? "text-on-inv/60" : "text-muted";
+  if (!board) return <p className={cx("m-0 w-[240px] max-w-full text-[14px]", soft)}>{t.challengeLoading}</p>;
+  const date = (d) => new Date(`${d}T00:00:00`).toLocaleDateString(isRtl ? "fa-IR" : "en-GB", { month: "short", day: "numeric" });
+  const ended = new Date(`${board.ends}T23:59:59`) < new Date();
+  const top = Math.max(1, board.target || 0, ...board.rows.map((r) => r.value));
+  return (
+    <div className="flex flex-col gap-2 w-[260px] max-w-full pt-0.5">
+      <span className={cx("inline-flex items-center gap-1.5 text-[12px] font-bold uppercase tracking-[0.06em]", soft)}>
+        <Target className="w-3.5 h-3.5" strokeWidth={2} />{t.challengeAttach}
+      </span>
+      <p className="m-0 text-[16px] font-bold leading-snug" dir="auto">
+        {board.title || `${t[METRIC_LABEL[board.metric]]}${board.target ? ` · ${num(board.target, isRtl)}` : ""}`}
+      </p>
+      <span className={cx("text-[13px]", soft)}>
+        {t[METRIC_LABEL[board.metric]]}{board.target ? ` · ${num(board.target, isRtl)}` : ""} · {ended ? t.challengeEndedOn(date(board.ends)) : t.challengeEnds(date(board.ends))}
+      </span>
+      <ol className="m-0 p-0 list-none flex flex-col gap-2 mt-1">
+        {board.rows.slice(0, 6).map((r, i) => {
+          const done = board.target && r.value >= board.target;
+          return (
+            <li key={r.user.id} className="flex flex-col gap-1">
+              <span className="flex items-center gap-2 text-[14px]">
+                <span className="w-4 text-center font-mono text-[12px] font-semibold">{num(i + 1, isRtl)}</span>
+                <span className="flex-1 min-w-0 truncate font-semibold" dir="auto">{r.user.name}</span>
+                {done && <Check className="w-4 h-4 shrink-0" strokeWidth={2.6} aria-label={t.goalReached} />}
+                <span className="tabular-nums font-bold">{num(r.value, isRtl)}{board.target ? <span className={soft}>/{num(board.target, isRtl)}</span> : null}</span>
+              </span>
+              <Bar value={Math.min(r.value / top, 1)} height={6} color={out ? "bg-accent" : done ? "bg-jet" : "bg-inv"} />
+            </li>
+          );
+        })}
+      </ol>
     </div>
   );
 }
@@ -381,6 +433,8 @@ export default function MessageBubble({
                     <Ticks message={message} className="text-ink" />
                   </span>
                 </>
+              ) : message.kind === "challenge" && message.media?.challengeId ? (
+                <ServerChallenge message={message} out={out} isRtl={isRtl} t={t} />
               ) : message.kind === "challenge" ? (
                 <Challenge message={message} out={out} isRtl={isRtl} t={t} />
               ) : message.kind === "poll" ? (

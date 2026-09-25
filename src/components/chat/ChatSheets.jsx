@@ -258,6 +258,62 @@ export function ChecklistSheet({ isRtl, t, shared = true, onCreate, onClose }) {
   );
 }
 
+export const CHALLENGE_METRICS = [
+  { id: "workouts", label: "metricWorkouts", presets: [3, 5, 10] },
+  { id: "xp", label: "metricXp", presets: [300, 500, 1000] },
+  { id: "checklist", label: "metricChecklist", presets: [5, 7, 14] },
+  { id: "food", label: "metricFood", presets: [5, 7, 14] },
+];
+
+/**
+ * A challenge for everyone in the chat: a goal counted from each member's
+ * own log (supabase/migrations/0006), a target or none (most wins), and how
+ * many days it runs from today.
+ */
+export function ChatChallengeSheet({ isRtl, t, busy = false, onStart, onClose }) {
+  const [metric, setMetric] = useState("workouts");
+  const [target, setTarget] = useState(5);
+  const [days, setDays] = useState(7);
+  const [title, setTitle] = useState("");
+  const presets = CHALLENGE_METRICS.find((m) => m.id === metric).presets;
+  const pill = (on) => cx("h-10 px-4 rounded-full border-0 text-[14px] font-semibold cursor-pointer", on ? "bg-inv text-on-inv" : "bg-card text-ink");
+
+  return (
+    <Sheet title={t.newChallenge} isRtl={isRtl} t={t} onClose={onClose}
+      footer={
+        <>
+          <Button tone="card" className="flex-1" onClick={onClose}>{t.cancel}</Button>
+          <Button tone="ink" className="flex-1" disabled={busy} onClick={() => onStart({ metric, target, days, title: title.trim() })}>{t.startTheChallenge}</Button>
+        </>
+      }>
+      <div className="px-5 pt-1 flex flex-col gap-3">
+        <Label as="h3" className="m-0 px-1">{t.challengeGoal}</Label>
+        <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={t.challengeGoal}>
+          {CHALLENGE_METRICS.map((m) => (
+            <button key={m.id} type="button" role="radio" aria-checked={metric === m.id} className={pill(metric === m.id)}
+              onClick={() => { setMetric(m.id); setTarget(m.presets[1]); }}>{t[m.label]}</button>
+          ))}
+        </div>
+        <Label as="h3" className="m-0 mt-1 px-1">{t.challengeTargetLabel}</Label>
+        <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={t.challengeTargetLabel}>
+          {presets.map((v) => (
+            <button key={v} type="button" role="radio" aria-checked={target === v} className={pill(target === v)} onClick={() => setTarget(v)}>{num(v, isRtl)}</button>
+          ))}
+          <button type="button" role="radio" aria-checked={target === null} className={pill(target === null)} onClick={() => setTarget(null)}>{t.noTarget}</button>
+        </div>
+        <Label as="h3" className="m-0 mt-1 px-1">{t.challengeLength}</Label>
+        <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={t.challengeLength}>
+          {[7, 14, 30].map((d) => (
+            <button key={d} type="button" role="radio" aria-checked={days === d} className={pill(days === d)} onClick={() => setDays(d)}>{t.daysN(d)}</button>
+          ))}
+        </div>
+        <Field value={title} maxLength={80} onChange={(e) => setTitle(e.target.value)} placeholder={t.challengeNameLabel} aria-label={t.challengeNameLabel} dir="auto" />
+        <p className="m-0 px-1 text-[13px] text-muted">{t.challengeEveryone}</p>
+      </div>
+    </Sheet>
+  );
+}
+
 /** Sends later. Telegram shows scheduled messages in their own view. */
 export function ScheduleSheet({ isRtl, t, onSchedule, onClose }) {
   const presets = [

@@ -432,7 +432,7 @@ export function previewOf(message, isRtl, t) {
     case "poll": return `📊 ${message.poll?.question || t.poll}`;
     case "checklist": return `☑️ ${message.checklist?.title || t.checklist}`;
     case "file": return `📎 ${message.media?.name || t.file}`;
-    case "challenge": return (isRtl && message.textFa) || message.text;
+    case "challenge": return `🎯 ${(isRtl && message.textFa) || message.text || t.challengeAttach || t.challengeTitle || ""}`.trim();
     case "system": return (isRtl && message.textFa) || message.text;
     default: return (isRtl && message.textFa) || message.text;
   }
