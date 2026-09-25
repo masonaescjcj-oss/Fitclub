@@ -15,7 +15,9 @@ import {
 import {
   equipmentLabel, exerciseName, findBySlug, findExercise, muscleLabel, searchExercises,
 } from "../../lib/training/exercises";
-import { LM_EQUIPMENT, LM_MUSCLES, findEquipment, findMuscle, lmLabel, liftmanualUrl, slugify } from "../../lib/training/liftmanual";
+import {
+  LM_EQUIPMENT, LM_MUSCLES, findEquipment, findMuscle, liftmanualSearchUrl, liftmanualUrl, lmLabel, slugify,
+} from "../../lib/training/liftmanual";
 import { useExerciseCatalog } from "../../lib/training/useExerciseCatalog";
 import {
   bestSetIn, compactProgram, exerciseBests, exerciseTrend, lastPerformance, sessionSetsDone, sessionVolume,
@@ -692,8 +694,8 @@ function TrendSheet({ exerciseId, sessions, isRtl, t, n, sep, onClose, onOpenExe
           {variations.some((v) => !v.ex) && (
             <div dir={isRtl ? "ltr" : undefined} className="flex flex-wrap gap-1.5">
               {variations.filter((v) => !v.ex).map(({ slug }) => (
-                <a key={slug} href={liftmanualUrl(slug)} target="_blank" rel="noopener noreferrer"
-                  className="h-8 px-3 rounded-full inline-flex items-center gap-1.5 text-xs font-medium bg-card text-ink no-underline">
+                <a key={slug} href={liftmanualSearchUrl(humanize(slug))} target="_blank" rel="noopener noreferrer"
+                  className="h-9 px-3.5 rounded-full inline-flex items-center gap-1.5 text-[13px] font-medium bg-card text-ink no-underline">
                   {humanize(slug)}<ExternalLink aria-hidden="true" className="w-3 h-3 text-muted" strokeWidth={2} />
                 </a>
               ))}
@@ -704,7 +706,7 @@ function TrendSheet({ exerciseId, sessions, isRtl, t, n, sep, onClose, onOpenExe
 
       {link && (
         <a href={link} target="_blank" rel="noopener noreferrer"
-          className="h-12 px-5 rounded-full inline-flex items-center justify-center gap-2 bg-card text-ink text-[15px] font-semibold no-underline select-none transition-transform active:scale-[0.98]">
+          className="h-12 shrink-0 px-5 rounded-full inline-flex items-center justify-center gap-2 bg-card text-ink text-[15px] font-semibold no-underline select-none transition-transform active:scale-[0.98]">
           <ExternalLink aria-hidden="true" className="w-[18px] h-[18px]" strokeWidth={2} />{t.viewOnLiftmanual}
         </a>
       )}

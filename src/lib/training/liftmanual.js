@@ -135,6 +135,9 @@ export const lmLabel = (entry, isRtl) => (entry ? (isRtl ? entry.fa : entry.en) 
 export const liftmanualUrl = (slug, kind) =>
   `${LIFTMANUAL_URL}/${kind === "muscle" ? "muscle/" : kind === "equipment" ? "equipment/" : ""}${slug}/`;
 
+/** A search on liftmanual: always lands somewhere, unlike a guessed slug. */
+export const liftmanualSearchUrl = (query) => `${LIFTMANUAL_URL}/?s=${encodeURIComponent(query)}`;
+
 /* ───────────────────────── names → slugs ───────────────────────── */
 
 /** Case, spacing, hyphens and punctuation don't matter: "Front-Deltoid" = "front deltoid". */

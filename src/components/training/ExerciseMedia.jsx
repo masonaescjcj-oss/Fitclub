@@ -61,7 +61,8 @@ function MediaWell({ kind, gif, webp, mp4, poster, name, thumb, className, fallb
   }
 
   return (
-    <div className={cx("relative w-full h-full overflow-hidden isolate bg-card [[data-theme=dark]_&]:bg-hero-fg", className)}>
+    <div className={cx("relative w-full h-full overflow-hidden isolate bg-card [[data-theme=dark]_&]:bg-hero-fg",
+      thumb && "ring-1 ring-inset ring-line", className)}>
       {state === "loading" && (poster && kind !== "poster" ? (
         <img aria-hidden="true" alt="" src={poster} className="absolute inset-0 w-full h-full object-contain mix-blend-multiply" />
       ) : (
