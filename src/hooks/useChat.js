@@ -100,7 +100,13 @@ export default function useChat(lang = "en") {
       const byClient = m.clientId ? s.messages.findIndex((x) => x.clientId && x.clientId === m.clientId) : -1;
       const i = byId >= 0 ? byId : byClient;
       if (i < 0) return { ...s, messages: [...s.messages, m] };
-      const messages = s.messages.slice(); messages[i] = { ...messages[i], ...m };
+      const messages = s.messages.slice();
+      const prev = messages[i];
+      messages[i] = { ...prev, ...m };
+      // The server's copy of a photo I just sent: keep showing it from the device, no reload.
+      if (prev.media?.preview && m.media && !m.media.preview && (!prev.media.path || prev.media.path === m.media.path)) {
+        messages[i].media = { ...m.media, preview: prev.media.preview };
+      }
       return { ...s, messages };
     });
   }, []);
@@ -308,8 +314,7 @@ export default function useChat(lang = "en") {
       try {
         const { path } = await client.uploadPhoto(chatId, blob);
         const saved = await client.send(chatId, { kind: "photo", text: "", media: { path, width, height }, clientId: message.clientId });
-        const local = toLocalMessage(saved, latest.current.__myId);
-        upsertMessage({ ...local, media: { ...local.media, preview } });
+        upsertMessage(toLocalMessage(saved, latest.current.__myId));
       } catch {
         patchMessage(message.id, (m) => ({ ...m, status: "failed" }));
       }

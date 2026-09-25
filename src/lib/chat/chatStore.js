@@ -389,7 +389,8 @@ export function loadChat() {
 
 export function saveChat(state) {
   try {
-    window.localStorage.setItem(KEY, JSON.stringify(state));
+    // A photo's on-device preview (a blob: link) dies with the page; the stored copy is used after a reload.
+    window.localStorage.setItem(KEY, JSON.stringify(state, (k, v) => (k === "preview" && typeof v === "string" && v.startsWith("blob:") ? undefined : v)));
   } catch {
     // Over quota; the session still works in memory.
   }

@@ -172,7 +172,7 @@ function Challenge({ message, out, isRtl, t }) {
  * Messages), else through a short-lived link to the chat's private folder.
  * It keeps its shape while loading, so the conversation doesn't jump.
  */
-function ChatPhoto({ media, alt }) {
+function ChatPhoto({ media, alt, className }) {
   const local = media.preview || media.src || null;
   const [url, setUrl] = useState(local);
   const [broken, setBroken] = useState(false);
@@ -184,7 +184,7 @@ function ChatPhoto({ media, alt }) {
   }, [local, media.path, broken]);
   const ratio = media.width && media.height ? Math.min(Math.max(media.height / media.width, 0.5), 1.5) : 0.75;
   return (
-    <span className="mt-0.5 block w-[240px] max-w-full rounded-[14px] overflow-hidden bg-sunk" style={{ aspectRatio: `1 / ${ratio}` }}>
+    <span className={cx("block w-[240px] max-w-full overflow-hidden bg-sunk", className || "mt-0.5 rounded-[14px]")} style={{ aspectRatio: `1 / ${ratio}` }}>
       {url && <img src={url} alt={alt} className="w-full h-full object-cover block" loading="lazy"
         onError={() => { if (url === local) setBroken(true); else setUrl(null); }} />}
     </span>
@@ -219,6 +219,9 @@ export default function MessageBubble({
   }
 
   const isSticker = message.kind === "sticker";
+  const realPhoto = message.kind === "photo" && !message.deleted && !!(message.media?.path || message.media?.src || message.media?.preview);
+  // A photo alone fills its bubble, as in Telegram, with the time over its corner.
+  const barePhoto = realPhoto && !message.text && !message.replyTo && !message.forwardFrom && !showSender;
   const soft = out ? "text-on-inv/60" : "text-muted";
 
   // A press-and-hold opens the action sheet; a plain tap toggles selection
@@ -277,7 +280,7 @@ export default function MessageBubble({
               onPointerLeave={endPress}
               onContextMenu={(e) => { e.preventDefault(); onLongPress(message); }}
               className={cx("relative max-w-full",
-                isSticker ? "pb-3" : cx("px-3.5 pt-2 pb-1.5 rounded-[20px]", out ? "bg-inv text-on-inv" : "bg-card text-ink"),
+                isSticker ? "pb-3" : cx(barePhoto ? "p-1" : "px-3.5 pt-2 pb-1.5", "rounded-[20px]", out ? "bg-inv text-on-inv" : "bg-card text-ink"),
                 corners, selectionMode && "cursor-pointer")}
             >
               {showSender && (
@@ -314,7 +317,16 @@ export default function MessageBubble({
                 <Poll message={message} out={out} isRtl={isRtl} t={t} onVote={onVote} />
               ) : message.kind === "voice" ? (
                 <Voice message={message} out={out} isRtl={isRtl} />
-              ) : message.kind === "photo" && (message.media?.path || message.media?.src || message.media?.preview) ? (
+              ) : barePhoto ? (
+                <>
+                  <ChatPhoto media={message.media} alt={t.photo} className="rounded-[16px]" />
+                  <span className="absolute bottom-2.5 end-2.5 flex items-center gap-1 h-5 px-2 rounded-full bg-black/45 text-white text-[11px] font-medium tabular-nums" dir="ltr">
+                    {message.editedAt && <span dir="auto">{t.edited}</span>}
+                    {clockOf(message.at, isRtl)}
+                    <Ticks message={message} className="text-white" />
+                  </span>
+                </>
+              ) : realPhoto ? (
                 <ChatPhoto media={message.media} alt={t.photo} />
               ) : message.kind === "photo" ? (
                 <span role="img" aria-label={t.photo}
@@ -350,7 +362,7 @@ export default function MessageBubble({
                 </>
               )}
 
-              {!isSticker && meta}
+              {!isSticker && !barePhoto && meta}
             </div>
 
             {/* reactions: ink when I reacted, white otherwise */}
