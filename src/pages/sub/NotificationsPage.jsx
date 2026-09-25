@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import { AtSign, Dumbbell, Flame, Sparkles, Users } from "lucide-react";
-import { Avatar, Chip, IconWell, Label, Screen, TopBar, cx, num } from "../../components/ui/kit";
+import { AtSign, CheckCheck, Dumbbell, Flame, Sparkles, Users } from "lucide-react";
+import { Avatar, Button, Chip, IconWell, Label, Screen, TopBar, cx, num } from "../../components/ui/kit";
 import { useChatStore } from "../../lib/chat/chatContext";
 import { findUser } from "../../lib/chat/chatStore";
 import { relativeTime } from "../../lib/chat/chatModel";
@@ -16,14 +16,33 @@ const COPY = {
     messages: "Messages", unreadMentions: "unread mentions", unread: "Unread", reply: "Reply",
     mentioned: (who, where) => <><b className="font-bold">{who}</b> mentioned you in <b className="font-bold">{where}</b></>,
     emptyMessages: "When someone mentions you in a group or you join a community, it shows up here.",
+    markAll: "Mark all read",
   },
   fa: {
-    title: "اعلان‌ها و پیام‌ها", filter: "فیلتر", all: "همه", mentions: "منشن‌ها", app: "اپ",
+    title: "اعلان‌ها", filter: "فیلتر", all: "همه", mentions: "منشن‌ها", app: "اپ",
     messages: "پیام‌ها", unreadMentions: "منشن خوانده‌نشده", unread: "خوانده‌نشده", reply: "پاسخ",
     mentioned: (who, where) => <><b className="font-bold">{who}</b> در <b className="font-bold">{where}</b> از شما نام برد</>,
     emptyMessages: "وقتی کسی شما را در گروهی نام ببرد یا به کامیونیتی بپیوندید، اینجا می‌بینید.",
+    markAll: "خواندن همه",
   },
 };
+
+// App alerts are still local, so which ones were read is kept on this device.
+const READ_KEY = "fitclub.inbox.read";
+function loadRead() {
+  try {
+    return new Set(JSON.parse(window.localStorage.getItem(READ_KEY) || "[]"));
+  } catch {
+    return new Set();
+  }
+}
+function saveRead(ids) {
+  try {
+    window.localStorage.setItem(READ_KEY, JSON.stringify([...ids]));
+  } catch {
+    // Still read for this visit.
+  }
+}
 
 const UnreadDot = ({ label }) => (
   <span role="img" aria-label={label} className="w-[9px] h-[9px] mt-[5px] shrink-0 rounded-full bg-inv dark:bg-accent" />
@@ -105,11 +124,25 @@ export default function NotificationsPage({ onBack, isRtl, onOpenChat }) {
   const c = COPY[isRtl ? "fa" : "en"];
   const store = useChatStore();
   const [filter, setFilter] = useState("all");
-  const notifications = [
-    { titleEn: "Workout reminder", titleFa: "یادآوری تمرین امروز", bodyEn: "Your Day 1 Full Body Plus workout is waiting. Stay consistent!", bodyFa: "تمرین امروز شما آماده است. زنجیره موفقیت خود را حفظ کنید!", timeEn: "10 mins ago", timeFa: "۱۰ دقیقه پیش", read: false, Icon: Dumbbell, tone: "sunk" },
-    { titleEn: "Streak milestone reached", titleFa: "رکورد استریک جدید", bodyEn: "You achieved a 14-day workout streak. +100 bonus XP awarded!", bodyFa: "شما ۱۴ روز تمرین متوالی را ثبت کردید. ۱۰۰ امتیاز اضافه دریافت شد!", timeEn: "2 hours ago", timeFa: "۲ ساعت پیش", read: false, Icon: Flame, tone: "accent" },
-    { titleEn: "AI plan updated v2.0", titleFa: "برنامه هوشمند به‌روزرسانی شد", bodyEn: "Your custom macros have been recalibrated based on your new weight.", bodyFa: "ماکروهای رژیم شما بر اساس وزن جدید بازسنجی شدند.", timeEn: "Yesterday", timeFa: "دیروز", read: true, Icon: Sparkles, tone: "coach" },
+  const [readIds, setReadIds] = useState(loadRead);
+  const alerts = [
+    { id: "workout", titleEn: "Workout reminder", titleFa: "یادآوری تمرین امروز", bodyEn: "Your Day 1 Full Body Plus workout is waiting. Stay consistent!", bodyFa: "تمرین امروز شما آماده است. زنجیره موفقیت خود را حفظ کنید!", timeEn: "10 mins ago", timeFa: "۱۰ دقیقه پیش", read: false, Icon: Dumbbell, tone: "sunk" },
+    { id: "streak", titleEn: "Streak milestone reached", titleFa: "رکورد استریک جدید", bodyEn: "You achieved a 14-day workout streak. +100 bonus XP awarded!", bodyFa: "شما ۱۴ روز تمرین متوالی را ثبت کردید. ۱۰۰ امتیاز اضافه دریافت شد!", timeEn: "2 hours ago", timeFa: "۲ ساعت پیش", read: false, Icon: Flame, tone: "accent" },
+    { id: "plan", titleEn: "AI plan updated v2.0", titleFa: "برنامه هوشمند به‌روزرسانی شد", bodyEn: "Your custom macros have been recalibrated based on your new weight.", bodyFa: "ماکروهای رژیم شما بر اساس وزن جدید بازسنجی شدند.", timeEn: "Yesterday", timeFa: "دیروز", read: true, Icon: Sparkles, tone: "coach" },
   ];
+  const notifications = alerts.map((n) => ({ ...n, read: n.read || readIds.has(n.id) }));
+  const markAppRead = (ids) => {
+    const next = new Set([...readIds, ...ids]);
+    setReadIds(next);
+    saveRead(next);
+  };
+  // Mentions and joins are read by marking their chats read, as opening them would.
+  const unreadChats = [...new Set(store.notifications.filter((n) => n.unread).map((n) => n.chatId))];
+  const anyUnread = unreadChats.length > 0 || notifications.some((n) => !n.read);
+  const markAllRead = () => {
+    unreadChats.forEach((id) => store.markRead(id));
+    markAppRead(notifications.map((n) => n.id));
+  };
 
   const filters = [
     { id: "all", label: c.all },
@@ -119,7 +152,10 @@ export default function NotificationsPage({ onBack, isRtl, onOpenChat }) {
 
   return (
     <Screen isRtl={isRtl}>
-      <TopBar isRtl={isRtl} onBack={onBack} title={c.title} />
+      <TopBar isRtl={isRtl} onBack={onBack} title={c.title}
+        right={anyUnread && (
+          <Button tone="card" size="sm" onClick={markAllRead} icon={<CheckCheck className="w-4 h-4" strokeWidth={2.2} />}>{c.markAll}</Button>
+        )} />
 
       <div role="group" aria-label={c.filter} className="flex gap-2 overflow-x-auto scrollbar-hide -mx-5 px-5">
         {filters.map((f) => (
@@ -140,8 +176,8 @@ export default function NotificationsPage({ onBack, isRtl, onOpenChat }) {
         <section className="flex flex-col gap-3" aria-labelledby="inbox-app">
           <Label as="h2" id="inbox-app" className="m-0 mt-1.5">{c.app}</Label>
           <ul className="m-0 p-0 py-1 list-none rounded-3xl bg-card divide-y divide-hair">
-            {notifications.map(({ Icon, ...n }, idx) => (
-              <li key={idx} className="flex gap-3 px-4 py-3.5">
+            {notifications.map(({ Icon, ...n }) => (
+              <li key={n.id} className="flex gap-3 px-4 py-3.5" onClick={() => !n.read && markAppRead([n.id])}>
                 <IconWell tone={n.tone} size={44} square><Icon className="w-5 h-5" strokeWidth={2} /></IconWell>
                 <div className="flex-1 min-w-0 flex flex-col gap-0.5">
                   <div className="flex gap-2 items-start">

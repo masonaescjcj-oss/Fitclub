@@ -1,11 +1,10 @@
-import React, { useEffect, useState } from "react";
-import { motion } from "framer-motion";
+import React, { useState } from "react";
 import {
-  Archive, BellOff, CheckCheck, CheckCircle2, Clock, Copy, CornerUpLeft, FileAudio, Forward, Languages, Pencil, Pin, Plus, Star, Trash2, X,
+  Archive, BellOff, CheckCheck, CheckCircle2, Clock, Copy, CornerUpLeft, FileAudio, Forward, Languages, Pencil, Pin, Plus, Star, Trash2,
 } from "lucide-react";
 import { BASE_REACTIONS, PREMIUM_REACTIONS, ME, isMine } from "../../lib/chat/chatModel";
 import { Avatar } from "./ChatBits";
-import { Button, Field, IconButton, Label, Toggle, cx, num } from "../ui/kit";
+import { Button, Field, Label, Sheet as KitSheet, Toggle, cx, num } from "../ui/kit";
 
 /**
  * The messenger's bottom sheet, in the kit's look: paper, a grabber, the
@@ -14,37 +13,10 @@ import { Button, Field, IconButton, Label, Toggle, cx, num } from "../ui/kit";
  * Callers render it conditionally inside <AnimatePresence>.
  */
 export function Sheet({ title, isRtl, t, onClose, children, footer, tall = false }) {
-  useEffect(() => {
-    const onKey = (e) => { if (e.key === "Escape") onClose?.(); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
   return (
-    <div dir={isRtl ? "rtl" : "ltr"} className="ui fixed inset-0 z-[70] flex items-end justify-center !bg-transparent">
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-        onClick={onClose} className="absolute inset-0 bg-hero/45 backdrop-blur-[2px]" />
-      <motion.div role="dialog" aria-modal="true" aria-label={typeof title === "string" ? title : undefined}
-        initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
-        transition={{ type: "spring", stiffness: 340, damping: 36 }}
-        className={cx("relative w-full md:max-w-lg bg-canvas text-ink rounded-t-4xl shadow-sheet flex flex-col overflow-hidden",
-          tall ? "h-[92dvh]" : "max-h-[88dvh]")}
-      >
-        <span aria-hidden="true" className="mx-auto mt-2.5 w-10 h-1 rounded-full bg-line shrink-0" />
-        {title ? (
-          <div className="flex items-center justify-between gap-3 px-5 pt-3 pb-3 shrink-0">
-            <h2 className="m-0 min-w-0 truncate font-display font-extrabold text-[22px] tracking-[-0.02em] text-ink">{title}</h2>
-            <IconButton label={t?.close || (isRtl ? "بستن" : "Close")} tone="card" size={40} onClick={onClose}>
-              <X className="w-[18px] h-[18px]" strokeWidth={2} />
-            </IconButton>
-          </div>
-        ) : (
-          <span aria-hidden="true" className="h-3 shrink-0" />
-        )}
-        <div className={cx("flex-1 overflow-y-auto scrollbar-hide", !footer && "pb-[max(env(safe-area-inset-bottom),16px)]")}>{children}</div>
-        {footer && <div className="px-5 pt-3 pb-[max(env(safe-area-inset-bottom),20px)] flex gap-2.5 shrink-0">{footer}</div>}
-      </motion.div>
-    </div>
+    <KitSheet title={title} isRtl={isRtl} onClose={onClose} footer={footer} tall={tall} closeLabel={t?.close} bare>
+      {children}
+    </KitSheet>
   );
 }
 

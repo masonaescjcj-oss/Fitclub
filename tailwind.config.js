@@ -37,8 +37,7 @@ module.exports = {
         alert: token("alert"),
         bar: token("bar"),
         "bar-edge": token("bar-edge"),
-        // Named so they don't shadow Tailwind's violet/amber/sky palettes,
-        // which the messenger still uses.
+        // Named so they don't shadow Tailwind's own violet/amber/sky palettes.
         grape: token("grape"),
         ochre: token("ochre"),
         sand: token("sand"),

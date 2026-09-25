@@ -1,8 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { motion } from "framer-motion";
 import { ArrowDown, ArrowUp, BadgeCheck, Check, Copy, Dumbbell, Link2, Plus, Salad, Search, Trash2, X } from "lucide-react";
 import {
-  Button, Card, Chip, CtaButton, Field, IconButton, IconWell, Label, List, Row, Segmented, Tag, Toggle, cx, initials, num,
+  Button, Card, Chip, CtaButton, Field, IconButton, IconWell, Label, List, Row, Segmented, Sheet as KitSheet, Tag, Toggle, cx, initials, num,
 } from "../ui/kit";
 import { MUSCLES, exerciseName, findExercise, searchExercises } from "../../lib/training/exercises";
 import {
@@ -17,31 +16,11 @@ import {
  * out; Escape and the scrim close it, and `footer` stays pinned under the body.
  */
 export function Sheet({ title, isRtl, t, onClose, children, footer, tall = false }) {
-  useEffect(() => {
-    const onKey = (e) => { if (e.key === "Escape") onClose?.(); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  // Sits above the other sheets: the exercise picker opens over the builder.
   return (
-    <div dir={isRtl ? "rtl" : "ltr"} className="ui fixed inset-0 z-[90] flex items-end justify-center !bg-transparent">
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-        onClick={onClose} className="absolute inset-0 bg-hero/45 backdrop-blur-[2px]" />
-      <motion.div role="dialog" aria-modal="true" aria-label={typeof title === "string" ? title : undefined}
-        initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
-        transition={{ type: "spring", stiffness: 340, damping: 36 }}
-        className={cx("relative w-full md:max-w-lg bg-canvas rounded-t-4xl shadow-sheet flex flex-col overflow-hidden",
-          tall ? "h-[92dvh]" : "max-h-[90dvh]")}>
-        <span aria-hidden="true" className="mx-auto mt-2.5 w-10 h-1 rounded-full bg-line shrink-0" />
-        <div className="flex items-center justify-between gap-3 px-5 pt-3 pb-2 shrink-0">
-          <h2 className="m-0 min-w-0 truncate font-display font-extrabold text-[22px] tracking-[-0.02em] text-ink">{title}</h2>
-          <IconButton label={t?.close || (isRtl ? "بستن" : "Close")} tone="card" size={40} onClick={onClose}>
-            <X className="w-[18px] h-[18px]" strokeWidth={2} />
-          </IconButton>
-        </div>
-        <div className="flex-1 overflow-y-auto px-5 pb-5 pt-2 flex flex-col gap-4 scrollbar-hide">{children}</div>
-        {footer && <div className="px-5 pt-3 pb-[max(env(safe-area-inset-bottom),20px)] flex gap-2.5 shrink-0">{footer}</div>}
-      </motion.div>
-    </div>
+    <KitSheet title={title} isRtl={isRtl} onClose={onClose} footer={footer} tall={tall} closeLabel={t?.close} z={90}>
+      {children}
+    </KitSheet>
   );
 }
 

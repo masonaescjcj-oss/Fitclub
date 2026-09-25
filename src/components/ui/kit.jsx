@@ -438,8 +438,12 @@ export const Field = React.forwardRef(function Field({ label, hint, error, prefi
  * the scrolling body. Pass `open` and the sheet animates in and out itself.
  * Render it conditionally instead and it animates out only when the caller
  * wraps it in its own <AnimatePresence>.
+ *
+ * `bare` leaves the body unpadded for callers that lay out their own rows;
+ * without a `title` the header row is dropped and the scrim is the way out.
+ * `z` lifts a sheet that opens over another layer (the default is 70).
  */
-export function Sheet({ open, title, eyebrow, onClose, isRtl, footer, children, closeLabel, tall = false }) {
+export function Sheet({ open, title, eyebrow, onClose, isRtl, footer, children, closeLabel, tall = false, bare = false, z = 70 }) {
   const managed = open !== undefined;
   const shown = managed ? open : true;
   useEffect(() => {
@@ -449,28 +453,33 @@ export function Sheet({ open, title, eyebrow, onClose, isRtl, footer, children, 
     return () => window.removeEventListener("keydown", onKey);
   }, [shown, onClose]);
   const body = shown && (
-        <div dir={isRtl ? "rtl" : "ltr"} className="ui fixed inset-0 z-[70] flex items-end justify-center !bg-transparent">
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            onClick={onClose} className="absolute inset-0 bg-hero/45 backdrop-blur-[2px]" />
-          <motion.div role="dialog" aria-modal="true" aria-label={typeof title === "string" ? title : undefined}
-            initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
-            transition={{ type: "spring", stiffness: 340, damping: 36 }}
-            className={cx("relative w-full md:max-w-lg bg-canvas rounded-t-4xl shadow-sheet flex flex-col overflow-hidden",
-              tall ? "h-[92dvh]" : "max-h-[90dvh]")}>
-            <span aria-hidden="true" className="mx-auto mt-2.5 w-10 h-1 rounded-full bg-line shrink-0" />
-            <div className="flex items-center justify-between gap-3 px-5 pt-3 pb-2 shrink-0">
-              <div className="flex flex-col gap-1 min-w-0">
-                {eyebrow && <Label>{eyebrow}</Label>}
-                <h2 className="m-0 font-display font-extrabold text-[22px] tracking-[-0.02em] text-ink">{title}</h2>
-              </div>
-              <IconButton label={closeLabel || (isRtl ? "بستن" : "Close")} tone="card" size={40} onClick={onClose}>
-                <X className="w-[18px] h-[18px]" strokeWidth={2} />
-              </IconButton>
+    <div dir={isRtl ? "rtl" : "ltr"} style={{ zIndex: z }} className="ui fixed inset-0 flex items-end justify-center !bg-transparent">
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        onClick={onClose} className="absolute inset-0 bg-hero/45 backdrop-blur-[2px]" />
+      <motion.div role="dialog" aria-modal="true" aria-label={typeof title === "string" ? title : undefined}
+        initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
+        transition={{ type: "spring", stiffness: 340, damping: 36 }}
+        className={cx("relative w-full md:max-w-lg bg-canvas text-ink rounded-t-4xl shadow-sheet flex flex-col overflow-hidden",
+          tall ? "h-[92dvh]" : "max-h-[90dvh]")}>
+        <span aria-hidden="true" className="mx-auto mt-2.5 w-10 h-1 rounded-full bg-line shrink-0" />
+        {title ? (
+          <div className="flex items-center justify-between gap-3 px-5 pt-3 pb-2 shrink-0">
+            <div className="flex flex-col gap-1 min-w-0">
+              {eyebrow && <Label>{eyebrow}</Label>}
+              <h2 className="m-0 truncate font-display font-extrabold text-[22px] tracking-[-0.02em] text-ink">{title}</h2>
             </div>
-            <div className="flex-1 overflow-y-auto px-5 pb-5 pt-2 flex flex-col gap-4 scrollbar-hide">{children}</div>
-            {footer && <div className="px-5 pt-3 pb-[max(env(safe-area-inset-bottom),20px)] flex gap-2.5 shrink-0">{footer}</div>}
-          </motion.div>
-        </div>
+            <IconButton label={closeLabel || (isRtl ? "بستن" : "Close")} tone="card" size={40} onClick={onClose}>
+              <X className="w-[18px] h-[18px]" strokeWidth={2} />
+            </IconButton>
+          </div>
+        ) : (
+          <span aria-hidden="true" className="h-3 shrink-0" />
+        )}
+        <div className={cx("flex-1 overflow-y-auto scrollbar-hide",
+          bare ? !footer && "pb-[max(env(safe-area-inset-bottom),16px)]" : "px-5 pb-5 pt-2 flex flex-col gap-4")}>{children}</div>
+        {footer && <div className="px-5 pt-3 pb-[max(env(safe-area-inset-bottom),20px)] flex gap-2.5 shrink-0">{footer}</div>}
+      </motion.div>
+    </div>
   );
   return managed ? <AnimatePresence>{body}</AnimatePresence> : body || null;
 }
