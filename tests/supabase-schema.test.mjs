@@ -85,12 +85,12 @@ check("migrations are idempotent", rerun);
 const after = (await db.query(FINGERPRINT)).rows[0];
 check("other apps' tables, triggers, policies and buckets are untouched", JSON.stringify(before) === JSON.stringify(after));
 check("FitClub adds no trigger to auth.users", after.auth_triggers === before.auth_triggers);
-check("everything FitClub owns is in its own schema",
-  (await db.query("select count(*)::int as n from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relname like '%user_state%'")).rows[0].n === 0);
+check("every table FitClub adds carries its name",
+  (await db.query("select count(*)::int as n from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relkind = 'r' and c.relname not like 'fitclub\\_%' and c.relname <> 'profiles'")).rows[0].n === 0);
 
 await db.exec(`insert into auth.users (id, email) values ('${A}', 'a@x.test'), ('${B}', 'b@x.test');`);
 check("the neighbour's own signup trigger still runs", (await db.query("select count(*)::int as n from public.profiles")).rows[0].n === 2);
-check("signing up creates no FitClub row by itself", (await db.query("select count(*)::int as n from fitclub.profiles")).rows[0].n === 0);
+check("signing up creates no FitClub row by itself", (await db.query("select count(*)::int as n from public.fitclub_profiles")).rows[0].n === 0);
 
 /** Runs `sql` as a signed-in user (or anon when `uid` is null) and returns the result or the error. */
 async function as(uid, sql, params = []) {
@@ -105,23 +105,23 @@ async function as(uid, sql, params = []) {
 }
 
 // Profiles: the app creates its own row on first sign-in.
-check("A creates their own FitClub profile", (await as(A, `insert into fitclub.profiles (id) values ('${A}')`)).ok);
-check("B creates their own FitClub profile", (await as(B, `insert into fitclub.profiles (id) values ('${B}')`)).ok);
+check("A creates their own FitClub profile", (await as(A, `insert into public.fitclub_profiles (id) values ('${A}')`)).ok);
+check("B creates their own FitClub profile", (await as(B, `insert into public.fitclub_profiles (id) values ('${B}')`)).ok);
 check("A cannot create a profile for someone else",
-  !(await as(A, `insert into fitclub.profiles (id) values ('33333333-3333-3333-3333-333333333333')`)).ok);
-check("A sets a valid username", (await as(A, `update fitclub.profiles set username = 'isaac_lifts', name = 'Isaac' where id = '${A}'`)).ok);
-const bEdit = await as(A, `update fitclub.profiles set name = 'hacked' where id = '${B}'`);
+  !(await as(A, `insert into public.fitclub_profiles (id) values ('33333333-3333-3333-3333-333333333333')`)).ok);
+check("A sets a valid username", (await as(A, `update public.fitclub_profiles set username = 'isaac_lifts', name = 'Isaac' where id = '${A}'`)).ok);
+const bEdit = await as(A, `update public.fitclub_profiles set name = 'hacked' where id = '${B}'`);
 check("A cannot edit B's profile", bEdit.ok && bEdit.res.affectedRows === 0);
-check("an invalid username is rejected", !(await as(B, `update fitclub.profiles set username = '9lives' where id = '${B}'`)).ok);
-check("a reserved username is rejected", !(await as(B, `update fitclub.profiles set username = 'support' where id = '${B}'`)).ok);
-check("capital letters are rejected, so uniqueness ignores case", !(await as(B, `update fitclub.profiles set username = 'Isaac_Lifts' where id = '${B}'`)).ok);
-check("usernames are unique", !(await as(B, `update fitclub.profiles set username = 'isaac_lifts' where id = '${B}'`)).ok);
-const seen = await as(B, "select name from fitclub.profiles where username = 'isaac_lifts'");
+check("an invalid username is rejected", !(await as(B, `update public.fitclub_profiles set username = '9lives' where id = '${B}'`)).ok);
+check("a reserved username is rejected", !(await as(B, `update public.fitclub_profiles set username = 'support' where id = '${B}'`)).ok);
+check("capital letters are rejected, so uniqueness ignores case", !(await as(B, `update public.fitclub_profiles set username = 'Isaac_Lifts' where id = '${B}'`)).ok);
+check("usernames are unique", !(await as(B, `update public.fitclub_profiles set username = 'isaac_lifts' where id = '${B}'`)).ok);
+const seen = await as(B, "select name from public.fitclub_profiles where username = 'isaac_lifts'");
 check("signed-in people can read profiles", seen.ok && seen.res.rows[0]?.name === "Isaac");
-const anonRead = await as(null, "select * from fitclub.profiles");
+const anonRead = await as(null, "select * from public.fitclub_profiles");
 check("anonymous visitors cannot list profiles", !anonRead.ok || anonRead.res.rows.length === 0);
 
-const avail = async (uid, name) => (await as(uid, "select fitclub.username_available($1) as ok", [name])).res?.rows[0]?.ok;
+const avail = async (uid, name) => (await as(uid, "select public.fitclub_username_available($1) as ok", [name])).res?.rows[0]?.ok;
 check("a taken username is not available", (await avail(null, "isaac_lifts")) === false);
 check("a free username is available", (await avail(null, "sara_runs")) === true);
 check("your own username counts as available to you", (await avail(A, "isaac_lifts")) === true);
@@ -130,16 +130,16 @@ check("a malformed username is not available", (await avail(null, "ab")) === fal
 
 // user_state
 check("A writes their own state",
-  (await as(A, `insert into fitclub.user_state (user_id, key, data) values ('${A}', 'training.v1', '{"programs":[]}')`)).ok);
+  (await as(A, `insert into public.fitclub_user_state (user_id, key, data) values ('${A}', 'training.v1', '{"programs":[]}')`)).ok);
 check("A cannot write state as B",
-  !(await as(A, `insert into fitclub.user_state (user_id, key, data) values ('${B}', 'training.v1', '{}')`)).ok);
-const bSees = await as(B, "select * from fitclub.user_state");
+  !(await as(A, `insert into public.fitclub_user_state (user_id, key, data) values ('${B}', 'training.v1', '{}')`)).ok);
+const bSees = await as(B, "select * from public.fitclub_user_state");
 check("B cannot see A's state", bSees.ok && bSees.res.rows.length === 0);
-const aSees = await as(A, "select key, data from fitclub.user_state");
+const aSees = await as(A, "select key, data from public.fitclub_user_state");
 check("A reads their own state back", aSees.ok && aSees.res.rows[0]?.data?.programs?.length === 0);
 check("a malformed key is rejected",
-  !(await as(A, `insert into fitclub.user_state (user_id, key, data) values ('${A}', 'Bad Key!', '{}')`)).ok);
-const bClear = await as(B, `delete from fitclub.user_state where user_id = '${A}'`);
+  !(await as(A, `insert into public.fitclub_user_state (user_id, key, data) values ('${A}', 'Bad Key!', '{}')`)).ok);
+const bClear = await as(B, `delete from public.fitclub_user_state where user_id = '${A}'`);
 check("B cannot delete A's state", bClear.ok && bClear.res.affectedRows === 0);
 
 // Avatars

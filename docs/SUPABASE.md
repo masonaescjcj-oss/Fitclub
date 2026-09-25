@@ -12,7 +12,9 @@ shows the same data on every device.
 FitClub can share a Supabase project with other apps. Everything it owns is
 set apart and named after it, so the other apps are never touched:
 
-- tables and functions live in the **`fitclub` schema**, never `public`;
+- tables and functions carry a **`fitclub_` prefix** (`fitclub_profiles`,
+  `fitclub_user_state`, `fitclub_username_available`), so the Data API
+  reaches them with no change to the project's shared settings;
 - photos go to the **`fitclub-avatars`** bucket, and every storage policy is
   named `fitclub: …` and names that bucket;
 - nothing is added to `auth.users` (no trigger). A FitClub account carries
@@ -20,9 +22,9 @@ set apart and named after it, so the other apps are never touched:
   row on first sign-in;
 - shared auth settings (email templates, Site URL, providers) are left alone.
 
-FitClub می‌تواند با اپ‌های دیگر در یک پروژه‌ی Supabase باشد. همه‌چیزش در schema
-جداگانه‌ی `fitclub` و bucket `fitclub-avatars` است و به تنظیمات مشترک ورود
-دست نمی‌زند.
+FitClub می‌تواند با اپ‌های دیگر در یک پروژه‌ی Supabase باشد. نام همه‌ی جدول‌ها و
+تابع‌هایش با `fitclub_` شروع می‌شود، عکس‌ها در bucket `fitclub-avatars` است و به
+تنظیمات مشترک پروژه (Data API، ورود، ایمیل‌ها) دست نمی‌زند.
 
 1. **Project Settings → API**: copy the **Project URL** and the **publishable
    (anon)** key. Never use the `service_role` / secret key in the app.
@@ -32,22 +34,19 @@ FitClub می‌تواند با اپ‌های دیگر در یک پروژه‌ی 
    order. They are safe to run again.
    فایل‌های پوشه‌ی `supabase/migrations/` را به ترتیب اجرا کنید؛ اجرای دوباره
    مشکلی ندارد.
-3. **Project Settings → Data API → Exposed schemas**: add `fitclub`, keeping
-   the schemas already listed.
-   در Exposed schemas، `fitclub` را کنار بقیه اضافه کنید.
-4. **Email confirmation** is a project-wide setting. With *Confirm email* off,
+3. **Email confirmation** is a project-wide setting. With *Confirm email* off,
    sign-up opens the account at once. With it on, the app asks for the 6-digit
    code, so the **Confirm signup** template must contain `{{ .Token }}`. Other
    apps in the project get the same email.
-5. **Authentication → URL Configuration**: add the FitClub domain (and
+4. **Authentication → URL Configuration**: add the FitClub domain (and
    `http://localhost:3000/**`) to *Redirect URLs* without removing the others.
    Password-reset links come back here. Leave *Site URL* as it is if another
    app owns it.
-6. **Google sign-in** (optional): create an OAuth client in Google Cloud and
+5. **Google sign-in** (optional): create an OAuth client in Google Cloud and
    paste its id and secret in **Providers → Google**. The authorised redirect
    URI is `https://<project-ref>.supabase.co/auth/v1/callback`. Then set
    `REACT_APP_AUTH_PROVIDERS=google`.
-7. **Custom SMTP** (recommended before launch): Supabase's built-in mailer
+6. **Custom SMTP** (recommended before launch): Supabase's built-in mailer
    sends only a few emails an hour. Set your own under **Project Settings →
    Authentication → SMTP**.
 
@@ -74,8 +73,8 @@ build time.
 
 | Table | Holds | Who can read it |
 | --- | --- | --- |
-| `fitclub.profiles` | username, name, bio, photo, language, onboarded | signed-in people |
-| `fitclub.user_state` | training, diary, nutrition profile, checklists, coach history, inbox read state (one JSON per key) | only its owner |
+| `fitclub_profiles` | username, name, bio, photo, language, onboarded | signed-in people |
+| `fitclub_user_state` | training, diary, nutrition profile, checklists, coach history, inbox read state (one JSON per key) | only its owner |
 | `fitclub-avatars` bucket | profile photos, at `<user id>/…` | anyone; only the owner writes |
 
 The coach's own API key, when someone uses one, never leaves their device.

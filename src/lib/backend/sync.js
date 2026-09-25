@@ -1,7 +1,7 @@
 // Keeps the personal stores the same on every device of one account.
 //
 // The app's stores already persist themselves to localStorage; this module
-// mirrors those keys to Supabase's user_state table (one JSON document per
+// mirrors those keys to Supabase's fitclub_user_state table (one JSON document per
 // key, see supabase/migrations/0001) without the stores knowing:
 //
 // - a write to a synced key marks it dirty and schedules a push;
@@ -25,7 +25,7 @@ export const SYNCED_KEYS = {
 };
 
 const META_KEY = "fitclub.sync.meta";
-const TABLE = "user_state";
+const TABLE = "fitclub_user_state"; // supabase/migrations/0001
 
 // The coach's own API key is a device secret: it never leaves the browser.
 const TRANSFORMS = {

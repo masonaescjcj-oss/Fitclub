@@ -30,7 +30,7 @@ function fakeServer() {
     uploads: [],
     from(table) {
       const server = this;
-      if (table !== "user_state") throw new Error(`unexpected table ${table}`);
+      if (table !== "fitclub_user_state") throw new Error(`unexpected table ${table}`);
       return {
         select() {
           return {

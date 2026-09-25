@@ -3,7 +3,7 @@
 // signed-in person. Every function is a no-op that reports "offline" when
 // the backend isn't configured, so the demo build keeps working unchanged.
 
-import { AVATAR_BUCKET, SCHEMA, backendOn, supabase } from "./supabase";
+import { AVATAR_BUCKET, RPC_USERNAME_AVAILABLE, TABLES, backendOn, supabase } from "./supabase";
 import { createSync, hookWrites } from "./sync";
 import { clearSession, saveSession } from "../session";
 
@@ -83,8 +83,8 @@ async function attach(user, { timeoutMs }) {
     window.addEventListener("pagehide", onVisibility);
     const me = deviceId();
     channel = supabase
-      .channel(`user_state:${user.id}`)
-      .on("postgres_changes", { event: "*", schema: SCHEMA, table: "user_state", filter: `user_id=eq.${user.id}` },
+      .channel(`fitclub_user_state:${user.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: TABLES.state, filter: `user_id=eq.${user.id}` },
         (payload) => { if (payload.new?.device !== me) catchUp(); })
       .subscribe();
   }
@@ -107,9 +107,9 @@ const PROFILE_COLUMNS = "username, name, bio, avatar_url, lang, onboarded";
 
 /** The person's FitClub profile, created on first sign-in (nothing on auth.users does it). */
 async function loadProfile(user) {
-  const { data } = await supabase.from("profiles").select(PROFILE_COLUMNS).eq("id", user.id).maybeSingle();
+  const { data } = await supabase.from(TABLES.profiles).select(PROFILE_COLUMNS).eq("id", user.id).maybeSingle();
   if (data) return data;
-  const { data: created } = await supabase.from("profiles")
+  const { data: created } = await supabase.from(TABLES.profiles)
     .upsert({ id: user.id, name: user.user_metadata?.full_name || "" }, { onConflict: "id", ignoreDuplicates: true })
     .select(PROFILE_COLUMNS).maybeSingle();
   return created || { username: null, name: "", bio: "", avatar_url: null, lang: "fa", onboarded: false };
@@ -218,7 +218,7 @@ export function onPasswordRecovery(callback) {
 
 export async function usernameAvailable(username) {
   if (!backendOn) return true;
-  const { data, error } = await supabase.rpc("username_available", { candidate: String(username || "").toLowerCase() });
+  const { data, error } = await supabase.rpc(RPC_USERNAME_AVAILABLE, { candidate: String(username || "").toLowerCase() });
   return error ? true : Boolean(data); // a failed check never blocks; the unique index still guards
 }
 
@@ -231,7 +231,7 @@ export async function saveProfile(patch) {
   const row = {};
   for (const k of ["username", "name", "bio", "avatar_url", "lang", "onboarded"]) if (patch[k] !== undefined) row[k] = patch[k];
   if (row.username) row.username = String(row.username).toLowerCase();
-  const { data: saved, error } = await supabase.from("profiles").upsert({ id: user.id, ...row }, { onConflict: "id" }).select(PROFILE_COLUMNS).maybeSingle();
+  const { data: saved, error } = await supabase.from(TABLES.profiles).upsert({ id: user.id, ...row }, { onConflict: "id" }).select(PROFILE_COLUMNS).maybeSingle();
   if (error) return { error: error.code === "23505" ? "taken" : error.code === "23514" ? "invalid" : "unknown" };
   mirror(user, saved || row);
   return { error: null, profile: saved };
