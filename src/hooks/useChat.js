@@ -47,6 +47,10 @@ export default function useChat(lang = "en") {
   const [remoteUsers, setRemoteUsers] = useState([]); // people met through the server
   const apiRef = useRef(null);
   const lastSync = useRef(null);
+  // Whether live updates are flowing. On Supabase the account stays usable
+  // without them: the status follows whether the server answers, and the
+  // store polls until the live stream is back.
+  const [live, setLive] = useState(false);
   const typingSent = useRef({}); // chatId -> last time we told the server we were typing
   const myId = server?.me?.id || null;
   const online = !!(server && server.token && server.status === "online");
@@ -169,12 +173,22 @@ export default function useChat(lang = "en") {
     syncNow().catch(() => setServer((sv) => (sv ? { ...sv, status: "error" } : sv)));
     const stop = client.subscribe(onEvent, (status) => {
       if (closed) return;
-      if (status === "open") syncNow(lastSync.current).catch(() => {});
-      else setServer((sv) => (sv && sv.status !== "error" ? { ...sv, status: "connecting" } : sv));
+      if (status === "open") { setLive(true); syncNow(lastSync.current).catch(() => {}); return; }
+      setLive(false);
+      if (server.kind !== SUPABASE_SERVER) setServer((sv) => (sv && sv.status !== "error" ? { ...sv, status: "connecting" } : sv));
     });
     return () => { closed = true; stop(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [server?.url, server?.token]);
+
+  // A network that blocks the live stream (some do) still gets its messages, every few seconds.
+  useEffect(() => {
+    if (server?.kind !== SUPABASE_SERVER || !server.token || live) return undefined;
+    const id = setInterval(() => {
+      if (document.visibilityState === "visible") syncNow(lastSync.current).catch(() => {});
+    }, 5000);
+    return () => clearInterval(id);
+  }, [server?.kind, server?.token, live, syncNow]);
 
   /** Signs in (creating the account on first sight) and switches this device online. */
   const connectServer = useCallback(async ({ url, name, username }) => {
