@@ -1,5 +1,12 @@
 import React, { useState, useEffect, useRef } from "react";
-import Header from "../components/Header";
+import { Clock } from "lucide-react";
+import { CtaButton, Label, cx, num } from "../components/ui/kit";
+import Header, { FlowFooter, FlowScreen, FlowTitle, FormError, Spinner, TextAction } from "../components/Header";
+
+// Persian and Arabic keyboards type their own digits; the code is compared in Latin ones.
+const latinDigits = (s) => s
+  .replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)))
+  .replace(/[٠-٩]/g, (d) => String("٠١٢٣٤٥٦٧٨٩".indexOf(d)));
 
 export default function OtpPage({ onNavigate, email = "dddddddd@dd.com" }) {
   const [otp, setOtp] = useState(["", "", "", ""]);
@@ -31,7 +38,8 @@ export default function OtpPage({ onNavigate, email = "dddddddd@dd.com" }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [otp]);
 
-  const handleInputChange = (index, value) => {
+  const handleInputChange = (index, raw) => {
+    const value = latinDigits(raw);
     if (!/^\d*$/.test(value)) return;
 
     const newOtp = [...otp];
@@ -51,7 +59,7 @@ export default function OtpPage({ onNavigate, email = "dddddddd@dd.com" }) {
 
   const handlePaste = (e) => {
     e.preventDefault();
-    const pastedData = e.clipboardData.getData("text").trim();
+    const pastedData = latinDigits(e.clipboardData.getData("text").trim());
     if (/^\d{4}$/.test(pastedData)) {
       const digits = pastedData.split("");
       setOtp(digits);
@@ -79,109 +87,85 @@ export default function OtpPage({ onNavigate, email = "dddddddd@dd.com" }) {
   const formatTimer = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}.${secs.toString().padStart(2, '0')}`;
+    return num(`${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`, isRtl);
   };
 
+  const continueLabel = isRtl ? "ادامه" : "Continue";
+
   return (
-    <div className="w-full md:max-w-lg mx-auto min-h-[100dvh] bg-black text-white flex flex-col justify-between overflow-x-hidden relative font-sans select-none">
-      
-      {/* Unified Top Sticky Header */}
-      <Header onBack={() => onNavigate("signup")} isRtl={isRtl} />
+    <FlowScreen isRtl={isRtl}>
+      <Header onBack={() => onNavigate("signup")} isRtl={isRtl} stepIndex={1} totalSteps={3} />
 
-      {/* Main Content Area */}
-      <div className="flex-grow flex flex-col justify-center px-6 pb-8 relative z-10 my-auto">
-        
-        {/* Headline & Subtitle */}
-        <div className="mb-8 text-center">
-          <h1 className="text-2xl sm:text-3xl font-black text-white leading-tight tracking-tight mb-2.5">
-            {isRtl ? (
-              <>کد تایید را برای <span className="text-[#844783]">تایید هویت</span> وارد کنید 🔒</>
-            ) : (
-              <>Enter OTP to <span className="text-[#844783]">Verify</span> Your Identity 🔒</>
-            )}
-          </h1>
-          <p className="text-[13px] text-gray-400 leading-relaxed font-medium px-4">
-            {isRtl
-              ? `یک رمز عبور یک‌بار مصرف (OTP) به ایمیل ${email} ارسال شده است.`
-              : `A one-time password (OTP) has been sent to your registered email ${email}.`}
-          </p>
-        </div>
-
-        {/* Form Inputs */}
-        <form onSubmit={(e) => { e.preventDefault(); handleVerify(); }} className="space-y-6 max-w-xs mx-auto w-full">
-          
-          <div className="flex justify-center gap-3 dir-ltr" dir="ltr">
-            {otp.map((digit, idx) => (
-              <input
-                key={idx}
-                ref={inputRefs[idx]}
-                type="text"
-                inputMode="numeric"
-                maxLength={1}
-                value={digit}
-                onChange={(e) => handleInputChange(idx, e.target.value)}
-                onKeyDown={(e) => handleKeyDown(idx, e)}
-                onPaste={handlePaste}
-                className="w-16 h-16 sm:w-18 sm:h-18 rounded-3xl bg-[#141416] border border-white/10 text-center font-black text-2xl text-white outline-none focus:border-[#844783] focus:ring-2 focus:ring-[#844783]/30 transition-all duration-200"
-              />
-            ))}
-          </div>
-
-          {/* Resend Timer */}
-          <div className="text-center py-1">
-            {timer > 0 ? (
-              <span className="text-[#844783] text-xs font-bold tracking-wide">
-                {isRtl ? `ارسال مجدد کد در ${formatTimer(timer)}` : `Resend code in ${formatTimer(timer)}`}
-              </span>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setTimer(30)}
-                className="text-[#844783] hover:underline text-xs font-bold transition-all"
-              >
-                {isRtl ? "ارسال مجدد کد تایید" : "Resend Verification Code"}
+      <form onSubmit={(e) => { e.preventDefault(); handleVerify(); }} className="flex-1 flex flex-col gap-3.5">
+        <FlowTitle
+          title={isRtl ? "کد تایید را وارد کنید" : "Enter the code"}
+          lede={
+            <>
+              {isRtl ? "یک رمز عبور یک‌بار مصرف (OTP) به ایمیل " : "A one-time password (OTP) has been sent to your registered email "}
+              <bdi className="font-semibold text-ink break-all">{email}</bdi>
+              {isRtl ? " ارسال شده است. " : ". "}
+              <button type="button" onClick={() => onNavigate("signup")}
+                className="inline px-0 py-2 -my-2 bg-transparent border-0 cursor-pointer font-semibold text-ink underline underline-offset-[3px] decoration-1">
+                {isRtl ? "تغییر ایمیل" : "Change email"}
               </button>
-            )}
-          </div>
+            </>
+          }
+        />
 
-          {/* DEV MOCK CODE Banner */}
-          <div className="text-xs font-mono font-bold text-amber-300 bg-amber-500/10 border border-amber-500/20 py-3.5 px-4 rounded-2xl text-center flex items-center justify-center gap-2">
-            <span className="text-amber-400">DEV MOCK CODE:</span>
-            <span className="text-base text-white tracking-widest font-black">{devMockCode}</span>
-          </div>
+        <fieldset className="m-0 mt-5 p-0 border-0 min-w-0 flex gap-2.5" dir="ltr">
+          <legend className="sr-only">{isRtl ? "کد چهار رقمی" : "4-digit code"}</legend>
+          {otp.map((digit, idx) => (
+            <input
+              key={idx}
+              ref={inputRefs[idx]}
+              type="text"
+              inputMode="numeric"
+              autoComplete={idx === 0 ? "one-time-code" : "off"}
+              maxLength={1}
+              value={digit}
+              aria-label={isRtl ? `رقم ${num(idx + 1, true)}` : `Digit ${idx + 1}`}
+              aria-invalid={!!error}
+              onChange={(e) => handleInputChange(idx, e.target.value)}
+              onKeyDown={(e) => handleKeyDown(idx, e)}
+              onPaste={handlePaste}
+              className={cx(
+                "flex-1 min-w-0 h-[72px] rounded-2xl bg-card border-0 p-0 text-center font-display font-bold text-[32px] text-ink caret-ink !outline-none transition-shadow duration-150",
+                error
+                  ? "shadow-[inset_0_0_0_2px_rgb(var(--ui-alert))]"
+                  : "focus:shadow-[inset_0_0_0_2px_rgb(var(--ui-fg)),0_0_0_4px_rgb(var(--ui-accent))]"
+              )}
+            />
+          ))}
+        </fieldset>
 
-          {/* Continue Button */}
-          <button
-            type="submit"
-            disabled={otp.join("").length !== 4 || isVerifying}
-            className="w-full h-14 bg-[#844783] hover:bg-[#965595] text-white font-black rounded-full active:scale-[0.98] transition-all duration-300 text-sm flex items-center justify-center shadow-lg shadow-[#844783]/15 disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            {isVerifying ? (
-              <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-            ) : (
-              <span>{isRtl ? "ادامه" : "Continue"}</span>
-            )}
-          </button>
-
-          {error && (
-            <p className="text-rose-400 text-xs font-semibold text-center bg-rose-500/10 border border-rose-500/20 py-3.5 px-4 rounded-2xl">
-              {error}
-            </p>
+        <div className="min-h-[44px] flex items-center justify-between gap-3">
+          {timer > 0 ? (
+            <span className="inline-flex items-center gap-2 font-mono text-[13px] text-muted">
+              <Clock className="w-4 h-4" strokeWidth={2} />
+              {isRtl ? `ارسال مجدد کد در ${formatTimer(timer)}` : `Resend code in ${formatTimer(timer)}`}
+            </span>
+          ) : (
+            <TextAction onClick={() => setTimer(30)}>
+              {isRtl ? "ارسال مجدد کد تایید" : "Resend Verification Code"}
+            </TextAction>
           )}
-        </form>
-
-        {/* Change Email Link */}
-        <div className="mt-10 text-center">
-          <button
-            type="button"
-            onClick={() => onNavigate("signup")}
-            className="text-gray-400 hover:text-white text-xs font-bold tracking-wider uppercase transition-colors"
-          >
-            ← {isRtl ? "تغییر ایمیل" : "CHANGE EMAIL"}
-          </button>
+          {isVerifying && <Spinner className="text-muted" />}
         </div>
 
-      </div>
-    </div>
+        <FormError>{error}</FormError>
+
+        {/* Dev-only helper so the flow can be walked without a real inbox. */}
+        <div className="h-12 px-4 rounded-2xl border border-dashed border-line flex items-center justify-between gap-3" dir="ltr">
+          <Label>Dev mock code</Label>
+          <span className="font-mono text-base font-semibold tracking-[0.3em] text-ink">{devMockCode}</span>
+        </div>
+
+        <FlowFooter>
+          <CtaButton type="submit" isRtl={isRtl} disabled={otp.join("").length !== 4 || isVerifying} aria-busy={isVerifying}>
+            {isVerifying ? <span className="inline-flex items-center gap-2.5"><Spinner />{continueLabel}</span> : continueLabel}
+          </CtaButton>
+        </FlowFooter>
+      </form>
+    </FlowScreen>
   );
 }

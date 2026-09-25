@@ -1,10 +1,74 @@
-import React, { useState } from "react";
-import { User, Watch, Wallet, LogOut, ChevronRight, Globe, Crown, Award, Moon, Sun } from "lucide-react";
+import React, { useMemo, useRef, useState } from "react";
+import {
+  Award, BarChart3, Check as CheckIcon, Crown, Dumbbell, Flame, GraduationCap, Languages, LogOut, Moon,
+  Settings, Sun, Trophy, Users, Wallet, Watch,
+} from "lucide-react";
+import { Avatar, Card, IconButton, IconWell, Label, List, Row, Screen, Segmented, TopBar, cx, num } from "../../components/ui/kit";
 import { useTheme } from "../../lib/theme";
+import { ACCENTS, useAccent } from "../../lib/accent";
+import { loadSession } from "../../lib/session";
+import { useTrainingStore } from "../../lib/training/trainingContext";
+import { useNutritionStore } from "../../lib/nutrition/nutritionContext";
+import { useChecklistStore } from "../../lib/checklistContext";
+import { overallBest, overallStreak } from "../../lib/checklistModel";
+
+// Profile and settings in one screen: who you are and what you've done on
+// top, then the account pages, then appearance (theme, accent, language).
+
+const COPY = {
+  en: {
+    title: "Profile & Settings", settings: "Settings", pro: "PRO",
+    workouts: "workouts", streak: "day streak", records: "records",
+    weight: "Weight", height: "Height", bmi: "BMI", kg: "kg", cm: "cm",
+    change: (d) => `${d > 0 ? "+" : "−"}${Math.abs(d).toFixed(1)} kg in 30 days`, noTrend: "Log your weight in Fuel to see the trend here.",
+    today: "Today", trend: (a, b) => `Weight trend, ${a} kg to ${b} kg`,
+    badges: "Badges", of: (a, b) => `${a} of ${b}`,
+    badge: { pr: "First PR", run7: "7-day run", tons: "100 t lifted", run30: "30-day run" },
+    training: "Training", history: "Workout history & logs", historySub: "Every session you've finished",
+    report: "Progress report", reportSub: "Volume, burn and records", tutorials: "Tutorials", tutorialsSub: "Technique videos and nutrition basics",
+    account: "Account", proRow: "FitClub Pro", proSub: "Membership and plans", wallet: "Wallet & rewards", walletSub: "XP balance and your referral code",
+    devices: "Connected wearables & devices", devicesSub: "Apple Health, Garmin, Google Fit", team: "Teams & clubs", teamSub: "Weekly team challenges",
+    appearance: "Appearance", theme: "Theme", paper: "Paper", night: "Night", accent: "Accent",
+    preferences: "Preferences", language: "App language", languageName: "English",
+    logout: "Log out",
+  },
+  fa: {
+    title: "پروفایل کاربری", settings: "تنظیمات", pro: "PRO",
+    workouts: "تمرین", streak: "روز استریک", records: "رکورد",
+    weight: "وزن", height: "قد", bmi: "شاخص BMI", kg: "کیلو", cm: "سانتی‌متر",
+    change: (d, n) => `${d > 0 ? "+" : "−"}${n(Math.abs(d).toFixed(1))} کیلو در ۳۰ روز`, noTrend: "وزنت را در بخش تغذیه ثبت کن تا روندش اینجا بیاید.",
+    today: "امروز", trend: (a, b) => `روند وزن، از ${a} تا ${b} کیلو`,
+    badges: "نشان‌ها", of: (a, b) => `${a} از ${b}`,
+    badge: { pr: "اولین رکورد", run7: "۷ روز پیاپی", tons: "۱۰۰ تن وزنه", run30: "۳۰ روز پیاپی" },
+    training: "تمرین", history: "تاریخچه تمرینات و فعالیت‌ها", historySub: "همه‌ی جلسه‌هایی که تمام کردی",
+    report: "گزارش پیشرفت", reportSub: "حجم، کالری و رکوردها", tutorials: "آموزش‌ها", tutorialsSub: "ویدیوهای تکنیک و اصول تغذیه",
+    account: "حساب کاربری", proRow: "اشتراک و عضویت ویژه‌", proSub: "عضویت و پلن‌ها", wallet: "کیف پول و امتیازها", walletSub: "موجودی امتیاز و کد دعوت",
+    devices: "دستگاه‌ها و ساعت‌های هوشمند", devicesSub: "اپل هلث، گارمین، گوگل فیت", team: "تیم‌ها و کلوب‌ها", teamSub: "چالش‌های تیمی هفتگی",
+    appearance: "ظاهر برنامه", theme: "تم", paper: "روشن", night: "تیره", accent: "رنگ اصلی",
+    preferences: "ترجیحات", language: "زبان برنامه", languageName: "فارسی",
+    logout: "خروج از حساب کاربری",
+  },
+};
 
 export default function ProfilePage({ onNavigate, onBack, isRtl }) {
   const [language, setLanguage] = useState(localStorage.getItem("language") || "en");
   const [theme, setTheme] = useTheme();
+  const [accent, setAccent] = useAccent();
+  const c = COPY[isRtl ? "fa" : "en"];
+  const n = (v) => num(v, isRtl);
+  const settingsRef = useRef(null);
+
+  const session = loadSession();
+  const name = session.name || (isRtl ? "ورزشکار" : "Athlete");
+  const training = useTrainingStore();
+  const nutrition = useNutritionStore();
+  const { lists } = useChecklistStore();
+
+  // The profile is long; a page opened from its lower rows should start at the top.
+  const go = (page) => {
+    onNavigate(page);
+    window.scrollTo(0, 0);
+  };
 
   const toggleLanguage = () => {
     const newLang = language === "fa" ? "en" : "fa";
@@ -13,132 +77,203 @@ export default function ProfilePage({ onNavigate, onBack, isRtl }) {
     window.location.reload();
   };
 
+  const streak = overallStreak(lists);
+  const best = Math.max(overallBest(lists), streak);
+  const records = training.sessions.reduce((a, s) => a + (s.prs?.length || 0), 0);
+
+  // Body: the smoothed scale trend when there is one, else the profile's numbers.
+  const profile = nutrition.profile || {};
+  const recent = useMemo(() => {
+    const since = new Date();
+    since.setDate(since.getDate() - 30);
+    return (nutrition.trend || []).filter((p) => new Date(`${p.key}T00:00:00`) >= since);
+  }, [nutrition.trend]);
+  const latest = recent.length ? recent[recent.length - 1].trend : profile.weight;
+  const delta = recent.length > 1 ? recent[recent.length - 1].trend - recent[0].trend : null;
+  const bmi = profile.height && latest ? latest / (profile.height / 100) ** 2 : null;
+
+  const badges = [
+    { id: "pr", earned: records > 0, Icon: Trophy, shape: "rounded-[22px] -rotate-6", tone: "bg-jet text-accent dark:ring-1 dark:ring-inset dark:ring-line" },
+    { id: "run7", earned: best >= 7, Icon: Flame, shape: "rounded-full", tone: "bg-accent text-on-accent" },
+    { id: "tons", earned: (training.stats?.volume || 0) >= 100000, Icon: Dumbbell, shape: "rounded-[22px] rotate-6", tone: "bg-coach text-on-accent" },
+    { id: "run30", earned: best >= 30, Icon: Award, shape: "rounded-full", tone: "bg-sand text-on-accent" },
+  ];
+  const earned = badges.filter((b) => b.earned).length;
+
+  const icon = (Icon, tone = "sunk") => <IconWell tone={tone} size={36}><Icon className="w-[18px] h-[18px]" strokeWidth={2} /></IconWell>;
+
   return (
-    <div className="w-full min-h-[100dvh] bg-black text-white px-4 pt-6 pb-28 space-y-6 select-none">
-      
-      {/* Top Header */}
-      <div className="flex items-center justify-between border-b border-white/10 pb-4">
-        <h1 className="text-xl font-black text-white">{isRtl ? "پروفایل کاربری" : "Profile & Settings"}</h1>
-        <button
-          type="button"
-          onClick={onBack}
-          className="text-xs font-bold text-[#844783] hover:underline"
-        >
-          {isRtl ? "بازگشت" : "Back"}
-        </button>
+    <Screen isRtl={isRtl}>
+      <TopBar isRtl={isRtl} onBack={onBack} title={<span className="sr-only">{c.title}</span>}
+        right={(
+          <IconButton label={c.settings} onClick={() => settingsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}>
+            <Settings className="w-5 h-5" strokeWidth={2} />
+          </IconButton>
+        )} />
+
+      <section aria-label={name} className="flex flex-col items-center text-center">
+        <span className="relative">
+          <Avatar name={name} tone="bg-sand" size={96} className="font-display !font-extrabold tracking-[-0.03em]" />
+          <span className="absolute -end-1.5 bottom-0.5 h-[26px] px-2.5 rounded-full bg-jet text-accent inline-flex items-center font-mono text-[11px] font-semibold tracking-label ring-[3px] ring-canvas">
+            {c.pro}
+          </span>
+        </span>
+        <h2 className="m-0 mt-3.5 font-display font-extrabold text-[36px] leading-none tracking-[-0.04em] text-ink">{name}</h2>
+        {session.username && <span className="mt-1.5 text-[15px] text-muted" dir="ltr">@{session.username}</span>}
+        {session.email && <span className="mt-0.5 text-sm text-muted" dir="ltr">{session.email}</span>}
+      </section>
+
+      <div className="grid grid-cols-3 gap-2">
+        <StatTile value={n(training.stats?.count || 0)} label={c.workouts} onClick={() => go("history")} />
+        <StatTile value={n(streak)} label={c.streak} accent onClick={() => go("streakDetail")} />
+        <StatTile value={n(records)} label={c.records} onClick={() => go("workoutReport")} />
       </div>
 
-      {/* User Info Hero Card */}
-      <div className="p-6 rounded-3xl bg-gradient-to-br from-[#844783]/80 via-[#703b6f] to-[#4a2449] border border-white/20 shadow-xl flex items-center gap-4 relative overflow-hidden">
-        <div className="w-16 h-16 rounded-2xl bg-black border-2 border-white/40 flex items-center justify-center text-white shrink-0 shadow-lg">
-          <User className="w-8 h-8 text-[#844783]" />
+      <Card className="flex flex-col gap-2" aria-labelledby="profile-weight">
+        <div className="flex justify-between items-center gap-2">
+          <h2 id="profile-weight" className="m-0 text-base font-bold">{c.weight}</h2>
+          {delta !== null && Math.abs(delta) >= 0.05 && (
+            <span className="h-[26px] px-2.5 rounded-full bg-jet text-accent inline-flex items-center text-xs font-bold dark:ring-1 dark:ring-inset dark:ring-line">
+              {c.change(delta, n)}
+            </span>
+          )}
         </div>
-        <div className="flex-grow">
-          <div className="flex items-center gap-2">
-            <h2 className="text-xl font-black text-white">Isaac</h2>
-            <Crown className="w-5 h-5 text-amber-300 fill-amber-300" />
-          </div>
-          <p className="text-xs text-neutral-200 font-medium">user@email.com</p>
-          <span className="inline-block mt-2 px-3 py-1 rounded-full bg-white/20 text-white text-[10px] font-black uppercase">
-            VIP ELITE MEMBER
+        <span className="font-display font-extrabold text-[32px] leading-none tracking-[-0.035em]">
+          {latest ? n(Math.round(latest * 10) / 10) : "—"} <span className="text-base font-semibold text-muted">{c.kg}</span>
+        </span>
+        {recent.length > 1 ? (
+          <>
+            <Sparkline points={recent.map((p) => p.trend)}
+              label={c.trend(n(recent[0].trend.toFixed(1)), n(recent[recent.length - 1].trend.toFixed(1)))} />
+            <div className="flex justify-between text-xs text-muted">
+              <span>{new Date(`${recent[0].key}T00:00:00`).toLocaleDateString(isRtl ? "fa-IR" : "en-GB", { day: "numeric", month: "short" })}</span>
+              <span>{c.today}</span>
+            </div>
+          </>
+        ) : (
+          <p className="m-0 text-[13px] text-muted">{c.noTrend}</p>
+        )}
+        <div className="mt-1 pt-3 border-t border-hair grid grid-cols-2 gap-2">
+          <span className="flex flex-col gap-0.5">
+            <Label>{c.height}</Label>
+            <span className="text-[15px] font-semibold">{profile.height ? `${n(profile.height)} ${c.cm}` : "—"}</span>
+          </span>
+          <span className="flex flex-col gap-0.5">
+            <Label>{c.bmi}</Label>
+            <span className="text-[15px] font-semibold">{bmi ? n(bmi.toFixed(1)) : "—"}</span>
           </span>
         </div>
-      </div>
+      </Card>
 
-      {/* Physical Stats Summary */}
-      <div className="grid grid-cols-3 gap-3 text-center">
-        <div className="p-3.5 rounded-2xl bg-[#141416] border border-white/10">
-          <span className="text-[10px] text-neutral-400 font-bold uppercase">{isRtl ? "قد" : "Height"}</span>
-          <p className="text-base font-black text-white mt-0.5">174 cm</p>
+      <Card className="flex flex-col gap-3" aria-labelledby="profile-badges">
+        <div className="flex justify-between items-center">
+          <h2 id="profile-badges" className="m-0 text-base font-bold">{c.badges}</h2>
+          <span className="text-[13px] text-muted">{c.of(n(earned), n(badges.length))}</span>
         </div>
-        <div className="p-3.5 rounded-2xl bg-[#141416] border border-white/10">
-          <span className="text-[10px] text-neutral-400 font-bold uppercase">{isRtl ? "وزن" : "Weight"}</span>
-          <p className="text-base font-black text-white mt-0.5">76 kg</p>
-        </div>
-        <div className="p-3.5 rounded-2xl bg-[#141416] border border-white/10">
-          <span className="text-[10px] text-neutral-400 font-bold uppercase">{isRtl ? "شاخص BMI" : "BMI"}</span>
-          <p className="text-base font-black text-emerald-400 mt-0.5">25.1</p>
-        </div>
+        <ul className="m-0 p-0 list-none grid grid-cols-4 gap-2">
+          {badges.map(({ id, earned: got, Icon, shape, tone }) => (
+            <li key={id} className="flex flex-col items-center gap-2 text-center">
+              <span className={cx("w-16 h-16 flex items-center justify-center",
+                got ? cx(shape, tone) : "rounded-full border-2 border-dashed border-faint text-faint")}>
+                <Icon className="w-6 h-6" strokeWidth={2} />
+              </span>
+              <span className={cx("text-xs leading-tight", got ? "font-semibold text-ink" : "text-muted")}>{c.badge[id]}</span>
+            </li>
+          ))}
+        </ul>
+      </Card>
+
+      <Label as="h2" className="m-0 mt-2 px-1">{c.training}</Label>
+      <List>
+        <Row isRtl={isRtl} chevron icon={icon(Dumbbell)} title={c.history} subtitle={c.historySub} onClick={() => go("history")} />
+        <Row isRtl={isRtl} chevron icon={icon(BarChart3)} title={c.report} subtitle={c.reportSub} onClick={() => go("workoutReport")} />
+        <Row isRtl={isRtl} chevron icon={icon(GraduationCap)} title={c.tutorials} subtitle={c.tutorialsSub} onClick={() => go("tutorials")} />
+      </List>
+
+      <Label as="h2" className="m-0 mt-2 px-1">{c.account}</Label>
+      <List>
+        <Row isRtl={isRtl} chevron icon={icon(Crown, "inv")} title={c.proRow} subtitle={c.proSub} onClick={() => go("subscription")} />
+        <Row isRtl={isRtl} chevron icon={icon(Wallet)} title={c.wallet} subtitle={c.walletSub} onClick={() => go("wallet")} />
+        <Row isRtl={isRtl} chevron icon={icon(Watch)} title={c.devices} subtitle={c.devicesSub} onClick={() => go("devices")} />
+        <Row isRtl={isRtl} chevron icon={icon(Users)} title={c.team} subtitle={c.teamSub} onClick={() => go("team")} />
+      </List>
+
+      <div ref={settingsRef} className="scroll-mt-5 flex flex-col gap-3.5">
+        <h2 className="m-0 mt-4 font-display font-extrabold text-[22px] leading-none tracking-[-0.02em] text-ink">{c.settings}</h2>
+
+        <Label as="h3" className="m-0 px-1">{c.appearance}</Label>
+        <Card className="flex flex-col gap-4" aria-label={c.appearance}>
+          <div className="flex flex-col gap-2">
+            <span className="text-[15px] font-medium">{c.theme}</span>
+            <Segmented className="!bg-sunk" value={theme === "dark" ? "dark" : "light"} onChange={setTheme}
+              options={[
+                { id: "light", label: <span className="inline-flex items-center gap-1.5"><Sun className="w-4 h-4" strokeWidth={2} />{c.paper}</span> },
+                { id: "dark", label: <span className="inline-flex items-center gap-1.5"><Moon className="w-4 h-4" strokeWidth={2} />{c.night}</span> },
+              ]} />
+          </div>
+          <div className="flex flex-col gap-3 pt-4 border-t border-hair">
+            <span id="accent-label" className="text-[15px] font-medium">{c.accent}</span>
+            <div role="radiogroup" aria-labelledby="accent-label" className="grid grid-cols-4 gap-2">
+              {ACCENTS.map((a) => {
+                const on = a.id === accent;
+                const label = isRtl ? a.fa : a.en;
+                return (
+                  <button key={a.id} type="button" role="radio" aria-checked={on} aria-label={label} onClick={() => setAccent(a.id)}
+                    className="flex flex-col items-center gap-2 bg-transparent border-0 p-0 cursor-pointer min-h-[44px]">
+                    <span style={{ backgroundColor: `rgb(${a.rgb})` }}
+                      className={cx("w-11 h-11 rounded-full flex items-center justify-center text-jet transition-shadow",
+                        on && "ring-2 ring-ink ring-offset-[3px] ring-offset-card")}>
+                      {on && <CheckIcon className="w-5 h-5" strokeWidth={3} />}
+                    </span>
+                    <span className={cx("text-xs", on ? "font-semibold text-ink" : "text-muted")}>{label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </Card>
+
+        <Label as="h3" className="m-0 px-1">{c.preferences}</Label>
+        <List>
+          <Row isRtl={isRtl} chevron icon={icon(Languages)} title={c.language} right={c.languageName} onClick={toggleLanguage} />
+        </List>
+
+        <List>
+          <Row isRtl={isRtl} danger icon={<IconWell tone="alert" size={36}><LogOut className="w-[18px] h-[18px] rtl:-scale-x-100" strokeWidth={2} /></IconWell>}
+            title={c.logout} onClick={() => go("welcome")} />
+        </List>
       </div>
+    </Screen>
+  );
+}
 
-      {/* Menu Options Group */}
-      <div className="space-y-2.5">
-        <h3 className="text-xs font-black text-neutral-400 uppercase tracking-wider px-1">
-          {isRtl ? "تنظیمات اپلیکیشن" : "App Preferences"}
-        </h3>
+/** One of the three numbers under the name. The streak tile is the accent fill. */
+function StatTile({ value, label, accent, onClick }) {
+  return (
+    <button type="button" onClick={onClick}
+      className={cx("rounded-[22px] p-3.5 flex flex-col gap-1 text-start border-0 cursor-pointer transition-transform active:scale-[0.98]",
+        accent ? "bg-accent text-on-accent" : "bg-card text-ink")}>
+      <span className="font-display font-extrabold text-[30px] leading-none tracking-[-0.03em]">{value}</span>
+      <span className={cx("text-[13px]", accent ? "font-medium" : "text-muted")}>{label}</span>
+    </button>
+  );
+}
 
-        {[
-          { labelEn: "Connected Wearables & Devices", labelFa: "دستگاه‌ها و ساعت‌های هوشمند", icon: <Watch className="w-5 h-5 text-purple-400" />, action: () => onNavigate("devices") },
-          { labelEn: "Wallet & Rewards Balance", labelFa: "کیف پول و امتیازها", icon: <Wallet className="w-5 h-5 text-amber-400" />, action: () => onNavigate("wallet") },
-          { labelEn: "VIP Membership Subscription", labelFa: "اشتراک و عضویت ویژه‌", icon: <Crown className="w-5 h-5 text-emerald-400" />, action: () => onNavigate("subscription") },
-          { labelEn: "Workout History & Logs", labelFa: "تاریخچه تمرینات و فعالیت‌ها", icon: <Award className="w-5 h-5 text-cyan-400" />, action: () => onNavigate("history") },
-        ].map((item, idx) => (
-          <button
-            key={idx}
-            type="button"
-            onClick={item.action}
-            className="w-full p-4 rounded-2xl bg-[#141416] border border-white/10 flex items-center justify-between hover:border-[#844783]/40 transition-all text-left rtl:text-right"
-          >
-            <div className="flex items-center gap-3.5">
-              <div className="p-2.5 rounded-xl bg-neutral-900 border border-white/10 shrink-0">
-                {item.icon}
-              </div>
-              <span className="text-sm font-black text-white">{isRtl ? item.labelFa : item.labelEn}</span>
-            </div>
-            <ChevronRight className="w-5 h-5 text-gray-500 rtl:rotate-180" />
-          </button>
-        ))}
-
-        {/* Language Switcher */}
-        <button
-          type="button"
-          onClick={toggleLanguage}
-          className="w-full p-4 rounded-2xl bg-[#141416] border border-white/10 flex items-center justify-between hover:border-[#844783]/40 transition-all text-left rtl:text-right"
-        >
-          <div className="flex items-center gap-3.5">
-            <div className="p-2.5 rounded-xl bg-neutral-900 border border-white/10 shrink-0 text-cyan-400">
-              <Globe className="w-5 h-5" />
-            </div>
-            <span className="text-sm font-black text-white">{isRtl ? "زبان برنامه (فارسی / English)" : "App Language (English / Persian)"}</span>
-          </div>
-          <span className="text-xs font-black text-[#844783] bg-[#844783]/10 border border-[#844783]/30 px-3 py-1 rounded-full uppercase">
-            {language.toUpperCase()}
-          </span>
-        </button>
-
-        {/* Appearance */}
-        <button
-          type="button"
-          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-          aria-label={isRtl ? "تغییر تم" : "Toggle theme"}
-          className="w-full p-4 rounded-2xl bg-[#141416] border border-white/10 flex items-center justify-between hover:border-[#844783]/40 transition-all text-left rtl:text-right"
-        >
-          <div className="flex items-center gap-3.5">
-            <div className="p-2.5 rounded-xl bg-neutral-900 border border-white/10 shrink-0 text-amber-400">
-              {theme === "dark" ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
-            </div>
-            <span className="text-sm font-black text-white">{isRtl ? "ظاهر برنامه (روشن / تیره)" : "Appearance (Light / Dark)"}</span>
-          </div>
-          <span className="text-xs font-black text-[#844783] bg-[#844783]/10 border border-[#844783]/30 px-3 py-1 rounded-full uppercase">
-            {theme === "dark" ? (isRtl ? "تیره" : "Dark") : (isRtl ? "روشن" : "Light")}
-          </span>
-        </button>
-
-        {/* Logout */}
-        <button
-          type="button"
-          onClick={() => onNavigate("welcome")}
-          className="w-full p-4 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-400 flex items-center justify-between hover:bg-red-500/20 transition-all text-left rtl:text-right mt-4"
-        >
-          <div className="flex items-center gap-3.5">
-            <div className="p-2.5 rounded-xl bg-red-500/20 shrink-0">
-              <LogOut className="w-5 h-5 text-red-400" />
-            </div>
-            <span className="text-sm font-black">{isRtl ? "خروج از حساب کاربری" : "Log Out"}</span>
-          </div>
-        </button>
-      </div>
-
-    </div>
+/** The 30-day weight line: ink on hairline gridlines, today as an accent dot. */
+function Sparkline({ points, label }) {
+  const w = 318;
+  const h = 78;
+  const lo = Math.min(...points);
+  const hi = Math.max(...points);
+  const span = hi - lo || 1;
+  const xy = points.map((p, i) => [(i / (points.length - 1)) * (w - 8) + 2, 8 + (1 - (p - lo) / span) * (h - 22)]);
+  const [lx, ly] = xy[xy.length - 1];
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} role="img" aria-label={label} className="w-full h-auto">
+      <path d={`M0 ${h - 18}H${w}M0 ${(h - 10) / 2}H${w}M0 8H${w}`} stroke="rgb(var(--ui-hair))" strokeWidth="1" />
+      <polyline points={xy.map((p) => p.join(",")).join(" ")} fill="none" stroke="rgb(var(--ui-fg))" strokeWidth="2.5"
+        strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx={lx} cy={ly} r="6" fill="rgb(var(--ui-accent))" stroke="rgb(var(--ui-fg))" strokeWidth="2.5" />
+    </svg>
   );
 }

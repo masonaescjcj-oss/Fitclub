@@ -1,17 +1,21 @@
 import React, { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  ChevronLeft, ChevronRight, Droplets, Dumbbell, Flame, Info, Plus,
-  Eye, Scale, Share2, SlidersHorizontal, Sparkles, Star, Trash2, TrendingUp, Utensils,
+  BedDouble, BookOpen, ChevronDown, ChevronLeft, ChevronRight, Coffee, Dumbbell, Eye, Info, Moon, Plus,
+  Scale, Share2, SlidersHorizontal, Star, Sun, Trash2, Utensils, UtensilsCrossed, Zap,
 } from "lucide-react";
+import {
+  Bar, Button, Card, Field, IconButton, IconWell, Label, List, PageHead, Row, Screen, cx, num,
+} from "../../components/ui/kit";
+import { SparkIcon } from "../../components/ui/icons";
 import { MEALS, dayKey, entryMacros, mealEntries, sumMacros } from "../../lib/nutrition/diaryStore";
 import { showWorkoutMeals } from "../../lib/nutrition/viewPrefs";
 import { findFood } from "../../lib/nutrition/foods";
 import { proteinPerKg } from "../../lib/nutrition/profile";
 import { fill, useNutritionT } from "../../lib/nutrition/nutritionI18n";
 import { useNutritionStore } from "../../lib/nutrition/nutritionContext";
-import { CalorieRing, MACRO_COLORS, MacroBar, Stat, TrendSpark, round } from "../../components/diet/DietBits";
-import FoodSearchSheet from "../../components/diet/FoodSearchSheet";
+import { CalorieRing, MACRO_COLORS, MacroBar, MacroDot, Stat, TrendSpark, fmtNum, round } from "../../components/diet/DietBits";
+import FoodSearchSheet, { macroLine } from "../../components/diet/FoodSearchSheet";
 import { QuickAddSheet, Sheet, TargetsSheet, ViewSheet, WeightSheet } from "../../components/diet/SmallSheets";
 import { ShareSheet } from "../../components/training/TrainingSheets";
 import { compactMealPlan } from "../../lib/training/programModel";
@@ -19,7 +23,37 @@ import { useTrainingStore } from "../../lib/training/trainingContext";
 import { useTrainingT } from "../../lib/training/trainingI18n";
 import { loadSession } from "../../lib/session";
 
+// Fuel: what's left to eat today, the meals that got it there, and the
+// habits around them (water, weight, the coach's read on your burn).
+// Every section below the hero can be switched off in "Customize view".
+
 const GLASS_ML = 250;
+
+const MEAL_ICONS = {
+  breakfast: Sun,
+  preworkout: Zap,
+  lunch: UtensilsCrossed,
+  postworkout: Dumbbell,
+  dinner: Moon,
+  snack: Coffee,
+};
+
+const fmtDate = (d, isRtl, opts) =>
+  new Intl.DateTimeFormat(isRtl ? "fa-IR-u-ca-persian" : "en-GB", opts).format(d);
+
+/** The meal the header's add button logs into, from the time of day. */
+function defaultMeal(meals, hour = new Date().getHours()) {
+  const id = hour < 11 ? "breakfast" : hour < 15 ? "lunch" : hour < 17 ? "snack" : hour < 22 ? "dinner" : "snack";
+  return meals.find((m) => m.id === id) || meals[0];
+}
+
+const entryName = (entry, isRtl) => {
+  const food = entry.foodId ? findFood(entry.foodId) : null;
+  return entry.custom?.name || (food ? (isRtl ? food.nameFa : food.nameEn) : "—");
+};
+
+/** Litres with at most two decimals: 1.25, 2.75, 0. */
+const litres = (ml, isRtl) => num(+(Math.max(ml, 0) / 1000).toFixed(2), isRtl);
 
 export default function DietPage({ isRtl, onGoToRecipe, onGoToGuide }) {
   const t = useNutritionT(isRtl);
@@ -27,20 +61,28 @@ export default function DietPage({ isRtl, onGoToRecipe, onGoToGuide }) {
   const { day, totals, targets, profile, estimate, trend, cursor, view } = store;
   const training = useTrainingStore();
   const tt = useTrainingT(isRtl);
+  const n = (v) => num(v, isRtl);
+  const sep = isRtl ? "، " : " · ";
 
   const [addingTo, setAddingTo] = useState(null); // meal object
   const [quickAddTo, setQuickAddTo] = useState(null);
-  const [sheet, setSheet] = useState(null); // "weight" | "targets"
+  const [sheet, setSheet] = useState(null); // "menu" | "weight" | "targets" | "view" | "share"
   const [savingMeal, setSavingMeal] = useState(null);
-  const [openMeals, setOpenMeals] = useState(() => new Set(MEALS.map((m) => m.id)));
+  const [openMeals, setOpenMeals] = useState(() => new Set());
+
+  const cursorDate = useMemo(() => new Date(`${cursor}T00:00:00`), [cursor]);
+  const isToday = cursor === dayKey();
 
   const label = useMemo(() => {
     if (cursor === dayKey()) return t.today;
     if (cursor === dayKey(new Date(Date.now() - 86400000))) return t.yesterday;
     if (cursor === dayKey(new Date(Date.now() + 86400000))) return t.tomorrow;
-    return new Date(`${cursor}T00:00:00`)
-      .toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
-  }, [cursor, t]);
+    return fmtDate(cursorDate, isRtl, { weekday: "long" });
+  }, [cursor, cursorDate, isRtl, t]);
+
+  const eyebrow = isRtl
+    ? fmtDate(cursorDate, true, { weekday: "long", day: "numeric", month: "long" })
+    : `${fmtDate(cursorDate, false, { weekday: "short" })} · ${cursorDate.getDate()} ${cursorDate.toLocaleDateString("en-US", { month: "short" })}`;
 
   const toggleMeal = (id) =>
     setOpenMeals((s) => {
@@ -59,318 +101,271 @@ export default function DietPage({ isRtl, onGoToRecipe, onGoToGuide }) {
   const gPerKg = proteinPerKg(totals.protein, profile.weight);
   const waterGlasses = Math.round((day.water || 0) / GLASS_ML);
   const waterTarget = Math.max(Math.round(targets.water / GLASS_ML), 1);
+  const kcalLeft = targets.kcal - totals.kcal;
+  const over = targets.kcal > 0 && kcalLeft < 0;
+
+  const Prev = isRtl ? ChevronRight : ChevronLeft;
+  const Next = isRtl ? ChevronLeft : ChevronRight;
 
   return (
-    <div className="w-full min-h-[100dvh] bg-black text-white pb-28">
+    <Screen isRtl={isRtl} tabbed>
+      <PageHead eyebrow={eyebrow} title={t.fuel}
+        right={(
+          <>
+            <IconButton label={t.options} onClick={() => setSheet("menu")}>
+              <SlidersHorizontal className="w-5 h-5" strokeWidth={2} />
+            </IconButton>
+            <button type="button" aria-label={t.logFood} title={t.logFood} onClick={() => setAddingTo(defaultMeal(visibleMeals))}
+              className="w-11 h-11 shrink-0 rounded-full bg-jet text-accent flex items-center justify-center border-0 cursor-pointer transition-transform active:scale-95 dark:ring-1 dark:ring-inset dark:ring-line">
+              <Plus className="w-[22px] h-[22px]" strokeWidth={2.2} />
+            </button>
+          </>
+        )} />
 
-      {/* ── Day header ─────────────────────────────────────────── */}
-      <div className="px-4 pt-6 pb-5 space-y-4"
-        style={{ background: "linear-gradient(180deg, rgba(132,71,131,0.16) 0%, rgba(0,0,0,0) 100%)" }}>
-
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1">
-            <button type="button" onClick={() => store.shiftDay(-1)} aria-label={t.yesterday}
-              className="w-9 h-9 rounded-xl bg-[#141416] border border-white/10 flex items-center justify-center text-neutral-400 hover:text-white transition-all">
-              <ChevronLeft className={`w-4 h-4 ${isRtl ? "rotate-180" : ""}`} />
-            </button>
-            <div className="px-2 min-w-0">
-              <span className="block text-[10px] font-black text-[#844783] uppercase tracking-wider">{t.eyebrow}</span>
-              <span className="block text-lg font-black text-white truncate leading-tight">{label}</span>
-            </div>
-            <button type="button" onClick={() => store.shiftDay(1)} aria-label={t.tomorrow}
-              className="w-9 h-9 rounded-xl bg-[#141416] border border-white/10 flex items-center justify-center text-neutral-400 hover:text-white transition-all">
-              <ChevronRight className={`w-4 h-4 ${isRtl ? "rotate-180" : ""}`} />
-            </button>
-          </div>
-
-          <div className="flex items-center gap-1.5 shrink-0">
-            <button type="button" onClick={() => setSheet("weight")} aria-label={t.logWeight}
-              className="w-9 h-9 rounded-xl bg-[#141416] border border-white/10 flex items-center justify-center text-neutral-400 hover:text-white transition-all">
-              <Scale className="w-4 h-4" />
-            </button>
-            <button type="button" onClick={() => setSheet("share")} aria-label={tt.sharePlan}
-              className="w-9 h-9 rounded-xl bg-[#141416] border border-white/10 flex items-center justify-center text-neutral-400 hover:text-white transition-all">
-              <Share2 className="w-4 h-4" />
-            </button>
-            <button type="button" onClick={() => setSheet("view")} aria-label={t.customize}
-              className="w-9 h-9 rounded-xl bg-[#141416] border border-white/10 flex items-center justify-center text-neutral-400 hover:text-white transition-all">
-              <Eye className="w-4 h-4" />
-            </button>
-            <button type="button" onClick={() => setSheet("targets")} aria-label={t.editTargets}
-              className="w-9 h-9 rounded-xl bg-[#141416] border border-white/10 flex items-center justify-center text-neutral-400 hover:text-white transition-all">
-              <SlidersHorizontal className="w-4 h-4" />
-            </button>
-          </div>
+      {/* ── Day navigation ─────────────────────────────────────── */}
+      <div className="flex items-center gap-2">
+        <div className="flex-1 min-w-0 h-12 rounded-full bg-card flex items-center justify-between px-0.5">
+          <IconButton label={t.prevDay} tone="ghost" onClick={() => store.shiftDay(-1)}>
+            <Prev className="w-5 h-5" strokeWidth={2} />
+          </IconButton>
+          <span aria-live="polite" className="min-w-0 truncate text-[15px] font-semibold text-ink">{label}</span>
+          <IconButton label={t.nextDay} tone="ghost" onClick={() => store.shiftDay(1)}>
+            <Next className="w-5 h-5" strokeWidth={2} />
+          </IconButton>
         </div>
-
-        {/* Calories + macros */}
-        {view.summary === "full" && (
-          <div className="p-4 rounded-3xl bg-[#141416]/80 border border-white/10 backdrop-blur flex items-center gap-4">
-            <CalorieRing eaten={totals.kcal} target={targets.kcal} t={t} />
-            <div className="flex-1 min-w-0 space-y-2.5">
-              <MacroBar label={t.protein} eaten={totals.protein} target={targets.protein} color={MACRO_COLORS.protein}
-                sub={`${gPerKg.toFixed(1)} ${t.perKg}`} />
-              <MacroBar label={t.carbs} eaten={totals.carbs} target={targets.carbs} color={MACRO_COLORS.carbs} />
-              <MacroBar label={t.fat} eaten={totals.fat} target={targets.fat} color={MACRO_COLORS.fat} />
-              <MacroBar label={t.fiber} eaten={totals.fiber} target={targets.fiber} color={MACRO_COLORS.fiber} />
-            </div>
-          </div>
+        {!isToday && (
+          <Button tone="ink" aria-label={t.goToToday} onClick={() => store.goToDay(dayKey())}>{t.today}</Button>
         )}
+      </div>
 
-        {/* Compact keeps the number that makes a diary worth keeping. */}
-        {view.summary === "compact" && (
-          <div className="p-3.5 rounded-2xl bg-[#141416]/80 border border-white/10 backdrop-blur space-y-2">
-            <div className="flex items-baseline justify-between gap-2">
-              <span className="text-[10px] font-black text-neutral-500 uppercase tracking-wider">{t.calories}</span>
-              <span className="text-sm font-black text-white tabular-nums" dir="ltr">
-                {round(totals.kcal)} <span className="text-neutral-600">/ {round(targets.kcal)}</span>
+      {/* ── Calories + macros ──────────────────────────────────── */}
+      {view.summary === "full" && (
+        <section aria-label={t.calories} className="rounded-4xl bg-card text-ink p-5 flex flex-col gap-[18px]">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-col gap-1.5 min-w-0">
+              <span className={cx("font-display font-extrabold text-[64px] leading-[0.85] tracking-[-0.05em]", over && "text-alert")}>
+                {fmtNum(Math.abs(kcalLeft), isRtl)}
+              </span>
+              <span className="text-sm text-muted">
+                {fill(over ? t.kcalOverOf : t.kcalLeftOf, { target: fmtNum(targets.kcal, isRtl) })}
               </span>
             </div>
-            <div className="h-1.5 rounded-full bg-white/[0.07] overflow-hidden">
-              <div className="h-full rounded-full transition-all"
-                style={{
-                  width: `${Math.min((totals.kcal / (targets.kcal || 1)) * 100, 100)}%`,
-                  background: totals.kcal > targets.kcal ? "#f43f5e" : "#844783",
-                }} />
-            </div>
-            <div className="flex items-center justify-between text-[9px] font-black tabular-nums" dir="ltr">
-              {[["protein", t.protein], ["carbs", t.carbs], ["fat", t.fat]].map(([k, lbl]) => (
-                <span key={k} style={{ color: MACRO_COLORS[k] }}>
-                  {lbl} {round(totals[k])}<span className="text-neutral-600">/{round(targets[k])}g</span>
-                </span>
-              ))}
-            </div>
+            <CalorieRing eaten={totals.kcal} target={targets.kcal} t={t} isRtl={isRtl} />
           </div>
-        )}
+          <div className="flex flex-col gap-3">
+            <MacroBar label={t.protein} eaten={totals.protein} target={targets.protein} color={MACRO_COLORS.protein} unit={t.grams} isRtl={isRtl} />
+            <MacroBar label={t.carbs} eaten={totals.carbs} target={targets.carbs} color={MACRO_COLORS.carbs} unit={t.grams} isRtl={isRtl} />
+            <MacroBar label={t.fat} eaten={totals.fat} target={targets.fat} color={MACRO_COLORS.fat} unit={t.grams} isRtl={isRtl} />
+          </div>
+          <div className="flex items-center justify-between gap-3 pt-3.5 border-t border-hair">
+            <span className="min-w-0 truncate text-[13px] text-muted">
+              {t.fiber} <span className="font-semibold text-ink">{fmtNum(totals.fiber, isRtl)}</span> / {fmtNum(targets.fiber, isRtl)} {t.grams}
+              {sep}{t.protein} <span className="font-semibold text-ink">{n(gPerKg.toFixed(1))}</span> {t.perKg}
+            </span>
+            <button type="button" onClick={() => setSheet("targets")}
+              className="h-11 -my-3 px-1 shrink-0 text-sm font-semibold text-ink underline underline-offset-[3px] bg-transparent border-0 cursor-pointer">
+              {t.adjust}
+            </button>
+          </div>
+        </section>
+      )}
 
-        {/* Training vs rest day */}
-        <div className="flex items-center gap-2">
+      {/* Compact keeps the number that makes a diary worth keeping. */}
+      {view.summary === "compact" && (
+        <section aria-label={t.calories} className="rounded-3xl bg-card text-ink p-4 flex flex-col gap-3">
+          <div className="flex items-baseline justify-between gap-2">
+            <span className="flex items-baseline gap-2 min-w-0">
+              <span className={cx("font-display font-extrabold text-[28px] leading-none tracking-[-0.03em]", over && "text-alert")}>
+                {fmtNum(Math.abs(kcalLeft), isRtl)}
+              </span>
+              <span className="text-[13px] text-muted truncate">{fill(over ? t.kcalOverOf : t.kcalLeftOf, { target: fmtNum(targets.kcal, isRtl) })}</span>
+            </span>
+            <button type="button" onClick={() => setSheet("targets")}
+              className="h-11 -my-3 px-1 shrink-0 text-sm font-semibold text-ink underline underline-offset-[3px] bg-transparent border-0 cursor-pointer">
+              {t.adjust}
+            </button>
+          </div>
+          <Bar value={targets.kcal ? totals.kcal / targets.kcal : 0} height={8} color={over ? "bg-alert" : "bg-ink"} />
+          <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 text-[13px]">
+            {[["protein", t.protein], ["carbs", t.carbs], ["fat", t.fat]].map(([k, lbl]) => (
+              <span key={k} className="inline-flex items-center gap-1.5">
+                <MacroDot macro={k} />
+                <span className="font-semibold">{lbl}</span>
+                <span className="text-muted">{fmtNum(totals[k], isRtl)}/{fmtNum(targets[k], isRtl)}</span>
+              </span>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* ── Training vs rest day ───────────────────────────────── */}
+      <div className="flex flex-col gap-2">
+        <div role="group" aria-label={t.dayType} className="grid grid-cols-2 gap-2">
           {[
             { value: true, label: t.trainingDay, icon: Dumbbell },
-            { value: false, label: t.restDay, icon: Sparkles },
+            { value: false, label: t.restDay, icon: BedDouble },
           ].map((opt) => {
             const Icon = opt.icon;
             const on = day.trainingDay === opt.value;
             return (
-              <button key={String(opt.value)} type="button"
+              <button key={String(opt.value)} type="button" aria-pressed={on}
                 onClick={() => store.setTrainingDay(on ? null : opt.value)}
-                className={`flex-1 h-10 rounded-2xl border text-[11px] font-black flex items-center justify-center gap-1.5 transition-all ${
-                  on ? "bg-[#844783]/20 border-[#844783]/60 text-white" : "bg-[#141416] border-white/10 text-neutral-500 hover:border-white/20"
-                }`}>
-                <Icon className="w-3.5 h-3.5" /> {opt.label}
+                className={cx("h-11 rounded-full inline-flex items-center justify-center gap-2 text-sm font-semibold border-0 cursor-pointer transition-colors",
+                  on ? "bg-inv text-on-inv" : "bg-card text-ink")}>
+                <Icon className="w-4 h-4" strokeWidth={2} /> {opt.label}
               </button>
             );
           })}
         </div>
-
-        <p className="text-[9px] font-medium text-neutral-600 text-center">{t.dayTypeHint}</p>
+        <p className="m-0 text-center text-[13px] text-muted">{t.dayTypeHint}</p>
       </div>
 
-      <div className="px-4 space-y-3">
+      {/* ── Meals ──────────────────────────────────────────────── */}
+      <h2 className="m-0 mt-2 font-display font-bold text-[22px] tracking-[-0.02em] text-ink">{t.meals}</h2>
+      <ul aria-label={t.meals} className="m-0 p-0 py-1 list-none rounded-3xl bg-card divide-y divide-hair">
+        {visibleMeals.map((meal) => (
+          <MealRow key={meal.id} meal={meal} entries={mealEntries(day, meal.id)} open={openMeals.has(meal.id)}
+            isRtl={isRtl} t={t} sep={sep}
+            onToggle={() => toggleMeal(meal.id)}
+            onAdd={() => setAddingTo(meal)}
+            onSave={(entries) => setSavingMeal({ meal, entries })}
+            onRemove={(id) => store.removeEntry(id)} />
+        ))}
+      </ul>
 
-        {/* ── Coach card: adaptive TDEE ───────────────────────── */}
-        {view.coach && (
-        <div className="p-4 rounded-3xl bg-gradient-to-br from-[#844783]/20 to-transparent border border-[#844783]/30 space-y-3">
-          <div className="flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-[#c07dbf]" />
-            <span className="text-[10px] font-black text-[#c07dbf] uppercase tracking-wider">{t.coach}</span>
+      {/* ── Coach card: adaptive TDEE ──────────────────────────── */}
+      {view.coach && (
+        <section aria-label={t.coach} className="rounded-3xl bg-coach text-on-accent p-4 flex flex-col gap-3.5">
+          <div className="flex items-start gap-3">
+            <IconWell tone="inv" size={36} className="!text-coach !ring-0"><SparkIcon size={18} /></IconWell>
+            <p className="m-0 flex-1 min-w-0 text-sm leading-[1.4]">
+              <span className="font-bold">{t.coach}: </span>
+              {estimate ? fill(t.tdeeFrom, { days: n(estimate.daysOfData) }) : fill(t.tdeeNeedMore, { days: n(7) })}
+            </p>
           </div>
 
           {estimate ? (
-            <>
-              <div className="grid grid-cols-3 gap-3">
-                <Stat label={t.tdeeEstimate} value={`${estimate.tdee}`} sub={t.kcal} />
-                <Stat label={t.weeklyChange} tone={estimate.weeklyChangeKg < 0 ? "text-emerald-400" : estimate.weeklyChangeKg > 0 ? "text-amber-400" : "text-white"}
-                  value={`${estimate.weeklyChangeKg > 0 ? "+" : ""}${estimate.weeklyChangeKg} kg`}
-                  sub={estimate.weeklyChangeKg < 0 ? t.losing : estimate.weeklyChangeKg > 0 ? t.gaining : t.holding} />
-                <Stat label={t.maintenance} value={`${targets.maintenance}`} sub={t[targets.source] || targets.source} />
-              </div>
-              <p className="text-[9px] font-medium text-neutral-500">
-                {fill(t.tdeeFrom, { days: estimate.daysOfData })}
-              </p>
-              {!profile.useAdaptive && (
-                <button type="button" onClick={() => store.useAdaptiveTdee(true)}
-                  className="w-full h-10 rounded-2xl bg-[#844783] text-white font-black text-[11px] hover:brightness-110 transition-all">
-                  {t.applyTdee}
-                </button>
-              )}
-            </>
+            <div className="grid grid-cols-3 gap-3">
+              <Stat label={t.tdeeEstimate} value={fmtNum(estimate.tdee, isRtl)} sub={t.kcal} />
+              <Stat label={t.weeklyChange}
+                value={`${estimate.weeklyChangeKg > 0 ? "+" : ""}${n(estimate.weeklyChangeKg)}`}
+                sub={`${t.kg}${sep}${estimate.weeklyChangeKg < 0 ? t.losing : estimate.weeklyChangeKg > 0 ? t.gaining : t.holding}`} />
+              <Stat label={t.maintenance} value={fmtNum(targets.maintenance, isRtl)} sub={t[targets.source] || targets.source} />
+            </div>
           ) : (
-            <>
-              <div className="grid grid-cols-2 gap-3">
-                <Stat label={t.maintenance} value={`${targets.maintenance}`} sub={t[targets.source] || targets.source} />
-                <Stat label={t.target} value={`${targets.kcal}`} sub={t.kcal} />
-              </div>
-              <p className="text-[9px] font-medium text-neutral-500">{fill(t.tdeeNeedMore, { days: 7 })}</p>
-            </>
+            <div className="grid grid-cols-2 gap-3">
+              <Stat label={t.maintenance} value={fmtNum(targets.maintenance, isRtl)} sub={t[targets.source] || targets.source} />
+              <Stat label={t.target} value={fmtNum(targets.kcal, isRtl)} sub={t.kcal} />
+            </div>
+          )}
+
+          {estimate && !profile.useAdaptive && (
+            <button type="button" onClick={() => store.useAdaptiveTdee(true)}
+              className="h-11 rounded-full bg-jet text-coach text-sm font-bold border-0 cursor-pointer active:scale-[0.98] transition-transform">
+              {t.applyTdee}
+            </button>
           )}
 
           {trend.length >= 2 && (
-            <div className="pt-2 border-t border-white/10">
-              <div className="flex items-baseline justify-between mb-1">
-                <span className="text-[9px] font-black text-neutral-500 uppercase tracking-wider">{t.trend}</span>
-                <span className="text-xs font-black text-white tabular-nums" dir="ltr">
-                  {trend[trend.length - 1].trend.toFixed(1)} kg
-                </span>
+            <div className="pt-3 border-t border-on-accent/15 flex flex-col gap-2">
+              <div className="flex items-baseline justify-between">
+                <span className="text-[13px] font-semibold">{t.trend}</span>
+                <span className="text-sm font-bold">{n(trend[trend.length - 1].trend.toFixed(1))} {t.kg}</span>
               </div>
-              <TrendSpark points={trend} color="#c07dbf" />
+              <TrendSpark points={trend} color="rgb(var(--ui-on-accent))" />
             </div>
           )}
-        </div>
+        </section>
+      )}
 
-        )}
-
-        {/* ── Water ───────────────────────────────────────────── */}
-        {view.water && (
-        <div className="p-4 rounded-3xl bg-[#141416] border border-white/10 space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="flex items-center gap-1.5 text-[10px] font-black text-cyan-400 uppercase tracking-wider">
-              <Droplets className="w-3.5 h-3.5" /> {t.water}
-            </span>
-            <span className="text-[10px] font-black text-neutral-400 tabular-nums" dir="ltr">
-              {waterGlasses} / {waterTarget} {t.glasses}
+      {/* ── Water ──────────────────────────────────────────────── */}
+      {view.water && (
+        <section aria-labelledby="fuel-water" className="rounded-3xl bg-card text-ink p-4 flex flex-col gap-3">
+          <div className="flex justify-between items-center gap-3">
+            <h2 id="fuel-water" className="m-0 text-base font-bold">{t.water}</h2>
+            <span className="text-sm text-muted">
+              <span className="font-bold text-ink">{litres(day.water || 0, isRtl)}</span> / {litres(targets.water, isRtl)} {t.litres}
             </span>
           </div>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex items-center gap-1.5">
             {Array.from({ length: waterTarget }).map((_, i) => (
-              <button key={i} type="button"
-                onClick={() => store.setWater((i + 1) * GLASS_ML)}
-                aria-label={`${i + 1}`}
-                className={`w-7 h-9 rounded-lg border transition-all ${
-                  i < waterGlasses ? "bg-cyan-500/30 border-cyan-400/60" : "bg-white/[0.04] border-white/10 hover:border-white/25"
-                }`} />
+              <button key={i} type="button" aria-pressed={i < waterGlasses}
+                aria-label={fill(t.glassesN, { n: n(i + 1) })}
+                // Tapping the top filled glass empties it; any other sets the count.
+                onClick={() => store.setWater((i + 1 === waterGlasses ? i : i + 1) * GLASS_ML)}
+                className={cx("flex-1 min-w-0 h-9 rounded-xl border-0 p-0 cursor-pointer transition-colors",
+                  i < waterGlasses ? "bg-ink" : "bg-line")} />
             ))}
-            <button type="button" onClick={() => store.setWater((day.water || 0) + GLASS_ML)}
-              className="w-7 h-9 rounded-lg border border-dashed border-white/15 flex items-center justify-center text-neutral-600 hover:text-white transition-all"
-              aria-label={t.addGlass}>
-              <Plus className="w-3 h-3" />
-            </button>
+            <IconButton label={t.addGlass} tone="soft" className="ms-1" onClick={() => store.setWater((day.water || 0) + GLASS_ML)}>
+              <Plus className="w-5 h-5" strokeWidth={2.2} />
+            </IconButton>
           </div>
-        </div>
+        </section>
+      )}
 
-        )}
-
-        {/* ── Meals ───────────────────────────────────────────── */}
-        {visibleMeals.map((meal) => {
-          const entries = mealEntries(day, meal.id);
-          const mealTotals = sumMacros(entries);
-          const open = openMeals.has(meal.id);
-
-          return (
-            <div key={meal.id} className="rounded-3xl bg-[#141416] border border-white/10 overflow-hidden">
-              <div className="p-4 flex items-center gap-3">
-                <button type="button" onClick={() => toggleMeal(meal.id)} className="flex items-center gap-3 flex-1 min-w-0 text-start">
-                  <span className="text-xl shrink-0">{meal.emoji}</span>
-                  <span className="min-w-0">
-                    <span className="block text-sm font-black text-white truncate">{isRtl ? meal.fa : meal.en}</span>
-                    <span className="block text-[10px] font-bold text-neutral-500 tabular-nums" dir="ltr">
-                      {round(mealTotals.kcal)} kcal · P{round(mealTotals.protein)} C{round(mealTotals.carbs)} F{round(mealTotals.fat)}
-                    </span>
-                  </span>
-                </button>
-                {entries.length > 0 && (
-                  <button type="button" onClick={() => setSavingMeal({ meal, entries })} aria-label={t.saveMeal}
-                    className="w-9 h-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-neutral-500 hover:text-amber-400 transition-all shrink-0">
-                    <Star className="w-4 h-4" />
-                  </button>
-                )}
-                <button type="button" onClick={() => setAddingTo(meal)} aria-label={`${t.addTo} ${isRtl ? meal.fa : meal.en}`}
-                  className="w-9 h-9 rounded-xl bg-[#844783]/20 border border-[#844783]/40 flex items-center justify-center text-[#c07dbf] hover:bg-[#844783]/30 transition-all shrink-0">
-                  <Plus className="w-4 h-4 stroke-[3]" />
-                </button>
-              </div>
-
-              <AnimatePresence initial={false}>
-                {open && entries.length > 0 && (
-                  <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}
-                    className="overflow-hidden">
-                    <div className="px-4 pb-3 space-y-1.5">
-                      {entries.map((entry) => (
-                        <EntryRow key={entry.id} entry={entry} isRtl={isRtl} t={t}
-                          onRemove={() => store.removeEntry(entry.id)} />
-                      ))}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {open && entries.length === 0 && (
-                <p className="px-4 pb-4 text-[10px] font-bold text-neutral-600">{t.emptyMeal}</p>
-              )}
-            </div>
-          );
-        })}
-
-        {/* Sodium is worth watching but doesn't deserve a bar of its own. */}
-        {totals.sodium > 0 && (
-          <p className="text-center text-[9px] font-bold text-neutral-600 pt-1" dir="ltr">
-            {t.sodium} {round(totals.sodium)} mg
-          </p>
-        )}
-
-        {view.savedMeals && store.diary.savedMeals.length > 0 && (
-          <div className="space-y-2 pt-2">
-            <h3 className="flex items-center gap-1.5 text-[10px] font-black text-neutral-500 uppercase tracking-wider px-1">
-              <Star className="w-3 h-3" /> {t.savedMeals}
-            </h3>
+      {/* ── Saved meals ────────────────────────────────────────── */}
+      {view.savedMeals && store.diary.savedMeals.length > 0 && (
+        <>
+          <h2 className="m-0 mt-2 font-display font-bold text-[22px] tracking-[-0.02em] text-ink">{t.savedMeals}</h2>
+          <List>
             {store.diary.savedMeals.map((saved) => {
               const preview = sumMacros(saved.items.map((i) => ({ ...i, id: "x", meal: "x" })));
               return (
-                <div key={saved.id} className="p-3 rounded-2xl bg-[#141416] border border-white/10 flex items-center gap-2.5">
-                  <span className="flex-1 min-w-0">
-                    <span className="block text-xs font-black text-white truncate">{saved.name}</span>
-                    <span className="block text-[9px] font-bold text-neutral-500 tabular-nums" dir="ltr">
-                      {round(preview.kcal)} kcal · P{round(preview.protein)} C{round(preview.carbs)} F{round(preview.fat)} · {saved.items.length}
+                <li key={saved.id} className="list-none min-h-[64px] flex items-center gap-2 ps-4 pe-1.5 py-2.5">
+                  <span className="flex-1 min-w-0 flex flex-col gap-0.5">
+                    <span className="text-[15px] font-semibold text-ink truncate">{saved.name}</span>
+                    <span className="text-xs text-muted line-clamp-2">
+                      {fmtNum(preview.kcal, isRtl)} {t.kcal}{sep}{macroLine(preview, isRtl, t)}{sep}{fill(saved.items.length === 1 ? t.item : t.items, { n: n(saved.items.length) })}
                     </span>
                   </span>
-                  <select
-                    aria-label={t.repeat}
-                    value=""
-                    onChange={(e) => { if (e.target.value) store.logSavedMeal(saved.id, e.target.value); e.target.value = ""; }}
-                    className="h-8 px-2 rounded-lg bg-[#844783]/20 border border-[#844783]/40 text-[10px] font-black text-[#c07dbf] focus:outline-none shrink-0"
-                  >
-                    <option value="">{t.repeat}</option>
-                    {MEALS.map((m) => (
-                      <option key={m.id} value={m.id}>{isRtl ? m.fa : m.en}</option>
-                    ))}
-                  </select>
-                  <button type="button" onClick={() => store.removeSavedMeal(saved.id)} aria-label={t.delete}
-                    className="w-7 h-7 rounded-lg bg-white/5 flex items-center justify-center text-neutral-600 hover:text-rose-400 transition-all shrink-0">
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
+                  <span className="relative shrink-0">
+                    <select
+                      aria-label={t.repeat}
+                      value=""
+                      onChange={(e) => { if (e.target.value) store.logSavedMeal(saved.id, e.target.value); e.target.value = ""; }}
+                      className="h-11 ps-4 pe-9 rounded-full bg-inv text-on-inv text-[13px] font-semibold border-0 appearance-none cursor-pointer outline-none"
+                    >
+                      <option value="">{t.repeat}</option>
+                      {MEALS.map((m) => (
+                        <option key={m.id} value={m.id}>{isRtl ? m.fa : m.en}</option>
+                      ))}
+                    </select>
+                    <ChevronDown aria-hidden="true" className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 w-4 h-4 text-on-inv" strokeWidth={2.2} />
+                  </span>
+                  <IconButton label={`${t.delete} ${saved.name}`} tone="ghost" onClick={() => store.removeSavedMeal(saved.id)}>
+                    <Trash2 className="w-[18px] h-[18px] text-muted" strokeWidth={2} />
+                  </IconButton>
+                </li>
               );
             })}
-          </div>
-        )}
+          </List>
+        </>
+      )}
 
-        {view.shortcuts && (
-        <div className="grid grid-cols-2 gap-3 pt-1">
-          <button type="button" onClick={onGoToRecipe}
-            className="p-4 rounded-2xl bg-[#141416] border border-white/10 flex items-center gap-2.5 hover:border-[#844783]/50 transition-all">
-            <Utensils className="w-5 h-5 text-[#844783]" />
-            <span className="text-xs font-black text-white">{isRtl ? "دستور غذاها" : "Recipes"}</span>
-          </button>
-          <button type="button" onClick={onGoToGuide}
-            className="p-4 rounded-2xl bg-[#141416] border border-white/10 flex items-center gap-2.5 hover:border-amber-400/50 transition-all">
-            <Flame className="w-5 h-5 text-amber-400" />
-            <span className="text-xs font-black text-white">{isRtl ? "راهنمای تغذیه" : "Guide"}</span>
-          </button>
-        </div>
-        )}
+      {/* ── Recipe & guide shortcuts ───────────────────────────── */}
+      {view.shortcuts && (
+        <List className="mt-1">
+          <Row isRtl={isRtl} chevron onClick={onGoToRecipe} title={t.recipes} subtitle={t.recipesHint}
+            icon={<IconWell tone="sand" square size={40}><Utensils className="w-[18px] h-[18px]" strokeWidth={2} /></IconWell>} />
+          <Row isRtl={isRtl} chevron onClick={onGoToGuide} title={t.guide} subtitle={t.guideHint}
+            icon={<IconWell tone="sage" square size={40}><BookOpen className="w-[18px] h-[18px]" strokeWidth={2} /></IconWell>} />
+        </List>
+      )}
 
-        <p className="flex items-center justify-center gap-1.5 pt-1 text-[9px] font-bold text-neutral-700">
-          <Info className="w-3 h-3" /> {t.localOnly}
-        </p>
+      <div className="flex flex-col items-center gap-1 pt-1 text-xs text-muted text-center">
+        {/* Sodium is worth watching but doesn't deserve a bar of its own. */}
+        {totals.sodium > 0 && <span>{t.sodium} {fmtNum(totals.sodium, isRtl)} {t.mg}</span>}
+        <span className="inline-flex items-center gap-1.5"><Info className="w-3.5 h-3.5" strokeWidth={2} /> {t.localOnly}</span>
       </div>
 
       {/* ── Sheets ──────────────────────────────────────────────── */}
       <AnimatePresence>
         {addingTo && (
           <FoodSearchSheet
-            mealId={addingTo} isRtl={isRtl} t={t} recentIds={store.diary.recentFoodIds}
+            mealId={addingTo} isRtl={isRtl} t={t} recentIds={store.diary.recentFoodIds} kcalLeft={round(kcalLeft)}
             onPick={(food, grams) => {
               store.addEntry({ foodId: food.id, grams, meal: addingTo.id });
+              setOpenMeals((s) => new Set(s).add(addingTo.id));
               setAddingTo(null);
             }}
             onQuickAdd={() => { setQuickAddTo(addingTo); setAddingTo(null); }}
@@ -379,29 +374,47 @@ export default function DietPage({ isRtl, onGoToRecipe, onGoToGuide }) {
         )}
       </AnimatePresence>
 
-      <AnimatePresence>
-        {quickAddTo && (
-          <QuickAddSheet isRtl={isRtl} t={t}
-            onSave={(custom) => { store.addEntry({ custom, grams: 0, meal: quickAddTo.id }); setQuickAddTo(null); }}
-            onClose={() => setQuickAddTo(null)} />
-        )}
-      </AnimatePresence>
+      {quickAddTo && (
+        <QuickAddSheet isRtl={isRtl} t={t}
+          onSave={(custom) => {
+            store.addEntry({ custom, grams: 0, meal: quickAddTo.id });
+            setOpenMeals((s) => new Set(s).add(quickAddTo.id));
+            setQuickAddTo(null);
+          }}
+          onClose={() => setQuickAddTo(null)} />
+      )}
 
-      <AnimatePresence>
-        {savingMeal && (
-          <SaveMealSheet meal={savingMeal} isRtl={isRtl} t={t}
-            onSave={(name) => { store.saveMeal(name, savingMeal.entries); setSavingMeal(null); }}
-            onClose={() => setSavingMeal(null)} />
-        )}
-      </AnimatePresence>
+      {savingMeal && (
+        <SaveMealSheet meal={savingMeal} isRtl={isRtl} t={t}
+          onSave={(name) => { store.saveMeal(name, savingMeal.entries); setSavingMeal(null); }}
+          onClose={() => setSavingMeal(null)} />
+      )}
 
-      <AnimatePresence>
-        {sheet === "weight" && (
-          <WeightSheet current={day.weight ?? profile.weight} trend={trend} isRtl={isRtl} t={t}
-            onSave={(kg) => { store.setWeight(kg); setSheet(null); }}
-            onClose={() => setSheet(null)} />
-        )}
-      </AnimatePresence>
+      {sheet === "menu" && (
+        <Sheet title={t.options} isRtl={isRtl} t={t} onClose={() => setSheet(null)}>
+          <List>
+            <Row isRtl={isRtl} chevron onClick={() => setSheet("targets")}
+              icon={<IconWell size={40}><SlidersHorizontal className="w-[18px] h-[18px]" strokeWidth={2} /></IconWell>}
+              title={t.editTargets} right={`${fmtNum(targets.kcal, isRtl)} ${t.kcal}`} />
+            <Row isRtl={isRtl} chevron onClick={() => setSheet("weight")}
+              icon={<IconWell size={40}><Scale className="w-[18px] h-[18px]" strokeWidth={2} /></IconWell>}
+              title={t.logWeight}
+              right={(day.weight ?? profile.weight) ? `${n(day.weight ?? profile.weight)} ${t.kg}` : null} />
+            <Row isRtl={isRtl} chevron onClick={() => setSheet("view")}
+              icon={<IconWell size={40}><Eye className="w-[18px] h-[18px]" strokeWidth={2} /></IconWell>}
+              title={t.customize} />
+            <Row isRtl={isRtl} chevron onClick={() => setSheet("share")}
+              icon={<IconWell size={40}><Share2 className="w-[18px] h-[18px]" strokeWidth={2} /></IconWell>}
+              title={tt.sharePlan} />
+          </List>
+        </Sheet>
+      )}
+
+      {sheet === "weight" && (
+        <WeightSheet current={day.weight ?? profile.weight} trend={trend} isRtl={isRtl} t={t}
+          onSave={(kg) => { store.setWeight(kg); setSheet(null); }}
+          onClose={() => setSheet(null)} />
+      )}
 
       <AnimatePresence>
         {sheet === "share" && (
@@ -417,44 +430,100 @@ export default function DietPage({ isRtl, onGoToRecipe, onGoToGuide }) {
         )}
       </AnimatePresence>
 
-      <AnimatePresence>
-        {sheet === "view" && (
-          <ViewSheet view={view} isRtl={isRtl} t={t}
-            onChange={(patch) => store.updateView(patch)}
-            onReset={() => { store.resetView(); setSheet(null); }}
-            onClose={() => setSheet(null)} />
-        )}
-      </AnimatePresence>
+      {sheet === "view" && (
+        <ViewSheet view={view} isRtl={isRtl} t={t}
+          onChange={(patch) => store.updateView(patch)}
+          onReset={() => { store.resetView(); setSheet(null); }}
+          onClose={() => setSheet(null)} />
+      )}
 
-      <AnimatePresence>
-        {sheet === "targets" && (
-          <TargetsSheet profile={profile} targets={targets} isRtl={isRtl} t={t}
-            onSave={(next) => { store.updateProfile(next); setSheet(null); }}
-            onClose={() => setSheet(null)} />
-        )}
-      </AnimatePresence>
-    </div>
+      {sheet === "targets" && (
+        <TargetsSheet profile={profile} targets={targets} isRtl={isRtl} t={t}
+          onSave={(next) => { store.updateProfile(next); setSheet(null); }}
+          onClose={() => setSheet(null)} />
+      )}
+    </Screen>
   );
 }
 
-function EntryRow({ entry, isRtl, t, onRemove }) {
-  const m = entryMacros(entry);
-  const food = entry.foodId ? findFood(entry.foodId) : null;
-  const name = entry.custom?.name || (food ? (isRtl ? food.nameFa : food.nameEn) : "—");
+/**
+ * One meal in the list: an icon well, the name, what's in it and its
+ * calories. An empty meal logs straight away; a full one opens its items.
+ */
+function MealRow({ meal, entries, open, isRtl, t, sep, onToggle, onAdd, onSave, onRemove }) {
+  const Icon = MEAL_ICONS[meal.id] || Utensils;
+  const name = isRtl ? meal.fa : meal.en;
+  const empty = entries.length === 0;
+  const totals = sumMacros(entries);
+  const summary = entries
+    .map((e) => (e.foodId ? `${entryName(e, isRtl)} ${num(round(e.grams), isRtl)} ${t.grams}` : entryName(e, isRtl)))
+    .join(sep);
 
   return (
-    <div className="flex items-center gap-2.5 p-2.5 rounded-xl bg-black/40 border border-white/[0.06]">
-      <span className="flex-1 min-w-0">
-        <span className="block text-[11px] font-black text-white truncate">{name}</span>
-        <span className="block text-[9px] font-bold text-neutral-500 tabular-nums" dir="ltr">
-          {entry.foodId ? `${round(entry.grams)}g · ` : ""}P{round(m.protein)} C{round(m.carbs)} F{round(m.fat)}
+    <li className="list-none">
+      <button type="button" onClick={empty ? onAdd : onToggle}
+        aria-expanded={empty ? undefined : open}
+        aria-label={empty ? `${t.addTo} ${name}` : undefined}
+        className="w-full flex items-center gap-3 px-4 py-3 text-start bg-transparent border-0 cursor-pointer text-ink">
+        <span className={cx("w-11 h-11 shrink-0 rounded-[14px] flex items-center justify-center",
+          empty ? "border-[1.5px] border-dashed border-faint text-muted" : "bg-sunk text-ink")}>
+          <Icon className="w-5 h-5" strokeWidth={1.9} />
+        </span>
+        <span className="flex-1 min-w-0 flex flex-col gap-[3px]">
+          <span className="text-base font-bold leading-snug">{name}</span>
+          <span className="text-[13px] text-muted truncate">{empty ? t.emptyMeal : summary}</span>
+        </span>
+        {empty ? (
+          <span aria-hidden="true" className="h-[34px] px-3 shrink-0 rounded-full bg-jet text-accent inline-flex items-center gap-1 text-[13px] font-bold dark:ring-1 dark:ring-inset dark:ring-line">
+            <Plus className="w-3.5 h-3.5" strokeWidth={2.6} />{t.add}
+          </span>
+        ) : (
+          <>
+            <span className="text-[15px] font-semibold shrink-0">{fmtNum(totals.kcal, isRtl)}</span>
+            <ChevronDown aria-hidden="true" className={cx("w-4 h-4 shrink-0 text-muted transition-transform", open && "rotate-180")} strokeWidth={2} />
+          </>
+        )}
+      </button>
+
+      <AnimatePresence initial={false}>
+        {open && !empty && (
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.22, ease: [0.2, 0.8, 0.2, 1] }} className="overflow-hidden">
+            <div className="ms-[72px] me-2 pb-2 flex flex-col">
+              <span className="text-xs text-muted pb-1">{fmtNum(totals.kcal, isRtl)} {t.kcal}{sep}{macroLine(totals, isRtl, t, t.grams)}</span>
+              {entries.map((entry) => (
+                <EntryRow key={entry.id} entry={entry} isRtl={isRtl} t={t} sep={sep} onRemove={() => onRemove(entry.id)} />
+              ))}
+            </div>
+            <div className="grid grid-cols-2 gap-2 px-4 pb-3.5">
+              <Button tone="soft" size="sm" className="!h-11 !px-3" onClick={onAdd} aria-label={`${t.addTo} ${name}`}
+                icon={<Plus className="w-4 h-4 shrink-0" strokeWidth={2.4} />}><span className="truncate">{t.addFood}</span></Button>
+              <Button tone="soft" size="sm" className="!h-11 !px-3" onClick={() => onSave(entries)} aria-label={`${t.saveMeal}: ${name}`}
+                icon={<Star className="w-4 h-4 shrink-0" strokeWidth={2} />}><span className="truncate">{t.saveShort}</span></Button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </li>
+  );
+}
+
+function EntryRow({ entry, isRtl, t, sep, onRemove }) {
+  const m = entryMacros(entry);
+  const name = entryName(entry, isRtl);
+
+  return (
+    <div className="flex items-center gap-2 min-h-[52px] border-t border-hair">
+      <span className="flex-1 min-w-0 flex flex-col gap-0.5">
+        <span className="text-sm font-semibold text-ink truncate">{name}</span>
+        <span className="text-xs text-muted truncate">
+          {entry.foodId ? `${num(round(entry.grams), isRtl)} ${t.grams}${sep}` : ""}{macroLine(m, isRtl, t)}
         </span>
       </span>
-      <span className="text-[11px] font-black text-white tabular-nums shrink-0">{round(m.kcal)}</span>
-      <button type="button" onClick={onRemove} aria-label={t.removeEntry}
-        className="w-7 h-7 rounded-lg bg-white/5 flex items-center justify-center text-neutral-600 hover:text-rose-400 transition-all shrink-0">
-        <Trash2 className="w-3.5 h-3.5" />
-      </button>
+      <span className="text-sm font-semibold text-ink shrink-0">{fmtNum(m.kcal, isRtl)}</span>
+      <IconButton label={`${t.removeEntry} ${name}`} tone="ghost" onClick={onRemove}>
+        <Trash2 className="w-[18px] h-[18px] text-muted" strokeWidth={2} />
+      </IconButton>
     </div>
   );
 }
@@ -467,34 +536,24 @@ function SaveMealSheet({ meal, isRtl, t, onSave, onClose }) {
     <Sheet title={t.saveMeal} isRtl={isRtl} t={t} onClose={onClose}
       footer={
         <>
-          <button type="button" onClick={onClose} className="flex-1 h-12 rounded-2xl bg-white/5 border border-white/10 text-neutral-300 font-black text-sm">{t.cancel}</button>
-          <button type="button" onClick={() => onSave(name.trim())} disabled={!name.trim()}
-            className="flex-1 h-12 rounded-2xl bg-[#844783] text-white font-black text-sm disabled:opacity-40">{t.save}</button>
+          <Button tone="card" size="lg" className="flex-1" onClick={onClose}>{t.cancel}</Button>
+          <Button tone="ink" size="lg" className="flex-1" onClick={() => onSave(name.trim())} disabled={!name.trim()}>{t.save}</Button>
         </>
       }>
-      <p className="text-[10px] font-medium text-neutral-500">{t.saveMealHint}</p>
-      <div>
-        <span className="block text-[10px] font-black text-neutral-500 uppercase tracking-wider mb-1.5">{t.mealName}</span>
-        <input autoFocus value={name} onChange={(e) => setName(e.target.value)}
-          className="w-full h-11 px-3 rounded-2xl bg-[#141416] border border-white/10 text-sm font-bold text-white focus:outline-none focus:border-white/30" />
-      </div>
-      <div className="p-3 rounded-2xl bg-[#141416] border border-white/10 space-y-1.5">
-        {meal.entries.map((e) => {
-          const food = e.foodId ? findFood(e.foodId) : null;
-          return (
-            <div key={e.id} className="flex items-center justify-between gap-2">
-              <span className="text-[11px] font-bold text-neutral-300 truncate">
-                {e.custom?.name || (food ? (isRtl ? food.nameFa : food.nameEn) : "—")}
-              </span>
-              <span className="text-[10px] font-black text-neutral-500 tabular-nums shrink-0">{round(entryMacros(e).kcal)}</span>
-            </div>
-          );
-        })}
-        <div className="pt-1.5 border-t border-white/10 flex items-center justify-between">
-          <span className="text-[10px] font-black text-neutral-500 uppercase">{t.calories}</span>
-          <span className="text-sm font-black text-white tabular-nums">{round(totals.kcal)}</span>
+      <p className="m-0 text-sm text-muted">{t.saveMealHint}</p>
+      <Field inputClass="!outline-none" label={t.mealName} autoFocus value={name} onChange={(e) => setName(e.target.value)} />
+      <Card pad={false} className="px-4 py-1">
+        {meal.entries.map((e) => (
+          <div key={e.id} className="min-h-[44px] flex items-center justify-between gap-3 border-b border-hair">
+            <span className="text-sm text-ink truncate">{entryName(e, isRtl)}</span>
+            <span className="text-sm text-muted shrink-0">{fmtNum(entryMacros(e).kcal, isRtl)}</span>
+          </div>
+        ))}
+        <div className="min-h-[48px] flex items-center justify-between gap-3">
+          <Label>{t.calories}</Label>
+          <span className="text-[17px] font-bold text-ink">{fmtNum(totals.kcal, isRtl)}</span>
         </div>
-      </div>
+      </Card>
     </Sheet>
   );
 }

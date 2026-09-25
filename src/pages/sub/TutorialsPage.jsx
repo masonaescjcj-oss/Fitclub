@@ -1,81 +1,73 @@
 import React, { useState } from "react";
-import { GraduationCap, ArrowLeft, Play, Clock } from "lucide-react";
+import { Clock, Eye, Play } from "lucide-react";
+import { Card, IconWell, Label, List, Row, Screen, Sheet, Tag, TopBar } from "../../components/ui/kit";
+
+// Tutorials: the lesson list; a lesson opens in a sheet with its player.
+
+const COPY = {
+  en: {
+    title: "Academy", lessons: "Video Lessons", watch: "Click to Watch Video Lesson", views: "views",
+    level: { beginner: "Beginner", all: "All Levels", nutrition: "Nutrition", intermediate: "Intermediate" },
+    category: { chest: "Chest", legs: "Legs", diet: "Diet", back: "Back" },
+  },
+  fa: {
+    title: "آکادمی", lessons: "ویدیوها و مقالات آموزش حرکت", watch: "برای تماشای ویدیو ضربه بزنید", views: "بازدید",
+    level: { beginner: "مبتدی", all: "همه‌ی سطوح", nutrition: "تغذیه", intermediate: "متوسط" },
+    category: { chest: "سینه", legs: "پا", diet: "رژیم", back: "پشت" },
+  },
+};
 
 export default function TutorialsPage({ onBack, isRtl }) {
   const [selectedLesson, setSelectedLesson] = useState(null);
+  const c = COPY[isRtl ? "fa" : "en"];
 
   const lessons = [
-    { id: 1, titleEn: "Proper Bench Press Technique", titleFa: "تکنیک صحیح حرکت پرس سینه", duration: "08:15", level: "Beginner", category: "Chest", views: "12.4k" },
-    { id: 2, titleEn: "Squat Form & Knee Alignment", titleFa: "فرم صحیح اسکات و تراز زانوها", duration: "10:30", level: "All Levels", category: "Legs", views: "18.9k" },
-    { id: 3, titleEn: "Mastering Protein & Macro Timing", titleFa: "اصول زمان‌بندی مصرف پروتئین و ماکروها", duration: "12:00", level: "Nutrition", category: "Diet", views: "24.1k" },
-    { id: 4, titleEn: "Deadlift Form & Lower Back Safety", titleFa: "تکنیک ددلیفت و حفاظت از گودی کمر", duration: "14:20", level: "Intermediate", category: "Back", views: "15.7k" },
+    { id: 1, titleEn: "Proper Bench Press Technique", titleFa: "تکنیک صحیح حرکت پرس سینه", duration: "08:15", level: "beginner", category: "chest", views: "12.4k" },
+    { id: 2, titleEn: "Squat Form & Knee Alignment", titleFa: "فرم صحیح اسکات و تراز زانوها", duration: "10:30", level: "all", category: "legs", views: "18.9k" },
+    { id: 3, titleEn: "Mastering Protein & Macro Timing", titleFa: "اصول زمان‌بندی مصرف پروتئین و ماکروها", duration: "12:00", level: "nutrition", category: "diet", views: "24.1k" },
+    { id: 4, titleEn: "Deadlift Form & Lower Back Safety", titleFa: "تکنیک ددلیفت و حفاظت از گودی کمر", duration: "14:20", level: "intermediate", category: "back", views: "15.7k" },
   ];
+  const titleOf = (l) => (isRtl ? l.titleFa : l.titleEn);
+  const sep = isRtl ? "، " : " · ";
 
   return (
-    <div className="w-full min-h-[100dvh] bg-black text-white px-4 pt-6 pb-28 space-y-6 select-none">
-      
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-white/10 pb-4">
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={onBack}
-            className="w-9 h-9 rounded-xl bg-[#141416] border border-white/10 flex items-center justify-center text-gray-300 hover:text-white"
-          >
-            <ArrowLeft className="w-4 h-4 rtl:rotate-180" />
-          </button>
-          <h1 className="text-xl font-black text-white">{isRtl ? "آکادمی و آموزش‌های ورزشی" : "Fitness Academy & Tutorials"}</h1>
-        </div>
-        <GraduationCap className="w-6 h-6 text-[#844783]" />
-      </div>
+    <Screen isRtl={isRtl}>
+      <TopBar isRtl={isRtl} onBack={onBack} title={c.title} />
 
-      {/* Lesson Player Modal */}
-      {selectedLesson && (
-        <div className="p-5 rounded-3xl bg-neutral-900 border border-[#844783] space-y-3 animate-in zoom-in-95 duration-200">
-          <div className="flex justify-between items-center">
-            <span className="text-xs font-black text-[#844783] uppercase">{selectedLesson.category}</span>
-            <button type="button" onClick={() => setSelectedLesson(null)} className="text-xs text-gray-400 hover:text-white">✕ Close</button>
-          </div>
-
-          <div className="w-full h-44 rounded-2xl bg-black border border-white/10 flex flex-col items-center justify-center relative overflow-hidden group cursor-pointer">
-            <div className="w-14 h-14 rounded-full bg-[#844783] flex items-center justify-center text-white shadow-xl group-hover:scale-110 transition-transform">
-              <Play className="w-6 h-6 fill-white ml-1" />
-            </div>
-            <span className="text-xs font-bold text-gray-300 mt-2">Click to Watch Video Lesson</span>
-          </div>
-
-          <h3 className="text-base font-black text-white">{isRtl ? selectedLesson.titleFa : selectedLesson.titleEn}</h3>
-        </div>
-      )}
-
-      {/* Lessons List */}
-      <div className="space-y-3">
-        <h3 className="text-xs font-black text-neutral-400 uppercase tracking-wider px-1">
-          {isRtl ? "ویدیوها و مقالات آموزش حرکت" : "Video Lessons"}
-        </h3>
-
+      <Label as="h2" className="m-0 mt-2 px-1">{c.lessons}</Label>
+      <List>
         {lessons.map((lesson) => (
-          <div
-            key={lesson.id}
-            onClick={() => setSelectedLesson(lesson)}
-            className="p-4 rounded-2xl bg-[#141416] border border-white/10 flex items-center justify-between hover:border-[#844783]/40 transition-all cursor-pointer"
-          >
-            <div className="flex items-center gap-3.5">
-              <div className="w-12 h-12 rounded-xl bg-neutral-900 border border-white/10 flex items-center justify-center text-[#844783] shrink-0">
-                <Play className="w-5 h-5 fill-[#844783]" />
-              </div>
-              <div>
-                <h4 className="text-sm font-black text-white">{isRtl ? lesson.titleFa : lesson.titleEn}</h4>
-                <div className="flex items-center gap-2 text-xs text-neutral-400 font-medium mt-0.5">
-                  <Clock className="w-3 h-3 text-gray-500" />
-                  <span>{lesson.duration} • {lesson.level}</span>
-                </div>
-              </div>
-            </div>
-          </div>
+          <Row key={lesson.id} isRtl={isRtl} chevron onClick={() => setSelectedLesson(lesson)}
+            icon={<IconWell tone="inv" size={48} square><Play className="w-5 h-5 fill-current" strokeWidth={2} /></IconWell>}
+            title={titleOf(lesson)}
+            subtitle={(
+              <span className="inline-flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5" strokeWidth={2} />
+                <span dir="ltr">{lesson.duration}</span>{sep}{c.level[lesson.level]}
+              </span>
+            )} />
         ))}
-      </div>
+      </List>
 
-    </div>
+      <Sheet open={!!selectedLesson} isRtl={isRtl} onClose={() => setSelectedLesson(null)}
+        title={selectedLesson ? c.category[selectedLesson.category] : ""}>
+        {selectedLesson && (
+          <>
+            <Card tone="hero" className="h-48 flex flex-col items-center justify-center gap-3 cursor-pointer">
+              <span className="w-16 h-16 rounded-full bg-accent text-on-accent flex items-center justify-center transition-transform active:scale-95">
+                <Play className="w-7 h-7 fill-current ms-1" strokeWidth={2} />
+              </span>
+              <span className="text-[13px] font-medium text-hero-muted">{c.watch}</span>
+            </Card>
+            <h3 className="m-0 font-display font-extrabold text-[24px] leading-tight tracking-[-0.02em] text-ink">{titleOf(selectedLesson)}</h3>
+            <div className="flex flex-wrap gap-1.5">
+              <Tag tone="card"><Clock className="w-3.5 h-3.5" strokeWidth={2} /><span dir="ltr">{selectedLesson.duration}</span></Tag>
+              <Tag tone="card">{c.level[selectedLesson.level]}</Tag>
+              <Tag tone="card"><Eye className="w-3.5 h-3.5" strokeWidth={2} /><span dir="ltr">{selectedLesson.views}</span> {c.views}</Tag>
+            </div>
+          </>
+        )}
+      </Sheet>
+    </Screen>
   );
 }

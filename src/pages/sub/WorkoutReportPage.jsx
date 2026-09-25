@@ -1,5 +1,6 @@
 import React from "react";
-import { ArrowLeft, BarChart3, Trophy } from "lucide-react";
+import { Trophy } from "lucide-react";
+import { Card, IconWell, Label, List, Metric, Row, Screen, TopBar, cx, num } from "../../components/ui/kit";
 import { useTrainingStore } from "../../lib/training/trainingContext";
 import { useTrainingT } from "../../lib/training/trainingI18n";
 import { exerciseName } from "../../lib/training/exercises";
@@ -8,70 +9,73 @@ import { exerciseName } from "../../lib/training/exercises";
 export default function WorkoutReportPage({ onBack, isRtl }) {
   const t = useTrainingT(isRtl);
   const { stats, weekly, sessions } = useTrainingStore();
+  const n = (v) => num(v, isRtl);
   const maxVol = Math.max(...weekly.map((w) => w.volume), 1);
   const [cur, prev] = [weekly[weekly.length - 1]?.volume || 0, weekly[weekly.length - 2]?.volume || 0];
   const delta = prev > 0 ? Math.round(((cur - prev) / prev) * 100) : null;
   const prs = [...sessions].sort((a, b) => (a.startedAt < b.startedAt ? 1 : -1)).flatMap((s) => s.prs || []).slice(0, 6);
+  const kcal = isRtl ? "کالری" : "kcal";
 
   return (
-    <div className="w-full min-h-[100dvh] bg-black text-white px-4 pt-6 pb-28 space-y-6 select-none">
-      <div className="flex items-center justify-between border-b border-white/10 pb-4">
-        <div className="flex items-center gap-3">
-          <button type="button" onClick={onBack}
-            className="w-9 h-9 rounded-xl bg-[#141416] border border-white/10 flex items-center justify-center text-gray-300 hover:text-white">
-            <ArrowLeft className={`w-4 h-4 ${isRtl ? "rotate-180" : ""}`} />
-          </button>
-          <h1 className="text-xl font-black text-white">{isRtl ? "گزارش پیشرفت" : "Workout Analytics"}</h1>
-        </div>
-        <BarChart3 className="w-6 h-6 text-[#844783]" />
-      </div>
+    <Screen isRtl={isRtl}>
+      <TopBar isRtl={isRtl} onBack={onBack} title={isRtl ? "گزارش پیشرفت" : "Workout Analytics"} />
 
-      <div className="grid grid-cols-3 gap-3 text-center">
-        <div className="p-4 rounded-2xl bg-[#141416] border border-white/10">
-          <span className="text-[10px] text-amber-400 font-bold uppercase">{t.totalVolume}</span>
-          <p className="text-lg font-black text-white mt-0.5 tabular-nums">{Math.round(stats.volume).toLocaleString()} {t.kg}</p>
+      <Card tone="hero" className="flex flex-col gap-4">
+        <Label className="!text-hero-muted">{t.totalVolume}</Label>
+        <span className="flex items-baseline gap-2">
+          <span className="font-display font-extrabold text-[56px] leading-[0.85] tracking-[-0.05em]">{n(Math.round(stats.volume).toLocaleString("en-US"))}</span>
+          <span className="text-base font-semibold text-hero-muted">{t.kg}</span>
+        </span>
+        <div className="grid grid-cols-2 gap-2 pt-3 border-t border-hero-2">
+          <Metric size={24} value={n(stats.count)} label={t.workouts} labelClass="text-hero-muted" />
+          <Metric size={24} value={<>{n(stats.calories.toLocaleString("en-US"))} <span className="text-sm font-semibold text-hero-muted">{kcal}</span></>}
+            label={t.totalBurn} labelClass="text-hero-muted" />
         </div>
-        <div className="p-4 rounded-2xl bg-[#141416] border border-white/10">
-          <span className="text-[10px] text-[#844783] font-bold uppercase">{t.workouts}</span>
-          <p className="text-lg font-black text-white mt-0.5 tabular-nums">{stats.count}</p>
-        </div>
-        <div className="p-4 rounded-2xl bg-[#141416] border border-white/10">
-          <span className="text-[10px] text-emerald-400 font-bold uppercase">{t.totalBurn}</span>
-          <p className="text-lg font-black text-emerald-400 mt-0.5 tabular-nums">{stats.calories.toLocaleString()} kcal</p>
-        </div>
-      </div>
+      </Card>
 
-      <div className="p-5 rounded-3xl bg-[#141416] border border-white/10 space-y-4">
-        <div className="flex justify-between items-center">
-          <h3 className="text-sm font-black text-white uppercase">{t.weeklyVolume}</h3>
+      <Card className="flex flex-col gap-4" aria-labelledby="report-weekly">
+        <div className="flex justify-between items-center gap-2">
+          <h2 id="report-weekly" className="m-0 text-base font-bold">{t.weeklyVolume}</h2>
           {delta !== null && (
-            <span className={`text-xs font-bold ${delta >= 0 ? "text-emerald-400" : "text-rose-400"}`} dir="ltr">{delta >= 0 ? "+" : ""}{delta}%</span>
+            <span dir="ltr" className={cx("h-[26px] px-2.5 rounded-full inline-flex items-center text-xs font-bold",
+              delta >= 0 ? "bg-jet text-accent dark:ring-1 dark:ring-inset dark:ring-line" : "bg-alert/15 text-alert")}>
+              {delta >= 0 ? "+" : "−"}{n(Math.abs(delta))}%
+            </span>
           )}
         </div>
-        <div className="flex items-end justify-between h-36 pt-6 px-2" dir="ltr">
-          {weekly.map((w, i) => (
-            <div key={i} className="flex flex-col items-center gap-2 w-1/5">
-              <div className="w-full bg-neutral-900 rounded-t-xl h-24 relative overflow-hidden flex items-end">
-                <div className="w-full bg-gradient-to-t from-[#844783] to-[#a356a2] rounded-t-xl transition-all duration-500"
-                  style={{ height: `${Math.max((w.volume / maxVol) * 100, w.volume ? 6 : 0)}%` }} />
+        <div className="flex items-end justify-around gap-3 h-36" dir="ltr">
+          {weekly.map((w, i) => {
+            const last = i === weekly.length - 1;
+            return (
+              <div key={i} className="flex-1 max-w-[56px] h-full flex flex-col items-center justify-end gap-2">
+                <span className="text-[11px] font-semibold text-muted">{w.volume ? n((Math.round(w.volume / 100) / 10).toLocaleString("en-US")) : ""}</span>
+                <div className="w-full flex-1 flex items-end rounded-xl bg-sunk overflow-hidden">
+                  <div className={cx("w-full rounded-xl transition-all duration-500", last ? "bg-inv" : "bg-inv/30")}
+                    style={{ height: `${Math.max((w.volume / maxVol) * 100, w.volume ? 6 : 0)}%` }} />
+                </div>
+                <span className={cx("text-[11px]", last ? "font-bold text-ink" : "text-muted")}>
+                  {w.from.toLocaleDateString(isRtl ? "fa-IR" : "en-GB", { month: "numeric", day: "numeric" })}
+                </span>
               </div>
-              <span className="text-[10px] font-bold text-gray-400">{w.from.toLocaleDateString(undefined, { month: "numeric", day: "numeric" })}</span>
-            </div>
-          ))}
+            );
+          })}
         </div>
-      </div>
+        <span className="text-xs text-muted">{isRtl ? "تن در هفته" : "tonnes per week"}</span>
+      </Card>
 
       {prs.length > 0 && (
-        <div className="p-5 rounded-3xl bg-[#141416] border border-white/10 space-y-2">
-          <h3 className="flex items-center gap-1.5 text-sm font-black text-amber-400 uppercase"><Trophy className="w-4 h-4" /> {t.personalRecords}</h3>
-          {prs.map((pr, i) => (
-            <div key={i} className="flex items-center justify-between text-xs">
-              <span className="font-black text-white">{exerciseName(pr.exerciseId, isRtl)}</span>
-              <span className="font-bold text-emerald-400" dir="ltr">{pr.kind === "first" ? t.prFirst : `${pr.prev} → ${pr.value} ${t.kg}`}</span>
-            </div>
-          ))}
-        </div>
+        <>
+          <Label as="h2" className="m-0 mt-2 px-1">{t.personalRecords}</Label>
+          <List>
+            {prs.map((pr, i) => (
+              <Row key={i} isRtl={isRtl}
+                icon={<IconWell tone="inv" size={36}><Trophy className="w-[18px] h-[18px]" strokeWidth={2} /></IconWell>}
+                title={exerciseName(pr.exerciseId, isRtl)}
+                right={<span className="font-semibold text-ink" dir="ltr">{pr.kind === "first" ? t.prFirst : `${n(pr.prev)} → ${n(pr.value)} ${t.kg}`}</span>} />
+            ))}
+          </List>
+        </>
       )}
-    </div>
+    </Screen>
   );
 }

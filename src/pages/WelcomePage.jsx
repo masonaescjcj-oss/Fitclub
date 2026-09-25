@@ -1,4 +1,12 @@
 import React, { useState } from "react";
+import { motion } from "framer-motion";
+import { CtaButton, Label, Ring, cx, num } from "../components/ui/kit";
+import { FlowFooter, FlowScreen } from "../components/Header";
+
+// Welcome: the one ink screen before sign-up. Three rings for the three
+// things the app tracks, a big headline, and the way in.
+
+const RING_TRACK = "rgb(var(--ui-hero-2))";
 
 export default function WelcomePage({ onNavigate }) {
   const [language, setLanguage] = useState(() => localStorage.getItem("language") || "en");
@@ -15,96 +23,108 @@ export default function WelcomePage({ onNavigate }) {
 
   const welcomeTranslations = {
     en: {
-      beHealthy: "BE HEALTHY",
-      beStronger: "BE STRONGER",
-      beYourself: "BE YOURSELF",
-      joinNow: "Join Now",
-      logInBtn: "Log In",
+      beHealthy: "Be healthy.",
+      beStronger: "Be stronger.",
+      beYourself: "Be yourself.",
+      joinNow: "Join now",
+      logInBtn: "Log in",
+      haveAccount: "Already a member?",
       terms: "By joining Fitclub, you agree to the Terms and Privacy Policy.",
+      lede: "A coach that reads your training log, your food diary and your checklists, then tells you what to do today.",
+      rings: "rings a day",
+      train: "Train",
+      fuel: "Fuel",
+      showUp: "Show up",
+      language: "Language",
     },
     fa: {
-      beHealthy: "تندرست باشید",
-      beStronger: "قوی‌تر شوید",
-      beYourself: "خودتان باشید",
+      beHealthy: "تندرست باشید.",
+      beStronger: "قوی‌تر شوید.",
+      beYourself: "خودتان باشید.",
       joinNow: "عضویت",
       logInBtn: "ورود",
+      haveAccount: "عضو هستید؟",
       terms: "با عضویت در فیت‌کلاب، شرایط و قوانین حریم خصوصی را می‌پذیرید.",
-    }
+      lede: "مربی‌ای که دفتر تمرین، دفتر غذا و چک‌لیست‌هایت را می‌خواند و می‌گوید امروز چه کنی.",
+      rings: "حلقه در روز",
+      train: "تمرین",
+      fuel: "تغذیه",
+      showUp: "حضور",
+      language: "زبان",
+    },
   };
 
   const t = welcomeTranslations[language];
 
+  const legend = [
+    { label: t.train, dot: "bg-accent" },
+    { label: t.fuel, dot: "bg-coach" },
+    { label: t.showUp, dot: "bg-hero-fg" },
+  ];
+
   return (
-    <div className="w-full md:max-w-lg mx-auto min-h-[100dvh] bg-black text-white flex flex-col justify-between overflow-x-hidden relative font-sans select-none">
-      
-      {/* Main Content Container */}
-      <div className="flex flex-col justify-between flex-grow min-h-[100dvh] relative z-10 px-4 pt-8 pb-10">
-        
-        {/* Top Navigation/Status Area */}
-        <div className="relative z-10 flex justify-between items-center w-full">
-          {/* Double Overlapping Circles Logo */}
-          <div className="flex -space-x-2 items-center">
-            <div className="rounded-full bg-white shadow-sm" style={{ width: '26px', height: '26px' }} />
-            <div className="rounded-full bg-white/75 backdrop-blur-[1px] shadow-sm" style={{ width: '26px', height: '26px' }} />
-          </div>
-
-          {/* Language Toggle Button */}
-          <button
-            onClick={toggleLanguage}
-            className="px-3.5 py-1.5 rounded-full bg-transparent hover:bg-white/5 border border-white/20 text-white text-xs font-semibold transition-all active:scale-95 flex items-center gap-1.5"
-          >
-            <svg className="w-3.5 h-3.5 text-gray-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="10" />
-              <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
-              <path d="M2 12h20" />
+    <FlowScreen isRtl={isFa} className="!bg-jet !text-hero-fg">
+      <div className="flex items-center justify-between pt-3 shrink-0">
+        <span className="flex items-center gap-2.5" dir="ltr">
+          <span className="w-9 h-9 rounded-[11px] bg-accent text-on-accent flex items-center justify-center">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2"
+              strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M7 20V4.5h11" /><path d="M7 12h8" />
             </svg>
-            <span>{isFa ? "English" : "فارسی"}</span>
-          </button>
-        </div>
+          </span>
+          <span className="font-display font-bold text-[19px] tracking-[-0.02em]">FitClub</span>
+        </span>
 
-        {/* Bottom Info & Actions Container */}
-        <div className={`relative z-10 mt-auto w-full flex flex-col ${isFa ? "text-right" : "text-left"}`}>
-          
-          {/* Slogan Headlines Stacked */}
-          <div className={`mb-10 flex flex-col ${isFa ? "items-end text-right" : "items-start text-left"}`}>
-            <h1 className="text-4xl sm:text-5xl font-black text-white leading-[1.1] tracking-tight uppercase drop-shadow-lg">
-              {t.beHealthy}
-            </h1>
-            <h1 className="text-4xl sm:text-5xl font-black text-white leading-[1.1] tracking-tight uppercase mt-1.5 drop-shadow-lg">
-              {t.beStronger}
-            </h1>
-            <h1 className="text-4xl sm:text-5xl font-black text-white leading-[1.1] tracking-tight uppercase mt-1.5 drop-shadow-lg">
-              {t.beYourself}
-            </h1>
-          </div>
-
-          {/* Action Buttons Side-by-side */}
-          <div className="w-full mt-2">
-            <div className="flex gap-4 w-full">
-              {/* Join Now Button */}
-              <button
-                onClick={() => onNavigate("signup")}
-                className="flex-1 h-14 bg-[#844783] text-white font-black rounded-full hover:brightness-110 active:scale-[0.97] transition-all duration-300 text-sm flex items-center justify-center shadow-lg shadow-[#844783]/15"
-              >
-                {t.joinNow}
+        {/* The language switch. Either half flips it; the lit half is the current one. */}
+        <div role="group" aria-label={t.language} className="h-11 p-1 rounded-full bg-hero-2 flex items-center" dir="ltr">
+          {[{ id: "en", label: "EN" }, { id: "fa", label: "فا" }].map((l) => {
+            const on = language === l.id;
+            return (
+              <button key={l.id} type="button" lang={l.id} aria-pressed={on}
+                onClick={() => { if (!on) toggleLanguage(); }}
+                className={cx("h-9 min-w-[44px] px-3 rounded-full border-0 cursor-pointer text-[13px] font-semibold transition-colors",
+                  on ? "bg-hero-fg text-jet" : "bg-transparent text-hero-muted")}>
+                {l.label}
               </button>
-
-              {/* Log In Button */}
-              <button
-                onClick={() => onNavigate("login")}
-                className="flex-1 h-14 bg-white/[0.07] backdrop-blur-md border border-white/[0.1] text-white font-black rounded-full hover:bg-white/10 active:scale-[0.97] transition-all duration-300 text-sm flex items-center justify-center"
-              >
-                {t.logInBtn}
-              </button>
-            </div>
-
-            {/* Disclaimer Text */}
-            <p className="text-[9px] text-center text-gray-500/85 mt-5 tracking-wide">
-              {t.terms}
-            </p>
-          </div>
+            );
+          })}
         </div>
       </div>
-    </div>
+
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: [0.2, 0.8, 0.2, 1] }}
+        className="flex flex-col items-center gap-4 mt-3 shrink-0" aria-hidden="true">
+        <Ring size={244} stroke={15} value={0.75} color="rgb(var(--ui-accent))" track={RING_TRACK}>
+          <Ring size={186} stroke={15} value={0.55} color="rgb(var(--ui-coach))" track={RING_TRACK}>
+            <Ring size={128} stroke={15} value={0.7} color="rgb(var(--ui-hero-fg))" track={RING_TRACK}>
+              <span className="font-display font-extrabold text-[36px] leading-none tracking-[-0.04em]">{num(3, isFa)}</span>
+              <Label className="!text-[10px] !text-hero-muted mt-0.5">{t.rings}</Label>
+            </Ring>
+          </Ring>
+        </Ring>
+        <div className="flex justify-center gap-[18px]">
+          {legend.map((l) => (
+            <span key={l.label} className="inline-flex items-center gap-1.5 text-[13px] text-hero-fg/85">
+              <span className={cx("w-2 h-2 rounded-full", l.dot)} />{l.label}
+            </span>
+          ))}
+        </div>
+      </motion.div>
+
+      <div className="mt-5 flex flex-col gap-3.5 shrink-0">
+        <h1 className="m-0 font-display font-extrabold text-[52px] leading-[0.94] tracking-[-0.045em] rtl:text-[44px] rtl:leading-[1.25] rtl:tracking-normal">
+          {t.beHealthy}<br />{t.beStronger}<br /><span className="text-accent">{t.beYourself}</span>
+        </h1>
+        <p className="m-0 text-base leading-[1.45] text-hero-muted">{t.lede}</p>
+      </div>
+
+      <FlowFooter tone="ink" className="!pt-5">
+        <CtaButton tone="accent" isRtl={isFa} onClick={() => onNavigate("signup")}>{t.joinNow}</CtaButton>
+        <button type="button" onClick={() => onNavigate("login")}
+          className="h-12 w-full rounded-full bg-transparent border-0 cursor-pointer text-[15px] text-hero-fg transition-transform active:scale-[0.98]">
+          <span className="text-hero-muted">{t.haveAccount}</span> <span className="font-semibold">{t.logInBtn}</span>
+        </button>
+        <p className="m-0 text-center text-xs leading-normal text-hero-muted/80">{t.terms}</p>
+      </FlowFooter>
+    </FlowScreen>
   );
 }

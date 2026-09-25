@@ -1,82 +1,64 @@
 import React from "react";
-import { motion } from "framer-motion";
 import { Infinity as InfinityIcon, Timer } from "lucide-react";
 import { ME, periodEnd } from "../../lib/checklistModel";
+import { Avatar as KitAvatar, Ring, cx, num } from "../ui/kit";
 
-/** Circular progress meter. The ring reads at a glance; the number confirms it. */
-export function ProgressRing({ ratio, size = 62, stroke = 6, color = "#844783", children }) {
-  const r = (size - stroke) / 2;
-  const c = 2 * Math.PI * r;
+/**
+ * Circular progress meter on the kit's ring: ink on line by default, accent
+ * on the ink hero. The number in the middle confirms what the ring shows.
+ */
+export function ProgressRing({ ratio, size = 62, stroke = 6, color = "rgb(var(--ui-fg))", track = "rgb(var(--ui-line))", children }) {
+  const value = Math.min(Math.max(ratio || 0, 0), 1);
+  // A round cap on an empty arc still draws a dot, so hide the arc at zero.
   return (
-    <div className="relative shrink-0" style={{ width: size, height: size }}>
-      <svg width={size} height={size} className="-rotate-90">
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--track)" strokeWidth={stroke} />
-        <motion.circle
-          cx={size / 2} cy={size / 2} r={r} fill="none"
-          stroke={color} strokeWidth={stroke} strokeLinecap="round"
-          strokeDasharray={c}
-          initial={false}
-          animate={{ strokeDashoffset: c * (1 - Math.min(Math.max(ratio, 0), 1)) }}
-          transition={{ type: "spring", stiffness: 160, damping: 22 }}
-          style={{ filter: `drop-shadow(0 0 6px ${color}66)` }}
-        />
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center leading-none">
-        {children}
-      </div>
-    </div>
+    <Ring value={value} size={size} stroke={stroke} color={value > 0 ? color : "transparent"} track={track}>
+      {children}
+    </Ring>
   );
 }
 
-/** Small round member badge. Falls back to an initial when there's no emoji. */
-export function Avatar({ member, size = 26, ring = "var(--ground)", dimmed = false }) {
-  const label = member.avatar || (member.name || "?").slice(0, 1).toUpperCase();
+/**
+ * A member's badge: initials on one of the kit's avatar tones, so a person
+ * keeps the same colour everywhere. You are always sand, as on Today.
+ * `ring` is a ring-colour class that lifts the badge off whatever it overlaps.
+ */
+export function Avatar({ member, size = 26, ring = "ring-card", dimmed = false }) {
   return (
-    <div
-      className={`rounded-full flex items-center justify-center shrink-0 transition-opacity ${dimmed ? "opacity-35" : ""}`}
-      style={{
-        width: size, height: size,
-        fontSize: size * 0.5,
-        background: `${member.color || "#844783"}33`,
-        border: `1.5px solid ${member.color || "#844783"}`,
-        boxShadow: `0 0 0 2px ${ring}`,
-      }}
-      title={member.name}
-    >
-      <span className="leading-none">{label}</span>
-    </div>
+    <span title={member.name} className={cx("inline-flex shrink-0 rounded-full transition-opacity", dimmed && "opacity-35")}>
+      <KitAvatar name={member.name || "?"} size={size} tone={member.id === ME.id ? "bg-sand" : undefined}
+        className={ring ? cx("ring-2", ring) : ""} />
+    </span>
   );
 }
 
-export function AvatarStack({ members, size = 24, max = 4 }) {
+export function AvatarStack({ members, size = 24, max = 4, ring = "ring-card" }) {
   const shown = members.slice(0, max);
   const rest = members.length - shown.length;
   return (
-    <div className="flex items-center" dir="ltr">
+    <span className="flex items-center" dir="ltr">
       {shown.map((m, i) => (
-        <div key={m.id} style={{ marginLeft: i ? -size * 0.32 : 0, zIndex: shown.length - i }}>
-          <Avatar member={m} size={size} />
-        </div>
+        <span key={m.id} className="relative flex" style={{ marginLeft: i ? -size * 0.3 : 0, zIndex: shown.length - i }}>
+          <Avatar member={m} size={size} ring={ring} />
+        </span>
       ))}
       {rest > 0 && (
-        <div
-          className="rounded-full bg-neutral-800 border border-white/15 text-[9px] font-black text-neutral-300 flex items-center justify-center"
-          style={{ width: size, height: size, marginLeft: -size * 0.32 }}
-        >
+        <span className={cx("relative rounded-full bg-sunk text-muted font-bold flex items-center justify-center ring-2", ring)}
+          style={{ width: size, height: size, marginLeft: -size * 0.3, fontSize: Math.round(size * 0.36) }}>
           +{rest}
-        </div>
+        </span>
       )}
-    </div>
+    </span>
   );
 }
 
 /** Human-readable time until the list next clears itself. */
 export function ResetCountdown({ list, t, className = "" }) {
+  const n = (v) => num(v, t.rtl);
   const end = periodEnd(list.reset);
   if (!end) {
     return (
-      <span className={`inline-flex items-center gap-1 ${className}`}>
-        <InfinityIcon className="w-3.5 h-3.5" />
+      <span className={cx("inline-flex items-center gap-1.5", className)}>
+        <InfinityIcon className="w-4 h-4 shrink-0" strokeWidth={2} />
         {t.noReset}
       </span>
     );
@@ -87,56 +69,61 @@ export function ResetCountdown({ list, t, className = "" }) {
   const days = Math.floor(hours / 24);
 
   const value =
-    days >= 1 ? `${days} ${t.days}`
-      : hours >= 1 ? `${hours} ${t.hoursShort}`
-      : `${mins} ${t.minsShort}`;
+    days >= 1 ? `${n(days)} ${t.days}`
+      : hours >= 1 ? `${n(hours)} ${t.hoursShort}`
+      : `${n(mins)} ${t.minsShort}`;
 
   return (
-    <span className={`inline-flex items-center gap-1 ${className}`}>
-      <Timer className="w-3.5 h-3.5" />
+    <span className={cx("inline-flex items-center gap-1.5", className)}>
+      <Timer className="w-4 h-4 shrink-0" strokeWidth={2} />
       {t.resetsIn} {value}
     </span>
   );
 }
 
-/** One-line summary of a reset rule, e.g. "Weekly · Sat". */
+/** One-line summary of a reset rule, e.g. "Weekly · Sat" (Persian uses "،"). */
 export function describeReset(list, t) {
   const r = list.reset || {};
+  const n = (v) => num(v, t.rtl);
+  const sep = t.sep || " · ";
   switch (r.mode) {
     case "daily":
-      return `${t.resetDaily}${r.resetHour ? ` · ${String(r.resetHour).padStart(2, "0")}:00` : ""}`;
+      return `${t.resetDaily}${r.resetHour ? `${sep}${n(String(r.resetHour).padStart(2, "0"))}:${n("00")}` : ""}`;
     case "weekly":
-      return `${t.resetWeekly} · ${t.weekDays[r.weekStart ?? 6]}`;
+      return `${t.resetWeekly}${sep}${t.weekDays[r.weekStart ?? 6]}`;
     case "monthly":
-      return `${t.resetMonthly} · ${r.monthDay ?? 1}`;
+      return `${t.resetMonthly}${sep}${n(r.monthDay ?? 1)}`;
     case "interval":
-      return `${t.everyNDays} ${r.every ?? 2} ${t.days}`;
+      return `${t.everyNDays} ${n(r.every ?? 2)} ${t.days}`;
     default:
       return t.resetNone;
   }
 }
 
+/**
+ * Priority, drawn with the data colours: high is ink (accent on ink, as on
+ * the board), medium ochre, low grape. `dot` is a CSS colour for small marks.
+ */
 export const PRIORITY_STYLE = {
-  none: { dot: "transparent", text: "text-neutral-500" },
-  low: { dot: "#38bdf8", text: "text-sky-400" },
-  medium: { dot: "#f59e0b", text: "text-amber-400" },
-  high: { dot: "#f43f5e", text: "text-rose-400" },
+  none: { dot: "transparent", text: "text-muted", pill: "bg-sunk text-muted" },
+  low: { dot: "rgb(var(--ui-grape))", text: "text-grape", pill: "bg-grape/15 text-grape" },
+  medium: { dot: "rgb(var(--ui-ochre))", text: "text-ochre", pill: "bg-ochre/15 text-ochre" },
+  high: { dot: "rgb(var(--ui-fg))", text: "text-ink", pill: "bg-jet text-accent dark:bg-accent dark:text-on-accent" },
 };
 
-/** Due-date chip. Turns red once the date has passed. */
+/** Due date as quiet meta text. Turns alert once the date has passed. */
 export function DueChip({ due, t }) {
   if (!due) return null;
   const d = new Date(`${due}T00:00:00`);
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const diff = Math.round((d - today) / 86400000);
   const overdue = diff < 0;
-  const label = diff === 0 ? t.today : diff === 1 ? t.tomorrow : d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  const label = overdue ? t.overdueLong || t.overdue
+    : diff === 0 ? t.dueToday || t.today
+    : diff === 1 ? t.dueTomorrow || t.tomorrow
+    : `${t.dueOn || t.due} ${d.toLocaleDateString(t.rtl ? "fa-IR" : "en-GB", { month: "short", day: "numeric" })}`;
   return (
-    <span className={`px-1.5 py-0.5 rounded-md text-[9px] font-black border ${
-      overdue ? "bg-rose-500/15 border-rose-500/40 text-rose-400" : "bg-white/5 border-white/10 text-neutral-400"
-    }`}>
-      {overdue ? t.overdue : label}
-    </span>
+    <span className={cx("text-xs", overdue ? "text-alert font-semibold" : "text-muted")}>{label}</span>
   );
 }
 

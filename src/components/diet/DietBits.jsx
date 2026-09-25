@@ -1,92 +1,94 @@
 import React from "react";
 import { motion } from "framer-motion";
+import { Ring, cx, num } from "../ui/kit";
 
+/**
+ * Macro colours are the redesign's data colours: protein is ink, carbs grape,
+ * fat ochre. They read CSS variables, so night mode flips them for free.
+ * `MACRO_COLORS` is for inline data-vis styles; `MACRO_BG` for classNames.
+ */
 export const MACRO_COLORS = {
-  protein: "#e0567d",
-  carbs: "#f59e0b",
-  fat: "#38bdf8",
-  fiber: "#10b981",
+  protein: "rgb(var(--ui-fg))",
+  carbs: "rgb(var(--ui-grape))",
+  fat: "rgb(var(--ui-ochre))",
+  fiber: "rgb(var(--ui-muted))",
 };
+
+export const MACRO_BG = {
+  protein: "bg-ink",
+  carbs: "bg-grape",
+  fat: "bg-ochre",
+  fiber: "bg-muted",
+};
+
+const ALERT = "rgb(var(--ui-alert))";
 
 export const round = (n) => Math.round(n || 0);
 
-/** Big calorie dial: consumed against target, with what's left in the middle. */
-export function CalorieRing({ eaten, target, size = 148, stroke = 12, t }) {
-  const ratio = target ? eaten / target : 0;
-  const clamped = Math.min(Math.max(ratio, 0), 1);
-  const over = eaten > target;
-  const left = Math.abs(target - eaten);
-  const r = (size - stroke) / 2;
-  const c = 2 * Math.PI * r;
-  const color = over ? "#f43f5e" : "#844783";
+/** A rounded number with thousands separators, in Persian digits on Persian screens. */
+export const fmtNum = (value, isRtl) => num(round(value).toLocaleString("en-US"), isRtl);
 
+/** The small coloured dot that keys a macro to its bar. */
+export function MacroDot({ macro, className = "" }) {
+  return <span aria-hidden="true" className={cx("w-2 h-2 rounded-full shrink-0", MACRO_BG[macro], className)} />;
+}
+
+/** Calorie dial: consumed against target, with what's eaten in the middle. */
+export function CalorieRing({ eaten, target, size = 104, stroke = 12, t, isRtl }) {
+  const over = target > 0 && eaten > target;
   return (
-    <div className="relative shrink-0" style={{ width: size, height: size }}>
-      <svg width={size} height={size} className="-rotate-90">
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--track)" strokeWidth={stroke} />
-        <motion.circle
-          cx={size / 2} cy={size / 2} r={r} fill="none"
-          stroke={color} strokeWidth={stroke} strokeLinecap="round"
-          strokeDasharray={c}
-          initial={false}
-          animate={{ strokeDashoffset: c * (1 - clamped) }}
-          transition={{ type: "spring", stiffness: 140, damping: 24 }}
-          style={{ filter: `drop-shadow(0 0 10px ${color}66)` }}
-        />
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center leading-none gap-1">
-        <span className="text-3xl font-black text-white tabular-nums">{round(left)}</span>
-        <span className="text-[10px] font-black uppercase tracking-wider" style={{ color: over ? "#f43f5e" : "#a1a1aa" }}>
-          {over ? t.over : t.remaining}
-        </span>
-        <span className="text-[9px] font-bold text-neutral-600 tabular-nums mt-0.5">
-          {round(eaten)} / {round(target)}
-        </span>
-      </div>
-    </div>
+    <Ring value={target ? eaten / target : 0} size={size} stroke={stroke}
+      color={over ? ALERT : MACRO_COLORS.protein}>
+      <span className="text-[17px] font-bold leading-tight text-ink">{fmtNum(eaten, isRtl)}</span>
+      <span className="text-[11px] text-muted">{t.eaten}</span>
+    </Ring>
   );
 }
 
-/** One macro: a labelled bar that turns red past target. */
-export function MacroBar({ label, eaten, target, color, unit = "g", sub = null }) {
+/** One macro: dot and name, "eaten / target g", and a bar that turns alert past target. */
+export function MacroBar({ label, eaten, target, color, unit = "g", sub = null, isRtl, macro }) {
   const ratio = target ? Math.min(eaten / target, 1) : 0;
-  const over = eaten > target * 1.05;
+  const over = target > 0 && eaten > target * 1.05;
+  const fill = over ? ALERT : color || MACRO_COLORS[macro] || MACRO_COLORS.protein;
 
   return (
-    <div className="space-y-1 flex-1 min-w-0">
-      <div className="flex items-baseline justify-between gap-1">
-        <span className="text-[10px] font-black uppercase tracking-wide truncate" style={{ color }}>{label}</span>
-        <span className="text-[10px] font-black text-neutral-400 tabular-nums shrink-0" dir="ltr">
-          {round(eaten)}<span className="text-neutral-600">/{round(target)}{unit}</span>
+    <div className="flex flex-col gap-1.5 min-w-0">
+      <div className="flex items-baseline justify-between gap-2 text-[13px]">
+        <span className="inline-flex items-center gap-2 font-semibold text-ink min-w-0">
+          <span aria-hidden="true" className="w-2 h-2 rounded-full shrink-0" style={{ background: color || MACRO_COLORS[macro] }} />
+          <span className="truncate">{label}</span>
+          {sub && <span className="font-normal text-muted truncate">{sub}</span>}
+        </span>
+        <span className={cx("shrink-0", over ? "text-alert font-semibold" : "text-muted")}>
+          {fmtNum(eaten, isRtl)} / {fmtNum(target, isRtl)} {unit}
         </span>
       </div>
-      <div className="h-1.5 rounded-full bg-white/[0.07] overflow-hidden">
+      <div className="h-2 rounded-full bg-line overflow-hidden">
         <motion.div
           initial={false}
           animate={{ width: `${ratio * 100}%` }}
-          transition={{ type: "spring", stiffness: 160, damping: 24 }}
+          transition={{ type: "spring", stiffness: 160, damping: 26 }}
           className="h-full rounded-full"
-          style={{ background: over ? "#f43f5e" : color }}
+          style={{ background: fill }}
         />
       </div>
-      {sub && <span className="block text-[9px] font-bold text-neutral-600">{sub}</span>}
     </div>
   );
 }
 
-/** Compact stat used in the coach card. */
-export function Stat({ label, value, tone = "text-white", sub }) {
+/** Compact stat used in the coach card. `tone` is an optional text class. */
+export function Stat({ label, value, tone = "", sub }) {
   return (
-    <div className="min-w-0">
-      <span className="block text-[9px] font-black text-neutral-500 uppercase tracking-wider truncate">{label}</span>
-      <span className={`block text-sm font-black tabular-nums ${tone}`}>{value}</span>
-      {sub && <span className="block text-[9px] font-bold text-neutral-600 truncate">{sub}</span>}
+    <div className="min-w-0 flex flex-col gap-0.5">
+      <span className="text-[12px] font-medium opacity-70 truncate">{label}</span>
+      <span className={cx("font-display font-extrabold text-[24px] leading-none tracking-[-0.03em] truncate", tone)}>{value}</span>
+      {sub && <span className="text-[12px] leading-snug opacity-70">{sub}</span>}
     </div>
   );
 }
 
 /** Sparkline for the weight trend: raw dots, smoothed line. */
-export function TrendSpark({ points, width = 260, height = 54, color = "#844783" }) {
+export function TrendSpark({ points, width = 260, height = 54, color = "rgb(var(--ui-fg))" }) {
   if (points.length < 2) return null;
   const values = points.flatMap((p) => [p.raw, p.trend]);
   const min = Math.min(...values);
@@ -98,11 +100,11 @@ export function TrendSpark({ points, width = 260, height = 54, color = "#844783"
   const line = points.map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(p.trend).toFixed(1)}`).join(" ");
 
   return (
-    <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="overflow-visible">
+    <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="overflow-visible" aria-hidden="true">
       {points.map((p, i) => (
-        <circle key={p.key} cx={x(i)} cy={y(p.raw)} r={1.8} fill="var(--dot)" />
+        <circle key={p.key} cx={x(i)} cy={y(p.raw)} r={1.8} fill={color} opacity={0.3} />
       ))}
-      <path d={line} fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+      <path d={line} fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
       <circle cx={x(points.length - 1)} cy={y(points[points.length - 1].trend)} r={3.5} fill={color} />
     </svg>
   );

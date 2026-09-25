@@ -1,22 +1,33 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { motion } from "framer-motion";
 import {
-  AlertTriangle, Bot, Brain, CheckSquare, Dumbbell, Eye, EyeOff, Flame, KeyRound, Scale, Send, Settings2, Sparkles, Square, Trash2, User, WifiOff,
+  AlertTriangle, ArrowUp, ChevronLeft, ChevronRight, Eye, EyeOff, KeyRound, ListChecks, SlidersHorizontal, Square, Trash2,
 } from "lucide-react";
+import {
+  Button, Card, IconButton, IconWell, Label, List, Row, Screen, Sheet, Toggle, Field, cx, num,
+} from "../../components/ui/kit";
+import { CoachIcon, FuelIcon, TrainIcon } from "../../components/ui/icons";
 import { useCoachStore } from "../../lib/coach/coachContext";
 import { useCoachT } from "../../lib/coach/coachI18n";
 import { COACH_MODEL, looksLikeKey } from "../../lib/coach/claudeClient";
-import { Sheet } from "../../components/training/TrainingSheets";
-import { Toggle } from "../../components/diet/SmallSheets";
 
-const timeOf = (iso) => new Date(iso).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+// Coach: a lilac avatar header, the facts the coach is reading right now,
+// the conversation (coach in lilac, the athlete in ink), and a composer
+// that floats just above the tab bar with suggestion chips on top of it.
+
+const timeOf = (iso, isRtl) =>
+  new Date(iso).toLocaleTimeString(isRtl ? "fa-IR" : undefined, { hour: "2-digit", minute: "2-digit" });
+
+// Where the composer dock sits: the tab bar's bottom inset, its 64 px, and a 12 px gap.
+const DOCK_BOTTOM = "calc(max(env(safe-area-inset-bottom), 16px) + 64px + 12px)";
 
 /* ──────────────────────────── tiny markdown ──────────────────────────── */
 
 function Inline({ text }) {
   const parts = text.split(/(\*\*[^*]+\*\*)/g);
   return parts.map((p, i) =>
-    p.startsWith("**") && p.endsWith("**") ? <strong key={i} className="font-black text-white">{p.slice(2, -2)}</strong> : <React.Fragment key={i}>{p}</React.Fragment>
+    p.startsWith("**") && p.endsWith("**") ? <strong key={i} className="font-bold">{p.slice(2, -2)}</strong> : <React.Fragment key={i}>{p}</React.Fragment>
   );
 }
 
@@ -42,18 +53,18 @@ function Markdown({ text }) {
   flush();
   return (
     // A Persian athlete may type English and vice versa; each bubble picks its own direction.
-    <div className="space-y-1.5" dir="auto">
+    <div className="flex flex-col gap-2" dir="auto">
       {blocks.map((b, i) => {
-        if (b.type === "h") return <p key={i} className="font-black text-white pt-0.5"><Inline text={b.text} /></p>;
+        if (b.type === "h") return <p key={i} className="m-0 font-bold pt-0.5"><Inline text={b.text} /></p>;
         if (b.type === "list") {
           const Tag = b.ordered ? "ol" : "ul";
           return (
-            <Tag key={i} className={`${b.ordered ? "list-decimal" : "list-disc"} ps-4 space-y-1 marker:text-neutral-500`}>
+            <Tag key={i} className={cx(b.ordered ? "list-decimal" : "list-disc", "m-0 ps-5 flex flex-col gap-1 marker:opacity-60")}>
               {b.items.map((it, k) => <li key={k}><Inline text={it} /></li>)}
             </Tag>
           );
         }
-        return <p key={i}><Inline text={b.text} /></p>;
+        return <p key={i} className="m-0"><Inline text={b.text} /></p>;
       })}
     </div>
   );
@@ -65,136 +76,159 @@ function Bubble({ msg, isRtl, t, streaming }) {
   const isAi = msg.role === "assistant";
   const empty = !msg.text.trim();
   const body = msg.refused ? t.refused : msg.text + (msg.truncated ? `\n${t.truncated}` : "");
+  const tag = isAi && msg.source === "demo" ? t.demoTag : isAi && msg.source === "live" ? t.poweredBy : null;
   return (
-    <div className={`flex items-end gap-2 ${isAi ? "" : "flex-row-reverse"}`}>
-      <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${isAi ? "bg-[#844783] text-white" : "bg-neutral-800 text-neutral-300"}`}>
-        {isAi ? <Bot className="w-3.5 h-3.5" /> : <User className="w-3.5 h-3.5" />}
-      </div>
-      <div
-        className={`max-w-[82%] px-3.5 py-2.5 text-[13px] leading-relaxed font-medium ${
-          isAi
-            ? `bg-[#141416] border border-white/10 text-neutral-100 rounded-2xl ${isRtl ? "rounded-br-md" : "rounded-bl-md"}`
-            : `bg-gradient-to-br from-[#844783] to-[#9b4f9a] text-white rounded-2xl shadow-md ${isRtl ? "rounded-bl-md" : "rounded-br-md"}`
-        }`}
-      >
-        {isAi && empty && streaming ? (
-          <span className="inline-flex items-center gap-1.5 text-neutral-400 text-xs font-bold">
-            <span className="flex gap-0.5">
-              {[0, 1, 2].map((i) => (
-                <motion.span key={i} className="w-1.5 h-1.5 rounded-full bg-[#a356a2] block"
-                  animate={{ opacity: [0.2, 1, 0.2] }} transition={{ duration: 1, repeat: Infinity, delay: i * 0.18 }} />
-              ))}
-            </span>
-            {t.thinking}
+    <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, ease: "easeOut" }}
+      className={cx("px-3.5 py-3 text-[15px] leading-[1.45] break-words",
+        isAi
+          ? "self-start max-w-[88%] bg-coach text-on-accent rounded-[22px] rounded-es-lg"
+          : "self-end max-w-[80%] bg-inv text-on-inv rounded-[22px] rounded-ee-lg")}>
+      {isAi && empty && streaming ? (
+        <span className="inline-flex items-center gap-2 text-[13px] font-medium text-on-accent/70">
+          <span className="flex gap-1" aria-hidden="true">
+            {[0, 1, 2].map((i) => (
+              <motion.span key={i} className="w-1.5 h-1.5 rounded-full bg-on-accent/70 block"
+                animate={{ opacity: [0.2, 1, 0.2] }} transition={{ duration: 1, repeat: Infinity, delay: i * 0.18 }} />
+            ))}
           </span>
-        ) : (
-          <Markdown text={body} />
-        )}
-        <div className={`flex items-center gap-1.5 mt-1 text-[9px] font-bold ${isAi ? "text-neutral-500" : "text-white/60"} ${isRtl ? "justify-start" : "justify-end"}`}>
-          {isAi && msg.source === "demo" && <span className="px-1 rounded bg-amber-500/15 text-amber-300">{t.demoTag}</span>}
-          {isAi && msg.source === "live" && <span className="px-1 rounded bg-emerald-500/15 text-emerald-300">{t.poweredBy}</span>}
-          <span dir="ltr">{timeOf(msg.at)}</span>
-        </div>
+          {t.thinking}
+        </span>
+      ) : (
+        <Markdown text={body} />
+      )}
+      <div className={cx("mt-1.5 flex items-center gap-1.5 font-mono text-[11px]",
+        isAi ? "text-on-accent/60" : "text-on-inv/60 justify-end")}>
+        {tag && <span className="h-[18px] px-1.5 rounded-full bg-on-accent/10 text-on-accent/80 inline-flex items-center">{tag}</span>}
+        <span dir="ltr">{timeOf(msg.at, isRtl)}</span>
       </div>
-    </div>
+    </motion.div>
   );
 }
 
 /** What the coach is looking at right now, as tappable facts. */
-function ContextStrip({ snapshot, isRtl, t, onAsk }) {
-  const n = snapshot.nutrition;
+function ContextTiles({ snapshot, isRtl, t, onAsk }) {
+  const nu = snapshot.nutrition;
   const tr = snapshot.training;
   const h = snapshot.habits;
-  const sign = (v) => `${v >= 0 ? "+" : "−"}${Math.abs(v)}`;
+  const n = (v) => num(typeof v === "number" ? v.toLocaleString("en-US") : v, isRtl);
+  const sign = (v) => `${v >= 0 ? "+" : "−"}${n(Math.abs(v))}`;
 
-  const cards = [
-    n
-      ? { icon: Flame, color: "#f59e0b", label: t.today, value: `${n.today.kcal} / ${n.targets.kcal}`, sub: `${n.today.remaining.kcal} kcal ${t.left} · P ${n.today.remaining.protein} g`,
-          ask: isRtl ? `با ${n.today.remaining.kcal} کالری باقی‌مانده چه بخورم؟` : `What should I eat with ${n.today.remaining.kcal} kcal left?` }
-      : { icon: EyeOff, color: "#71717a", label: t.today, value: t.hidden, sub: t.nutrition, ask: null },
+  const tiles = [
+    nu
+      ? {
+          id: "today", label: t.today, value: `${n(nu.today.kcal)} ${t.kcal}`,
+          sub: nu.today.remaining.kcal >= 0 ? `${n(nu.today.remaining.kcal)} ${t.left}` : `${n(-nu.today.remaining.kcal)} ${t.over}`,
+          ask: isRtl ? `با ${nu.today.remaining.kcal} کالری باقی‌مانده چه بخورم؟` : `What should I eat with ${nu.today.remaining.kcal} kcal left?`,
+        }
+      : { id: "today", label: t.today, hidden: true, sub: t.nutrition },
     tr
-      ? { icon: Dumbbell, color: "#38bdf8", label: t.next, value: tr.next ? tr.next.title : "—", sub: `${t.lastTrained}: ${tr.daysSinceLast === null ? t.noWorkouts : t.daysAgo(tr.daysSinceLast)}`,
-          ask: tr.next ? (isRtl ? `برای جلسه‌ی «${tr.next.title}» چه وزنه‌هایی بزنم؟` : `What weights should I use for ${tr.next.title}?`) : null }
-      : { icon: EyeOff, color: "#71717a", label: t.next, value: t.hidden, sub: t.training, ask: null },
-    n && n.weight
-      ? { icon: Scale, color: "#a356a2", label: t.weight, value: `${n.weight.trendKg} kg`, sub: `${sign(n.weight.changeKg)} kg · ${n.weight.overDays}d`,
-          ask: isRtl ? "روند وزنم را تحلیل کن" : "Analyse my weight trend" }
-      : n ? { icon: Scale, color: "#a356a2", label: t.weight, value: `${n.profile.weightKg} kg`, sub: t.noWeights, ask: isRtl ? "چطور وزنم را درست پیگیری کنم؟" : "How should I track my weight?" } : null,
+      ? {
+          id: "next", label: t.next, value: tr.next ? tr.next.title : "—",
+          sub: tr.daysSinceLast === null ? t.noWorkouts : t.trained(num(t.daysAgo(tr.daysSinceLast), isRtl)),
+          ask: tr.next ? (isRtl ? `برای جلسه‌ی «${tr.next.title}» چه وزنه‌هایی بزنم؟` : `What weights should I use for ${tr.next.title}?`) : null,
+        }
+      : { id: "next", label: t.next, hidden: true, sub: t.training },
+    nu && nu.weight
+      ? {
+          id: "weight", label: t.weight, value: `${n(nu.weight.trendKg)} ${t.kg}`,
+          sub: t.weightChange(sign(nu.weight.changeKg), n(nu.weight.overDays)),
+          ask: isRtl ? "روند وزنم را تحلیل کن" : "Analyse my weight trend",
+        }
+      : nu
+        ? {
+            id: "weight", label: t.weight, value: `${n(nu.profile.weightKg)} ${t.kg}`, sub: t.noWeights,
+            ask: isRtl ? "چطور وزنم را درست پیگیری کنم؟" : "How should I track my weight?",
+          }
+        : null,
     h
-      ? { icon: CheckSquare, color: "#10b981", label: t.streak, value: `${h.streak}`, sub: `${t.periods} · ${h.lists.reduce((a, l) => a + l.open.length, 0)} ${isRtl ? "کار باز" : "open"}`,
-          ask: isRtl ? "کدام کار چک‌لیست را اول انجام بدهم؟" : "Which checklist item should I do first?" }
-      : { icon: EyeOff, color: "#71717a", label: t.streak, value: t.hidden, sub: t.habits, ask: null },
+      ? {
+          id: "streak", label: t.streak, value: n(h.streak),
+          sub: `${n(h.lists.reduce((a, l) => a + l.open.length, 0))} ${t.open}`,
+          ask: isRtl ? "کدام کار چک‌لیست را اول انجام بدهم؟" : "Which checklist item should I do first?",
+        }
+      : { id: "streak", label: t.streak, hidden: true, sub: t.habits },
   ].filter(Boolean);
 
   return (
-    <div>
-      <div className="flex items-center gap-1.5 text-[10px] font-black text-neutral-500 uppercase tracking-wider mb-1.5">
-        <Eye className="w-3 h-3" /> {t.seesTitle}
-      </div>
-      <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-4 px-4 pb-1">
-        {cards.map((c) => (
-          <button key={c.label} type="button" disabled={!c.ask} onClick={() => c.ask && onAsk(c.ask)}
-            className="shrink-0 min-w-[132px] p-2.5 rounded-2xl bg-[#141416] border border-white/10 text-start disabled:opacity-60 hover:border-white/25 transition-colors">
-            <span className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-wider" style={{ color: c.color }}>
-              <c.icon className="w-3 h-3" /> {c.label}
+    <div role="group" aria-label={t.dataTitle} className="-mx-5 px-5 flex gap-2 overflow-x-auto scrollbar-hide">
+      {tiles.map((c) => (
+        <button key={c.id} type="button" disabled={!c.ask} onClick={() => c.ask && onAsk(c.ask)}
+          className={cx("flex-[1_0_auto] min-w-[104px] max-w-[180px] rounded-2xl bg-card px-3 py-2.5 flex flex-col gap-1 text-start border-0",
+            "cursor-pointer transition-transform active:scale-[0.98] disabled:cursor-default disabled:active:scale-100")}>
+          <Label>{c.label}</Label>
+          {c.hidden ? (
+            <span className="inline-flex items-center gap-1.5 text-sm font-bold text-muted">
+              <EyeOff className="w-3.5 h-3.5" strokeWidth={2} />{t.hidden}
             </span>
-            <span className="block text-sm font-black text-white tabular-nums truncate mt-0.5" dir="auto">{c.value}</span>
-            <span className="block text-[9px] font-bold text-neutral-500 truncate">{c.sub}</span>
-          </button>
-        ))}
-      </div>
+          ) : (
+            <span className="text-sm font-bold text-ink truncate" dir="auto">{c.value}</span>
+          )}
+          <span className="text-xs text-muted truncate">{c.sub}</span>
+        </button>
+      ))}
     </div>
   );
 }
 
-function SettingsSheet({ coach, isRtl, t, onClose }) {
+const AREAS = [
+  { id: "nutrition", icon: FuelIcon },
+  { id: "training", icon: TrainIcon },
+  { id: "habits", icon: ListChecks },
+];
+
+function SettingsSheet({ open, coach, isRtl, t, onClose }) {
   const [key, setKey] = useState(coach.apiKey);
   const [show, setShow] = useState(false);
   const bad = key.trim() && !looksLikeKey(key);
   const save = () => { coach.setApiKey(key); onClose(); };
   return (
-    <Sheet title={t.settings} isRtl={isRtl} t={t} onClose={onClose}
+    <Sheet open={open} title={t.settings} isRtl={isRtl} onClose={onClose} closeLabel={t.close}
       footer={
         <>
-          <button type="button" onClick={onClose} className="flex-1 h-11 rounded-2xl bg-white/5 border border-white/10 text-sm font-black text-neutral-300">{t.close}</button>
-          <button type="button" onClick={save} disabled={!!bad} className="flex-1 h-11 rounded-2xl bg-[#844783] text-sm font-black text-white disabled:opacity-40">{t.save}</button>
+          <Button tone="card" className="flex-1" onClick={onClose}>{t.close}</Button>
+          <Button tone="ink" className="flex-1" onClick={save} disabled={!!bad}>{t.save}</Button>
         </>
       }>
-      <div>
-        <span className="block text-[10px] font-black text-neutral-500 uppercase tracking-wider mb-1.5">{t.apiKey}</span>
-        <div className="relative">
-          <KeyRound className={`w-4 h-4 text-neutral-500 absolute top-1/2 -translate-y-1/2 ${isRtl ? "right-3" : "left-3"}`} />
-          <input value={key} onChange={(e) => setKey(e.target.value)} type={show ? "text" : "password"} dir="ltr" autoComplete="off" spellCheck={false}
-            placeholder={t.apiKeyPh} aria-label={t.apiKey}
-            className={`w-full h-11 rounded-2xl bg-[#141416] border text-sm font-bold text-white placeholder:text-neutral-600 focus:outline-none focus:border-white/30 ${bad ? "border-rose-500/60" : "border-white/10"} ${isRtl ? "pr-10 pl-10" : "pl-10 pr-10"}`} />
-          <button type="button" onClick={() => setShow((v) => !v)} aria-label={show ? "hide" : "show"}
-            className={`absolute top-1/2 -translate-y-1/2 text-neutral-500 hover:text-white ${isRtl ? "left-3" : "right-3"}`}>
-            {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+      <Field label={t.apiKey} aria-label={t.apiKey} value={key} onChange={(e) => setKey(e.target.value)}
+        type={show ? "text" : "password"} dir="ltr" autoComplete="off" spellCheck={false} placeholder={t.apiKeyPh}
+        inputClass="font-mono text-[15px] focus-visible:outline-none"
+        error={bad ? t.apiKeyBad : undefined} hint={t.apiKeyHint}
+        prefix={<KeyRound className="w-[18px] h-[18px] text-muted" strokeWidth={2} />}
+        suffix={
+          <button type="button" onClick={() => setShow((v) => !v)} aria-label={show ? t.hideKey : t.showKey}
+            className="w-10 h-10 -me-2 rounded-full flex items-center justify-center bg-transparent border-0 text-muted cursor-pointer active:bg-sunk">
+            {show ? <EyeOff className="w-[18px] h-[18px]" strokeWidth={2} /> : <Eye className="w-[18px] h-[18px]" strokeWidth={2} />}
           </button>
+        } />
+
+      <Card className="flex flex-col gap-2.5">
+        <div className="flex items-center gap-3.5">
+          <IconWell tone="coach" size={36}><CoachIcon size={18} /></IconWell>
+          <span className="flex-1 min-w-0 flex flex-col gap-0.5">
+            <span className="text-[15px] font-semibold leading-snug">{t.model}</span>
+            <span dir="ltr" className="self-start font-mono text-[13px] text-muted">{COACH_MODEL}</span>
+          </span>
         </div>
-        <p className={`text-[10px] font-bold mt-1.5 leading-relaxed ${bad ? "text-rose-300" : "text-neutral-500"}`}>{bad ? t.apiKeyBad : t.apiKeyHint}</p>
-      </div>
+        <p className="m-0 text-[13px] leading-snug text-muted">{t.fallbackNote}</p>
+      </Card>
 
-      <div className="p-3 rounded-2xl bg-[#141416] border border-white/10 space-y-1">
-        <div className="flex items-center justify-between">
-          <span className="text-[10px] font-black text-neutral-500 uppercase tracking-wider">{t.model}</span>
-          <span className="text-xs font-black text-white" dir="ltr">{COACH_MODEL}</span>
-        </div>
-        <p className="text-[10px] font-bold text-neutral-500 leading-relaxed">{t.fallbackNote}</p>
-      </div>
+      <section className="flex flex-col gap-2">
+        <Label as="h3" className="m-0 px-1">{t.dataTitle}</Label>
+        <p className="m-0 px-1 text-[13px] leading-snug text-muted">{t.dataHint}</p>
+        <List>
+          {AREAS.map((a) => (
+            <Row key={a.id} isRtl={isRtl} title={t[a.id]}
+              icon={<IconWell tone="sunk" size={36}><a.icon size={18} strokeWidth={2} /></IconWell>}
+              right={<Toggle checked={coach.include[a.id]} label={t[a.id]} onChange={(v) => coach.setInclude({ [a.id]: v })} />} />
+          ))}
+        </List>
+      </section>
 
-      <div className="p-3 rounded-2xl bg-[#141416] border border-white/10">
-        <span className="block text-[10px] font-black text-neutral-500 uppercase tracking-wider">{t.dataTitle}</span>
-        <p className="text-[10px] font-bold text-neutral-500 mb-2 leading-relaxed">{t.dataHint}</p>
-        <Toggle label={t.nutrition} on={coach.include.nutrition} isRtl={isRtl} onChange={(nutrition) => coach.setInclude({ nutrition })} />
-        <Toggle label={t.training} on={coach.include.training} isRtl={isRtl} onChange={(training) => coach.setInclude({ training })} />
-        <Toggle label={t.habits} on={coach.include.habits} isRtl={isRtl} onChange={(habits) => coach.setInclude({ habits })} />
-      </div>
-
-      <button type="button" onClick={() => { if (window.confirm(t.clearConfirm)) { coach.clear(); onClose(); } }}
-        className="w-full h-11 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-black flex items-center justify-center gap-2">
-        <Trash2 className="w-4 h-4" /> {t.clear}
-      </button>
+      <List>
+        <Row isRtl={isRtl} danger title={t.clear}
+          icon={<IconWell tone="alert" size={36}><Trash2 className="w-[18px] h-[18px]" strokeWidth={2} /></IconWell>}
+          onClick={() => { if (window.confirm(t.clearConfirm)) { coach.clear(); onClose(); } }} />
+      </List>
     </Sheet>
   );
 }
@@ -206,14 +240,41 @@ export default function AiCoachPage({ isRtl }) {
   const coach = useCoachStore();
   const [input, setInput] = useState("");
   const [settings, setSettings] = useState(false);
-  const listRef = useRef(null);
+  // Bumped on every open so the sheet starts from the saved key, yet can still animate out.
+  const [settingsRev, setSettingsRev] = useState(0);
+  const [dockH, setDockH] = useState(0);
   const inputRef = useRef(null);
+  const dockRef = useRef(null);
+  const Chevron = isRtl ? ChevronLeft : ChevronRight;
+
+  const openSettings = () => { setSettingsRev((r) => r + 1); setSettings(true); };
+
+  // The dock changes height as the textarea grows and the chips come and go;
+  // the conversation keeps that much room under its last bubble.
+  useLayoutEffect(() => {
+    const el = dockRef.current;
+    if (!el) return undefined;
+    const measure = () => setDockH(el.offsetHeight);
+    measure();
+    if (typeof ResizeObserver === "undefined") return undefined;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // The textarea grows with what is typed, up to five lines.
+  useLayoutEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    // Empty, it keeps one line: a placeholder that wraps must not grow the pill.
+    el.style.height = "";
+    if (input) { el.style.height = "auto"; el.style.height = `${Math.min(el.scrollHeight, 128)}px`; }
+  }, [input]);
 
   const lastText = coach.messages[coach.messages.length - 1]?.text;
   useEffect(() => {
-    const el = listRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [coach.messages.length, lastText, coach.streaming]);
+    window.scrollTo(0, document.documentElement.scrollHeight);
+  }, [coach.messages.length, lastText, coach.streaming, dockH]);
 
   const submit = (e) => {
     e?.preventDefault();
@@ -227,102 +288,113 @@ export default function AiCoachPage({ isRtl }) {
   const ask = (q) => { if (!coach.streaming) coach.send(q); };
 
   const errorText = coach.error ? t.errors[coach.error] || t.errors.unknown : null;
-  const status = useMemo(() => (coach.live
-    ? { text: `${t.connected} · ${t.poweredBy}`, cls: "text-emerald-400", dot: "bg-emerald-500" }
-    : { text: t.demo, cls: "text-amber-300", dot: "bg-amber-400" }), [coach.live, t]);
+  const welcome = { id: "welcome", role: "assistant", source: "system", text: t.welcome(coach.name), at: coach.messages[0]?.at || new Date().toISOString() };
 
-  return (
-    <div className="w-full bg-black text-white flex flex-col px-4 pt-4" style={{ height: "calc(100dvh - 65px)" }}>
-      {/* Header */}
-      <div className="flex items-center justify-between pb-3 border-b border-white/10 shrink-0">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-[#844783] to-[#a356a2] flex items-center justify-center text-white shadow-lg shadow-[#844783]/30 shrink-0">
-            <Brain className="w-6 h-6" />
+  const dock = (
+    <div dir={isRtl ? "rtl" : "ltr"} className="ui !bg-transparent fixed inset-x-0 bottom-0 z-40 pointer-events-none">
+      <div ref={dockRef} style={{ paddingBottom: DOCK_BOTTOM }}
+        className="pointer-events-auto relative w-full md:max-w-lg mx-auto px-5 pt-2 flex flex-col gap-2.5 bg-canvas">
+        {/* The conversation fades out just above the chips instead of sliding under them. */}
+        <span aria-hidden="true" className="absolute inset-x-0 bottom-full h-6 bg-gradient-to-t from-canvas to-canvas/0" />
+        {!coach.streaming && coach.chips.length > 0 && (
+          <div role="group" aria-label={t.suggestions} className="-mx-5 px-5 flex gap-2 overflow-x-auto scrollbar-hide">
+            {coach.chips.map((c) => (
+              <button key={c} type="button" onClick={() => ask(c)} data-chip title={c}
+                className="shrink-0 max-w-[270px] h-[38px] px-3.5 rounded-full bg-card text-ink text-[13px] font-medium border-0 cursor-pointer transition-transform active:scale-[0.98]">
+                <span className="block truncate" dir="auto">{c}</span>
+              </button>
+            ))}
           </div>
-          <div className="min-w-0">
-            <h1 className="text-lg font-black text-white leading-tight truncate">{t.title}</h1>
-            <button type="button" onClick={() => setSettings(true)} className={`text-[11px] font-bold flex items-center gap-1.5 ${status.cls}`}>
-              <span className={`w-2 h-2 rounded-full ${status.dot} ${coach.live ? "animate-pulse" : ""}`} />
-              {status.text}
-            </button>
-          </div>
-        </div>
-        <button type="button" onClick={() => setSettings(true)} aria-label={t.settings}
-          className="w-10 h-10 rounded-2xl bg-[#141416] border border-white/10 flex items-center justify-center text-neutral-300 hover:text-white hover:border-white/25">
-          <Settings2 className="w-4 h-4" />
-        </button>
-      </div>
-
-      {/* Conversation */}
-      <div ref={listRef} className="flex-1 min-h-0 overflow-y-auto scrollbar-hide py-3 space-y-3">
-        <ContextStrip snapshot={coach.snapshot} isRtl={isRtl} t={t} onAsk={ask} />
-
-        {!coach.live && (
-          <button type="button" onClick={() => setSettings(true)}
-            className="w-full p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-start gap-2.5 text-start">
-            <WifiOff className="w-4 h-4 text-amber-300 shrink-0 mt-0.5" />
-            <span className="text-[11px] font-bold text-amber-100/90 leading-relaxed">{t.demoHint}</span>
-          </button>
         )}
 
-        <Bubble isRtl={isRtl} t={t} msg={{ id: "welcome", role: "assistant", source: "system", text: t.welcome(coach.name), at: coach.messages[0]?.at || new Date().toISOString() }} />
+        <form onSubmit={submit}
+          className="min-h-14 rounded-[28px] bg-card shadow-lift flex items-end gap-1.5 ps-5 pe-1.5 py-1.5 focus-within:ring-2 focus-within:ring-inset focus-within:ring-ink/25 transition-shadow">
+          <textarea
+            ref={inputRef}
+            value={input}
+            rows={1}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) submit(e); }}
+            placeholder={t.placeholder}
+            aria-label={t.composeLabel}
+            // "auto" reads the typed text; empty, it would fall back to LTR and misplace a Persian placeholder.
+            dir={input ? "auto" : isRtl ? "rtl" : "ltr"}
+            className={cx("flex-1 min-w-0 h-11 max-h-32 py-[11px] resize-none border-0 bg-transparent text-[15px] leading-[22px] text-ink placeholder:text-muted outline-none focus-visible:outline-none scrollbar-hide",
+              !input && "whitespace-nowrap overflow-hidden text-ellipsis")}
+          />
+          {coach.streaming ? (
+            <IconButton label={t.stop} onClick={coach.stop} tone="inv">
+              <Square className="w-4 h-4 fill-current" strokeWidth={2} />
+            </IconButton>
+          ) : (
+            <button type="submit" disabled={!input.trim()} aria-label={t.send} title={t.send}
+              className="w-11 h-11 shrink-0 rounded-full flex items-center justify-center border-0 cursor-pointer bg-jet text-accent dark:bg-accent dark:text-on-accent transition-transform active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed">
+              <ArrowUp className="w-5 h-5" strokeWidth={2.4} />
+            </button>
+          )}
+        </form>
+      </div>
+    </div>
+  );
 
+  return (
+    <Screen isRtl={isRtl} tabbed style={dockH ? { paddingBottom: dockH + 24 } : undefined}>
+      <header className="flex items-center gap-3 pt-3">
+        <span className="w-[50px] h-[50px] shrink-0 rounded-full bg-coach text-on-accent flex items-center justify-center ring-4 ring-coach/35">
+          <CoachIcon size={24} />
+        </span>
+        <div className="flex-1 min-w-0 flex flex-col gap-[3px]">
+          <h1 className="m-0 font-display font-extrabold text-[28px] leading-none tracking-[-0.035em] text-ink truncate">{t.title}</h1>
+          <button type="button" onClick={openSettings}
+            className="self-start max-w-full min-h-[22px] inline-flex items-center gap-1.5 p-0 bg-transparent border-0 cursor-pointer text-[13px] text-muted text-start">
+            <span aria-hidden="true" className={cx("w-2 h-2 rounded-full shrink-0", coach.live ? "bg-coach ring-1 ring-inset ring-ink/15" : "bg-faint")} />
+            <span className="truncate">{coach.live ? t.liveSub : t.demo}</span>
+          </button>
+        </div>
+        <IconButton label={t.settings} onClick={openSettings}>
+          <SlidersHorizontal className="w-5 h-5" strokeWidth={2} />
+        </IconButton>
+      </header>
+
+      <ContextTiles snapshot={coach.snapshot} isRtl={isRtl} t={t} onAsk={ask} />
+
+      {!coach.live && (
+        <button type="button" onClick={openSettings} aria-label={`${t.setupTitle}. ${t.addKey}`}
+          className="w-full rounded-3xl bg-card p-4 flex items-start gap-3 text-start border-0 cursor-pointer transition-transform active:scale-[0.98]">
+          <IconWell tone="sunk" size={40}><KeyRound className="w-[18px] h-[18px]" strokeWidth={2} /></IconWell>
+          <span className="flex-1 min-w-0 flex flex-col gap-1">
+            <span className="text-[15px] font-semibold text-ink">{t.setupTitle}</span>
+            <span className="text-[13px] leading-snug text-muted">{t.demoHint}</span>
+          </span>
+          <Chevron className="w-[18px] h-[18px] mt-2.5 shrink-0 text-muted" strokeWidth={2} />
+        </button>
+      )}
+
+      <div role="log" aria-label={t.conversation} aria-live="polite" className="mt-1 flex flex-col gap-2.5">
+        <Bubble isRtl={isRtl} t={t} msg={welcome} />
         {coach.messages.map((m, i) => (
           <Bubble key={m.id} msg={m} isRtl={isRtl} t={t} streaming={coach.streaming && i === coach.messages.length - 1} />
         ))}
-
-        {errorText && (
-          <div className="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center gap-2.5">
-            <AlertTriangle className="w-4 h-4 text-rose-300 shrink-0" />
-            <span className="flex-1 text-[11px] font-bold text-rose-100/90">{errorText}</span>
-            {coach.error === "auth" && (
-              <button type="button" onClick={() => { coach.dismissError(); setSettings(true); }} className="text-[11px] font-black text-rose-200 underline">{t.openSettings}</button>
-            )}
-          </div>
-        )}
       </div>
 
-      {/* Suggestions */}
-      {!coach.streaming && (
-        <div className="flex gap-1.5 overflow-x-auto scrollbar-hide -mx-4 px-4 pb-2 shrink-0">
-          {coach.chips.map((c) => (
-            <button key={c} type="button" onClick={() => ask(c)} data-chip
-              className="shrink-0 max-w-[240px] px-3 py-1.5 rounded-2xl bg-[#844783]/15 border border-[#844783]/40 text-[11px] font-bold text-[#d8a7d6] hover:bg-[#844783]/25 text-start leading-tight flex items-center gap-1.5">
-              <Sparkles className="w-3 h-3 shrink-0" />
-              <span style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{c}</span>
-            </button>
-          ))}
+      {errorText && (
+        <div role="alert" className="rounded-3xl bg-alert/10 px-4 py-3 flex items-start gap-3">
+          <IconWell tone="alert" size={32}><AlertTriangle className="w-4 h-4" strokeWidth={2} /></IconWell>
+          <div className="flex-1 min-w-0 flex flex-col items-start pt-1.5">
+            <span className="text-sm font-medium leading-snug text-alert">{errorText}</span>
+            {coach.error === "auth" && (
+              <button type="button" onClick={() => { coach.dismissError(); openSettings(); }}
+                className="h-10 -mb-1.5 p-0 bg-transparent border-0 cursor-pointer text-sm font-semibold text-alert underline underline-offset-[3px]">
+                {t.openSettings}
+              </button>
+            )}
+          </div>
         </div>
       )}
 
-      {/* Composer */}
-      <form onSubmit={submit} className="relative shrink-0 pb-[68px]">
-        <textarea
-          ref={inputRef}
-          value={input}
-          rows={1}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) submit(e); }}
-          placeholder={t.placeholder}
-          aria-label={t.placeholder}
-          className={`w-full min-h-[52px] max-h-32 py-3.5 bg-[#141416] border border-white/15 rounded-3xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#844783] transition-colors resize-none ${isRtl ? "pr-4 pl-14" : "pl-4 pr-14"}`}
-        />
-        {coach.streaming ? (
-          <button type="button" onClick={coach.stop} aria-label={t.stop}
-            className={`absolute top-1.5 w-10 h-10 bg-rose-500 text-white rounded-full flex items-center justify-center shadow-md active:scale-95 ${isRtl ? "left-1.5" : "right-1.5"}`}>
-            <Square className="w-3.5 h-3.5 fill-current" />
-          </button>
-        ) : (
-          <button type="submit" disabled={!input.trim()} aria-label={t.send}
-            className={`absolute top-1.5 w-10 h-10 bg-[#844783] hover:bg-[#965595] disabled:opacity-40 text-white rounded-full flex items-center justify-center shadow-md active:scale-95 ${isRtl ? "left-1.5" : "right-1.5"}`}>
-            <Send className={`w-4 h-4 ${isRtl ? "-scale-x-100" : ""}`} />
-          </button>
-        )}
-      </form>
+      {createPortal(dock, document.body)}
 
-      <AnimatePresence>
-        {settings && <SettingsSheet coach={coach} isRtl={isRtl} t={t} onClose={() => setSettings(false)} />}
-      </AnimatePresence>
-    </div>
+      <SettingsSheet key={settingsRev} open={settings} coach={coach} isRtl={isRtl} t={t} onClose={() => setSettings(false)} />
+    </Screen>
   );
 }

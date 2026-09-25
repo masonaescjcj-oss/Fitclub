@@ -1,108 +1,102 @@
-import React, { useMemo, useState } from "react";
-import { motion } from "framer-motion";
-import { Clock, Info, Minus, Plus, Search, X, Zap } from "lucide-react";
+import React, { useEffect, useMemo, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { Check as CheckIcon, Info, Minus, Plus, Search, X, Zap } from "lucide-react";
 import { CATEGORIES, findFood, macrosFor, searchFoods, servingsOf } from "../../lib/nutrition/foods";
-import { MACRO_COLORS, round } from "./DietBits";
+import { Chip, IconButton, IconWell, Label, cx, num } from "../ui/kit";
+import { fmtNum, round } from "./DietBits";
+import { fill } from "../../lib/nutrition/nutritionI18n";
 
-/** Step 2 of the sheet: choose how much, see the macros update live. */
-function PortionPane({ food, isRtl, t, onCancel, onConfirm, initialGrams }) {
+/** "P 31 · C 0 · F 4" (Persian: "پروتئین ۳۱، کربو ۰، چربی ۴"). */
+export function macroLine(m, isRtl, t, unit = "") {
+  const sep = isRtl ? "، " : " · ";
+  const u = unit ? ` ${unit}` : "";
+  return [[t.pShort, m.protein], [t.cShort, m.carbs], [t.fShort, m.fat]]
+    .map(([k, v]) => `${k} ${num(round(v), isRtl)}${u}`).join(sep);
+}
+
+/** The ink portion card: pick a serving, nudge the amount, see the macros update live. */
+function PortionPane({ food, meal, isRtl, t, onCancel, onConfirm, initialGrams }) {
   const servings = servingsOf(food);
   const [servingIdx, setServingIdx] = useState(0);
   const [count, setCount] = useState(() =>
     initialGrams ? +(initialGrams / servings[0].g).toFixed(2) : 1
   );
 
-  const grams = Math.max(Math.round(count * servings[servingIdx].g), 0);
+  const serving = servings[servingIdx];
+  const grams = Math.max(Math.round(count * serving.g), 0);
   const m = macrosFor(food, grams);
+  const sep = isRtl ? "، " : " · ";
 
   const nudge = (delta) => setCount((c) => Math.max(+(c + delta).toFixed(2), 0.25));
 
   return (
-    <div className="flex flex-col flex-1 min-h-0">
-      <div className="flex-1 overflow-y-auto p-4 space-y-5 scrollbar-hide">
-        <div>
-          <h3 className="text-base font-black text-white">{isRtl ? food.nameFa : food.nameEn}</h3>
+    <section aria-label={isRtl ? food.nameFa : food.nameEn}
+      className="ui-hero rounded-4xl bg-hero text-hero-fg p-[18px] flex flex-col gap-3.5">
+      <div className="flex items-start justify-between gap-3">
+        <span className="min-w-0 flex flex-col gap-1">
+          <span className="text-[17px] font-bold leading-snug line-clamp-2">{isRtl ? food.nameFa : food.nameEn}</span>
           {food.estimate && (
-            <span className="inline-flex items-center gap-1 mt-1 text-[9px] font-bold text-amber-400/90">
-              <Info className="w-3 h-3" /> {t.entryFrom}
+            <span className="inline-flex items-center gap-1.5 text-xs text-hero-muted">
+              <Info className="w-3.5 h-3.5 shrink-0" strokeWidth={2} /> {t.entryFrom}
             </span>
           )}
-        </div>
-
-        <div className="space-y-2">
-          <span className="block text-[10px] font-black text-neutral-500 uppercase tracking-wider">{t.serving}</span>
-          <div className="flex flex-wrap gap-1.5">
-            {servings.map((s, i) => (
-              <button key={`${s.en}-${i}`} type="button" onClick={() => setServingIdx(i)}
-                className={`px-3 h-9 rounded-xl text-[11px] font-black border transition-all ${
-                  servingIdx === i
-                    ? "bg-[#844783] border-[#844783] text-white"
-                    : "bg-[#141416] border-white/10 text-neutral-400 hover:border-white/25"
-                }`}>
-                {isRtl ? s.fa : s.en}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <span className="block text-[10px] font-black text-neutral-500 uppercase tracking-wider">{t.amount}</span>
-          <div className="flex items-center gap-2" dir="ltr">
-            <button type="button" onClick={() => nudge(-0.5)} aria-label="-"
-              className="w-11 h-11 rounded-xl bg-[#141416] border border-white/10 flex items-center justify-center text-neutral-300 hover:text-white">
-              <Minus className="w-4 h-4" />
-            </button>
-            <input
-              type="number" min="0.25" step="0.25" value={count}
-              onChange={(e) => setCount(Math.max(+e.target.value || 0, 0))}
-              className="flex-1 h-11 px-3 rounded-xl bg-[#141416] border border-white/10 text-center text-sm font-black text-white focus:outline-none focus:border-white/30"
-            />
-            <button type="button" onClick={() => nudge(0.5)} aria-label="+"
-              className="w-11 h-11 rounded-xl bg-[#141416] border border-white/10 flex items-center justify-center text-neutral-300 hover:text-white">
-              <Plus className="w-4 h-4" />
-            </button>
-            <span className="text-xs font-black text-neutral-500 w-16 text-right tabular-nums">{grams} {t.grams}</span>
-          </div>
-        </div>
-
-        {/* Live macro readout */}
-        <div className="p-4 rounded-2xl bg-[#141416] border border-white/10 space-y-3">
-          <div className="flex items-baseline justify-between">
-            <span className="text-[10px] font-black text-neutral-500 uppercase tracking-wider">{t.calories}</span>
-            <span className="text-2xl font-black text-white tabular-nums">{round(m.kcal)}</span>
-          </div>
-          <div className="grid grid-cols-4 gap-2 pt-2 border-t border-white/10" dir="ltr">
-            {[
-              ["protein", t.protein, m.protein],
-              ["carbs", t.carbs, m.carbs],
-              ["fat", t.fat, m.fat],
-              ["fiber", t.fiber, m.fiber],
-            ].map(([key, label, value]) => (
-              <div key={key} className="text-center">
-                <span className="block text-[9px] font-black uppercase" style={{ color: MACRO_COLORS[key] }}>{label}</span>
-                <span className="block text-sm font-black text-white tabular-nums">{round(value)}g</span>
-              </div>
-            ))}
-          </div>
-        </div>
+        </span>
+        <span className="shrink-0 font-display font-extrabold text-[26px] leading-none tracking-[-0.03em]">
+          {fmtNum(m.kcal, isRtl)} <span className="text-sm font-semibold text-hero-muted">{t.kcal}</span>
+        </span>
       </div>
 
-      <div className="p-4 border-t border-white/10 flex gap-2 shrink-0">
+      <div role="radiogroup" aria-label={t.serving} className="flex gap-1.5 overflow-x-auto scrollbar-hide -mx-[18px] px-[18px]">
+        {servings.map((s, i) => (
+          <button key={`${s.en}-${i}`} type="button" role="radio" aria-checked={servingIdx === i} onClick={() => setServingIdx(i)}
+            className={cx("h-9 px-4 rounded-full text-sm font-medium whitespace-nowrap border-0 cursor-pointer transition-colors",
+              servingIdx === i ? "bg-accent text-on-accent font-semibold" : "bg-hero-2 text-hero-fg")}>
+            {isRtl ? s.fa : s.en}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex items-center gap-2.5">
+        <IconButton label={t.less} tone="hero" onClick={() => nudge(-0.5)}>
+          <Minus className="w-5 h-5" strokeWidth={2.2} />
+        </IconButton>
+        <label className="flex-1 min-w-0 h-11 rounded-[14px] bg-hero-fg/[0.07] flex items-center justify-center gap-2 px-3 focus-within:ring-2 focus-within:ring-inset focus-within:ring-accent">
+          <span className="sr-only">{t.amount}</span>
+          <input
+            type="number" min="0.25" step="0.25" value={count} dir="ltr"
+            onChange={(e) => setCount(Math.max(+e.target.value || 0, 0))}
+            className="w-14 min-w-0 bg-transparent border-0 !outline-none text-center text-lg font-bold text-hero-fg [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+          />
+          <span className="text-sm text-hero-muted truncate">× {isRtl ? serving.fa : serving.en}</span>
+        </label>
+        <IconButton label={t.more} tone="hero" onClick={() => nudge(0.5)}>
+          <Plus className="w-5 h-5" strokeWidth={2.2} />
+        </IconButton>
+      </div>
+
+      <span className="text-[13px] text-hero-fg/75">
+        {num(grams, isRtl)} {t.grams}{sep}{macroLine(m, isRtl, t, t.grams)}{sep}{t.fiber} {num(round(m.fiber), isRtl)} {t.grams}
+      </span>
+
+      <div className="flex gap-2">
         <button type="button" onClick={onCancel}
-          className="flex-1 h-12 rounded-2xl bg-white/5 border border-white/10 text-neutral-300 font-black text-sm hover:bg-white/10 transition-all">
+          className="h-[54px] px-5 rounded-full bg-hero-2 text-hero-fg text-[15px] font-semibold border-0 cursor-pointer active:scale-[0.98] transition-transform">
           {t.cancel}
         </button>
         <button type="button" onClick={() => onConfirm(grams)} disabled={grams <= 0}
-          className="flex-1 h-12 rounded-2xl bg-[#844783] text-white font-black text-sm disabled:opacity-40 hover:brightness-110 active:scale-[0.98] transition-all">
-          {t.logIt}
+          className="flex-1 min-w-0 h-[54px] px-5 rounded-full bg-accent text-on-accent text-base font-bold border-0 cursor-pointer truncate active:scale-[0.98] transition-transform disabled:opacity-40">
+          {meal ? `${t.addTo} ${meal}` : t.logIt}
         </button>
       </div>
-    </div>
+    </section>
   );
 }
 
-/** Step 1: search or browse, plus a quick-add escape hatch. */
-export default function FoodSearchSheet({ mealId, isRtl, t, recentIds, onPick, onQuickAdd, onClose }) {
+/**
+ * The food log: search or browse by category, recent foods first, and a
+ * quick-add escape hatch. Picking a food opens the portion card at the foot.
+ */
+export default function FoodSearchSheet({ mealId, isRtl, t, recentIds, onPick, onQuickAdd, onClose, kcalLeft }) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState(null);
   const [chosen, setChosen] = useState(null);
@@ -114,116 +108,145 @@ export default function FoodSearchSheet({ mealId, isRtl, t, recentIds, onPick, o
   );
   const showRecents = !query && !category && recents.length > 0;
 
-  const meal = mealId ? (isRtl ? mealId.fa : mealId.en) : "";
+  const mealName = mealId ? (isRtl ? mealId.fa : mealId.en) : "";
+  // "Add to dinner": the meal reads as a common noun inside the English sentence.
+  const meal = isRtl ? mealName : mealName.toLowerCase();
+
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape") onClose?.(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const pick = (food) => setChosen((c) => (c?.id === food.id ? null : food));
 
   return (
-    <div dir={isRtl ? "rtl" : "ltr"} className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center">
+    <div dir={isRtl ? "rtl" : "ltr"} className="ui fixed inset-0 z-[70] flex items-end justify-center !bg-transparent">
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-        onClick={onClose} className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
+        onClick={onClose} className="absolute inset-0 bg-hero/45 backdrop-blur-[2px]" />
 
-      <motion.div
+      <motion.div role="dialog" aria-modal="true" aria-labelledby="food-log-title"
         initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
-        transition={{ type: "spring", stiffness: 320, damping: 34 }}
-        className="relative w-full sm:max-w-lg bg-[#0d0d0f] border-t sm:border border-white/15 rounded-t-3xl sm:rounded-3xl h-[88dvh] sm:h-[80dvh] flex flex-col overflow-hidden"
+        transition={{ type: "spring", stiffness: 340, damping: 36 }}
+        className="relative w-full md:max-w-lg h-[94dvh] bg-canvas rounded-t-4xl shadow-sheet flex flex-col overflow-hidden"
       >
-        <div className="flex items-center justify-between p-4 border-b border-white/10 shrink-0">
-          <h2 className="text-base font-black text-white">
-            {chosen ? t.addTo + " " + meal : t.addFood}
-          </h2>
-          <button type="button" onClick={onClose} aria-label={t.close}
-            className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-neutral-400 hover:text-white">
-            <X className="w-4 h-4" />
-          </button>
+        <span aria-hidden="true" className="mx-auto mt-2.5 w-10 h-1 rounded-full bg-line shrink-0" />
+
+        <div className="px-5 pt-3 flex flex-col gap-3.5 shrink-0">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-col gap-1 min-w-0">
+              {kcalLeft != null && (
+                <Label>{fill(kcalLeft >= 0 ? t.kcalLeftN : t.kcalOverN, { n: fmtNum(Math.abs(kcalLeft), isRtl) })}</Label>
+              )}
+              <h2 id="food-log-title" className="m-0 font-display font-extrabold text-[30px] leading-none tracking-[-0.035em] text-ink truncate">
+                {meal ? `${t.addTo} ${meal}` : t.addFood}
+              </h2>
+            </div>
+            <IconButton label={t.close} tone="card" onClick={onClose}>
+              <X className="w-5 h-5" strokeWidth={2} />
+            </IconButton>
+          </div>
+
+          <label className="h-[52px] rounded-[18px] bg-card flex items-center gap-2.5 px-4 focus-within:ring-2 focus-within:ring-inset focus-within:ring-ink">
+            <Search className="w-5 h-5 text-muted shrink-0" strokeWidth={2} />
+            <span className="sr-only">{t.searchFood}</span>
+            <input
+              type="search" autoFocus value={query} onChange={(e) => setQuery(e.target.value)}
+              placeholder={t.searchFood}
+              className="flex-1 min-w-0 h-full border-0 bg-transparent text-base text-ink !outline-none placeholder:text-muted/70"
+            />
+            {query && (
+              <button type="button" onClick={() => setQuery("")} aria-label={t.cancel}
+                className="w-8 h-8 -me-1.5 rounded-full bg-sunk text-muted flex items-center justify-center border-0 cursor-pointer">
+                <X className="w-4 h-4" strokeWidth={2.2} />
+              </button>
+            )}
+          </label>
+
+          <div role="group" aria-label={t.categories} className="flex gap-2 overflow-x-auto scrollbar-hide -mx-5 px-5">
+            <Chip active={category === null} onClick={() => setCategory(null)}>{t.allFoods}</Chip>
+            {CATEGORIES.map((c) => (
+              <Chip key={c.id} active={category === c.id} onClick={() => setCategory(category === c.id ? null : c.id)}>
+                {isRtl ? c.fa : c.en}
+              </Chip>
+            ))}
+          </div>
         </div>
 
-        {chosen ? (
-          <PortionPane food={chosen} isRtl={isRtl} t={t}
-            onCancel={() => setChosen(null)}
-            onConfirm={(grams) => onPick(chosen, grams)} />
-        ) : (
-          <>
-            <div className="p-4 pb-2 space-y-3 shrink-0">
-              <div className="relative">
-                <Search className={`w-4 h-4 text-neutral-500 absolute top-1/2 -translate-y-1/2 ${isRtl ? "right-3" : "left-3"}`} />
-                <input
-                  autoFocus value={query} onChange={(e) => setQuery(e.target.value)}
-                  placeholder={t.searchFood}
-                  className={`w-full h-11 ${isRtl ? "pr-10 pl-3" : "pl-10 pr-3"} rounded-2xl bg-[#141416] border border-white/10 text-sm font-bold text-white placeholder:text-neutral-600 focus:outline-none focus:border-white/30`}
-                />
-              </div>
+        <div className="flex-1 min-h-0 overflow-y-auto px-5 pt-3.5 pb-5 flex flex-col gap-3 scrollbar-hide">
+          <button type="button" onClick={onQuickAdd}
+            className="w-full min-h-[64px] rounded-3xl bg-card flex items-center gap-3 px-4 py-2.5 text-start border-0 cursor-pointer active:scale-[0.99] transition-transform">
+            <IconWell tone="inv" size={40}><Zap className="w-[18px] h-[18px]" strokeWidth={2} /></IconWell>
+            <span className="flex-1 min-w-0 flex flex-col gap-0.5">
+              <span className="text-[15px] font-semibold text-ink">{t.quickAdd}</span>
+              <span className="text-[13px] text-muted truncate">{t.quickAddHint}</span>
+            </span>
+            <Plus className="w-5 h-5 text-muted shrink-0" strokeWidth={2} />
+          </button>
 
-              <div className="flex gap-1.5 overflow-x-auto scrollbar-hide pb-1">
-                <button type="button" onClick={() => setCategory(null)}
-                  className={`px-3 h-8 rounded-lg text-[10px] font-black whitespace-nowrap border transition-all ${
-                    category === null ? "bg-white/10 border-white/30 text-white" : "bg-[#141416] border-white/10 text-neutral-400"
-                  }`}>
-                  {t.allFoods}
-                </button>
-                {CATEGORIES.map((c) => (
-                  <button key={c.id} type="button" onClick={() => setCategory(category === c.id ? null : c.id)}
-                    className={`px-3 h-8 rounded-lg text-[10px] font-black whitespace-nowrap border transition-all ${
-                      category === c.id ? "bg-white/10 border-white/30 text-white" : "bg-[#141416] border-white/10 text-neutral-400"
-                    }`}>
-                    {c.emoji} {isRtl ? c.fa : c.en}
-                  </button>
-                ))}
-              </div>
-            </div>
+          {showRecents && (
+            <>
+              <Label as="h3" className="m-0 mt-1 px-1">{t.recent}</Label>
+              <FoodList foods={recents} chosen={chosen} isRtl={isRtl} t={t} onPick={pick} label={t.recent} />
+              <Label as="h3" className="m-0 mt-1 px-1">{t.allFoods}</Label>
+            </>
+          )}
 
-            <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-2 scrollbar-hide">
-              <button type="button" onClick={onQuickAdd}
-                className="w-full p-3 rounded-2xl bg-[#141416] border border-dashed border-white/15 flex items-center gap-3 hover:border-white/30 transition-all">
-                <span className="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center shrink-0">
-                  <Zap className="w-4 h-4 text-amber-400" />
-                </span>
-                <span className="flex-1 text-start min-w-0">
-                  <span className="block text-xs font-black text-white">{t.quickAdd}</span>
-                  <span className="block text-[9px] font-medium text-neutral-500 truncate">{t.quickAddHint}</span>
-                </span>
-              </button>
+          {results.length === 0
+            ? <p className="m-0 py-10 text-center text-sm text-muted">{t.noMatches}</p>
+            : <FoodList foods={results} chosen={chosen} isRtl={isRtl} t={t} onPick={pick} label={t.foods} />}
+        </div>
 
-              {showRecents && (
-                <>
-                  <h3 className="flex items-center gap-1.5 text-[10px] font-black text-neutral-500 uppercase tracking-wider px-1 pt-2">
-                    <Clock className="w-3 h-3" /> {t.recent}
-                  </h3>
-                  {recents.map((food) => (
-                    <FoodRow key={`r-${food.id}`} food={food} isRtl={isRtl} onClick={() => setChosen(food)} />
-                  ))}
-                  <h3 className="text-[10px] font-black text-neutral-500 uppercase tracking-wider px-1 pt-3">
-                    {t.allFoods}
-                  </h3>
-                </>
-              )}
-
-              {results.length === 0 && (
-                <p className="py-10 text-center text-xs font-bold text-neutral-600">{t.noMatches}</p>
-              )}
-
-              {results.map((food) => (
-                <FoodRow key={food.id} food={food} isRtl={isRtl} onClick={() => setChosen(food)} />
-              ))}
-            </div>
-          </>
-        )}
+        <AnimatePresence initial={false}>
+          {chosen && (
+            <motion.div key={chosen.id}
+              initial={{ y: 24, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 24, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 420, damping: 36 }}
+              className="shrink-0 px-5 pt-1 pb-[max(env(safe-area-inset-bottom),20px)]">
+              <PortionPane food={chosen} meal={meal} isRtl={isRtl} t={t}
+                onCancel={() => setChosen(null)}
+                onConfirm={(grams) => onPick(chosen, grams)} />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.div>
     </div>
   );
 }
 
-function FoodRow({ food, isRtl, onClick }) {
+function FoodList({ foods, chosen, isRtl, t, onPick, label }) {
+  return (
+    <ul aria-label={label} className="m-0 p-0 py-1 list-none rounded-3xl bg-card divide-y divide-hair">
+      {foods.map((food) => (
+        <FoodRow key={food.id} food={food} isRtl={isRtl} t={t} selected={chosen?.id === food.id} onClick={() => onPick(food)} />
+      ))}
+    </ul>
+  );
+}
+
+function FoodRow({ food, isRtl, t, selected, onClick }) {
   const s = food.servings[0];
   const per = macrosFor(food, s.g);
+  const name = isRtl ? food.nameFa : food.nameEn;
+  const sep = isRtl ? "، " : " · ";
   return (
-    <button type="button" onClick={onClick}
-      className="w-full p-3 rounded-2xl bg-[#141416] border border-white/10 flex items-center gap-3 hover:border-white/25 transition-all text-start">
-      <span className="flex-1 min-w-0">
-        <span className="block text-xs font-black text-white truncate">{isRtl ? food.nameFa : food.nameEn}</span>
-        <span className="block text-[9px] font-bold text-neutral-500 truncate" dir="ltr">
-          {round(per.kcal)} kcal · {isRtl ? s.fa : s.en} ({s.g}g) · P{round(per.protein)} C{round(per.carbs)} F{round(per.fat)}
+    <li className={cx("list-none", selected && "bg-sunk/60")}>
+      <button type="button" onClick={onClick} aria-pressed={selected}
+        aria-label={selected ? `${name}, ${t.selected}` : `${t.add} ${name}`}
+        className="w-full min-h-[64px] flex items-center gap-3 ps-4 pe-2.5 py-2.5 text-start bg-transparent border-0 cursor-pointer">
+        <span className="flex-1 min-w-0 flex flex-col gap-0.5">
+          <span className={cx("text-[15px] text-ink truncate", selected ? "font-bold" : "font-semibold")}>{name}</span>
+          <span className="text-xs text-muted truncate">
+            {isRtl ? s.fa : s.en} ({num(s.g, isRtl)} {t.grams}){sep}{macroLine(per, isRtl, t)}
+          </span>
         </span>
-      </span>
-      <Plus className="w-4 h-4 text-neutral-600 shrink-0" />
-    </button>
+        <span className="text-sm font-semibold text-ink shrink-0">{fmtNum(per.kcal, isRtl)}</span>
+        <span aria-hidden="true"
+          className={cx("w-11 h-11 rounded-full flex items-center justify-center shrink-0 transition-colors",
+            selected ? "bg-jet text-accent dark:ring-1 dark:ring-inset dark:ring-line" : "bg-sunk text-ink")}>
+          {selected ? <CheckIcon className="w-5 h-5" strokeWidth={2.4} /> : <Plus className="w-5 h-5" strokeWidth={2.2} />}
+        </span>
+      </button>
+    </li>
   );
 }

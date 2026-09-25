@@ -1,52 +1,57 @@
 import React from "react";
-import { Utensils, ArrowLeft } from "lucide-react";
+import { Clock, Egg, Fish, Flame, Salad } from "lucide-react";
+import { Card, IconWell, Label, Screen, Tag, TopBar, num } from "../../components/ui/kit";
+
+// Recipes: a short list of high-protein meals, each with its prep time,
+// calories and protein at a glance.
+
+const RECIPES = [
+  {
+    titleEn: "High-Protein Chicken Rice Bowl", titleFa: "کاسه مرغ و برنج پرپروتئین",
+    prepMin: 20, kcal: 520, protein: 48, categoryEn: "High protein", categoryFa: "پرپروتئین", icon: Salad, tone: "sand",
+  },
+  {
+    titleEn: "Avocado & Egg Fitness Toast", titleFa: "تست آووکادو و تخم‌مرغ ورزشی",
+    prepMin: 10, kcal: 340, protein: 22, categoryEn: "Quick breakfast", categoryFa: "صبحانه سریع", icon: Egg, tone: "sage",
+  },
+  {
+    titleEn: "Salmon & Quinoa Power Salad", titleFa: "سالاد سلمون و کینوا مقوی",
+    prepMin: 15, kcal: 480, protein: 38, categoryEn: "Low carb", categoryFa: "کم‌کربوهیدرات", icon: Fish, tone: "mist",
+  },
+];
 
 export default function RecipeExplorePage({ onBack, isRtl }) {
-  const recipes = [
-    { titleEn: "High-Protein Chicken Rice Bowl", titleFa: "کاسه مرغ و برنج پرپروتئین", prepTime: "20 mins", kcal: "520 kcal", protein: "48g", category: "High Protein" },
-    { titleEn: "Avocado & Egg Fitness Toast", titleFa: "تست آووکادو و تخم‌مرغ ورزشی", prepTime: "10 mins", kcal: "340 kcal", protein: "22g", category: "Quick Breakfast" },
-    { titleEn: "Salmon & Quinoa Power Salad", titleFa: "سالاد سلمون و کینوا مقوی", prepTime: "15 mins", kcal: "480 kcal", protein: "38g", category: "Low Carb" },
-  ];
-
+  const n = (v) => num(v, isRtl);
   return (
-    <div className="w-full min-h-[100dvh] bg-black text-white px-4 pt-6 pb-28 space-y-6 select-none">
-      
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-white/10 pb-4">
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={onBack}
-            className="w-9 h-9 rounded-xl bg-[#141416] border border-white/10 flex items-center justify-center text-gray-300 hover:text-white"
-          >
-            <ArrowLeft className="w-4 h-4 rtl:rotate-180" />
-          </button>
-          <h1 className="text-xl font-black text-white">{isRtl ? "دستور پخت‌های رژیمی" : "Healthy Recipe Explorer"}</h1>
-        </div>
-        <Utensils className="w-6 h-6 text-amber-400" />
-      </div>
+    <Screen isRtl={isRtl}>
+      <TopBar title={isRtl ? "دستور پخت‌های رژیمی" : "Recipes"} onBack={onBack} isRtl={isRtl} />
+      <p className="m-0 text-[15px] leading-[1.45] text-muted">
+        {isRtl ? "وعده‌های ساده و پرپروتئین که با برنامه‌ی تغذیه‌ات جور درمی‌آیند." : "Simple, high-protein meals that fit your targets."}
+      </p>
 
-      {/* Recipes List */}
-      <div className="space-y-3">
-        {recipes.map((r, idx) => (
-          <div key={idx} className="p-4 rounded-2xl bg-[#141416] border border-white/10 space-y-2.5">
-            <div className="flex justify-between items-center">
-              <span className="text-[10px] font-black text-[#844783] uppercase px-2.5 py-0.5 rounded-full bg-[#844783]/20 border border-[#844783]/40">
-                {r.category}
-              </span>
-              <span className="text-xs font-mono font-bold text-emerald-400">{r.kcal}</span>
-            </div>
-
-            <h3 className="text-sm font-black text-white">{isRtl ? r.titleFa : r.titleEn}</h3>
-
-            <div className="flex items-center justify-between pt-2 border-t border-white/10 text-xs font-bold text-gray-400">
-              <span>{isRtl ? `آماده‌سازی: ${r.prepTime}` : `Prep: ${r.prepTime}`}</span>
-              <span className="text-purple-300 font-black">Protein: {r.protein}</span>
-            </div>
-          </div>
-        ))}
-      </div>
-
-    </div>
+      <ul className="m-0 p-0 list-none flex flex-col gap-2.5">
+        {RECIPES.map((r) => {
+          const Icon = r.icon;
+          return (
+            <li key={r.titleEn}>
+              <Card className="flex flex-col gap-3.5">
+                <div className="flex items-start gap-3.5">
+                  <IconWell tone={r.tone} square size={48}><Icon className="w-[22px] h-[22px]" strokeWidth={2} /></IconWell>
+                  <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+                    <Label>{isRtl ? r.categoryFa : r.categoryEn}</Label>
+                    <h2 className="m-0 text-[17px] font-bold leading-snug text-ink">{isRtl ? r.titleFa : r.titleEn}</h2>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  <Tag><Clock className="w-3.5 h-3.5" strokeWidth={2} />{n(r.prepMin)} {isRtl ? "دقیقه" : "min"}</Tag>
+                  <Tag><Flame className="w-3.5 h-3.5" strokeWidth={2} />{n(r.kcal)} {isRtl ? "کالری" : "kcal"}</Tag>
+                  <Tag tone="inv" className="font-semibold">{isRtl ? `پروتئین ${n(r.protein)} گرم` : `Protein ${r.protein} g`}</Tag>
+                </div>
+              </Card>
+            </li>
+          );
+        })}
+      </ul>
+    </Screen>
   );
 }

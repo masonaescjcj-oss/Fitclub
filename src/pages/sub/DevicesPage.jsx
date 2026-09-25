@@ -1,85 +1,71 @@
 import React, { useState } from "react";
-import { Watch, ArrowLeft, RefreshCw } from "lucide-react";
+import { Activity, HeartPulse, RefreshCw, Watch, Zap } from "lucide-react";
+import { Card, IconWell, Label, List, Row, Screen, Tag, Toggle, TopBar, num } from "../../components/ui/kit";
+
+// Wearables: a sync status card, then each integration with a connect switch.
+
+const COPY = {
+  en: {
+    title: "Devices", syncTitle: "Auto-Sync Active", syncBody: "Syncing steps, heart rate & sleep",
+    connectedCount: (k) => `${k} connected`, available: "Available Integrations", connect: "Connect", connected: "Connected",
+    category: { ios: "iOS Sync", watch: "Smartwatch", android: "Android Sync", tracker: "Fitness Tracker" },
+    sync: { now: "Just now", m2: "2 mins ago", h1: "1 hour ago", never: "Never" },
+  },
+  fa: {
+    title: "دستگاه‌ها", syncTitle: "همگام‌سازی خودکار فعال است", syncBody: "همگام‌سازی ضربان، گام‌ها و خواب",
+    connectedCount: (k) => `${k} دستگاه متصل`, available: "ساعت‌ها و اپلیکیشن‌های پشتیبانی‌شده", connect: "اتصال", connected: "متصل شد",
+    category: { ios: "همگام‌سازی iOS", watch: "ساعت هوشمند", android: "همگام‌سازی اندروید", tracker: "مچ‌بند ورزشی" },
+    sync: { now: "همین حالا", m2: "۲ دقیقه پیش", h1: "۱ ساعت پیش", never: "هرگز" },
+  },
+};
+
+const ICONS = { apple_health: HeartPulse, garmin: Watch, google_fit: Activity, fitbit: Zap };
 
 export default function DevicesPage({ onBack, isRtl }) {
+  const c = COPY[isRtl ? "fa" : "en"];
   const [devices, setDevices] = useState([
-    { id: "apple_health", name: "Apple Health", category: "iOS Sync", connected: true, lastSync: "2 mins ago", icon: "🍎" },
-    { id: "garmin", name: "Garmin Connect", category: "Smartwatch", connected: false, lastSync: "Never", icon: "⌚" },
-    { id: "google_fit", name: "Google Fit", category: "Android Sync", connected: true, lastSync: "1 hour ago", icon: "🏃" },
-    { id: "fitbit", name: "Fitbit Sense", category: "Fitness Tracker", connected: false, lastSync: "Never", icon: "⚡" },
+    { id: "apple_health", name: "Apple Health", category: "ios", connected: true, lastSync: "m2" },
+    { id: "garmin", name: "Garmin Connect", category: "watch", connected: false, lastSync: "never" },
+    { id: "google_fit", name: "Google Fit", category: "android", connected: true, lastSync: "h1" },
+    { id: "fitbit", name: "Fitbit Sense", category: "tracker", connected: false, lastSync: "never" },
   ]);
 
   const toggleConnect = (id) => {
     setDevices((prev) =>
-      prev.map((d) => (d.id === id ? { ...d, connected: !d.connected, lastSync: "Just now" } : d))
+      prev.map((d) => (d.id === id ? { ...d, connected: !d.connected, lastSync: "now" } : d))
     );
   };
 
+  const live = devices.filter((d) => d.connected).length;
+
   return (
-    <div className="w-full min-h-[100dvh] bg-black text-white px-4 pt-6 pb-28 space-y-6 select-none">
-      
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-white/10 pb-4">
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={onBack}
-            className="w-9 h-9 rounded-xl bg-[#141416] border border-white/10 flex items-center justify-center text-gray-300 hover:text-white"
-          >
-            <ArrowLeft className="w-4 h-4 rtl:rotate-180" />
-          </button>
-          <h1 className="text-xl font-black text-white">{isRtl ? "دستگاه‌ها و ساعت‌های هوشمند" : "Connected Wearables"}</h1>
+    <Screen isRtl={isRtl}>
+      <TopBar isRtl={isRtl} onBack={onBack} title={c.title} />
+
+      <Card tone="hero" className="flex items-center gap-3.5">
+        <IconWell tone="accent" size={48}>
+          <RefreshCw className="w-[22px] h-[22px] animate-spin" style={{ animationDuration: "8s" }} strokeWidth={2} />
+        </IconWell>
+        <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+          <h2 className="m-0 text-[17px] font-bold">{c.syncTitle}</h2>
+          <p className="m-0 text-sm text-hero-muted">{c.syncBody}</p>
+          <Tag tone="hero" className="self-start mt-2 font-semibold">{c.connectedCount(num(live, isRtl))}</Tag>
         </div>
-        <Watch className="w-6 h-6 text-[#844783]" />
-      </div>
+      </Card>
 
-      {/* Sync Status Banner */}
-      <div className="p-5 rounded-3xl bg-gradient-to-r from-[#844783]/20 via-[#703b6f]/20 to-neutral-900 border border-[#844783]/40 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-2xl bg-[#844783] flex items-center justify-center text-white shadow-lg">
-            <RefreshCw className="w-5 h-5 animate-spin" style={{ animationDuration: "8s" }} />
-          </div>
-          <div>
-            <h3 className="text-sm font-black text-white">{isRtl ? "همگام‌سازی خودکار ضربان و ضربان قلب" : "Auto-Sync Active"}</h3>
-            <p className="text-xs text-neutral-400 font-medium">{isRtl ? "همگام‌سازی ضربان، گام‌ها و خواب" : "Syncing steps, heart rate & sleep"}</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Devices List */}
-      <div className="space-y-3">
-        <h3 className="text-xs font-black text-neutral-400 uppercase tracking-wider px-1">
-          {isRtl ? "ساعت‌ها و اپلیکیشن‌های پشتیبانی‌شده" : "Available Integrations"}
-        </h3>
-
-        {devices.map((device) => (
-          <div
-            key={device.id}
-            className="p-4 rounded-2xl bg-[#141416] border border-white/10 flex items-center justify-between"
-          >
-            <div className="flex items-center gap-3.5">
-              <span className="text-2xl">{device.icon}</span>
-              <div>
-                <h4 className="text-sm font-black text-white">{device.name}</h4>
-                <span className="text-xs text-neutral-400 font-medium">{device.category} • {device.lastSync}</span>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => toggleConnect(device.id)}
-              className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${
-                device.connected
-                  ? "bg-emerald-500/20 border border-emerald-500/40 text-emerald-400"
-                  : "bg-[#844783] hover:bg-[#965595] text-white"
-              }`}
-            >
-              {device.connected ? (isRtl ? "متصل شد ✓" : "Connected ✓") : (isRtl ? "اتصال" : "Connect")}
-            </button>
-          </div>
-        ))}
-      </div>
-
-    </div>
+      <Label as="h2" className="m-0 mt-2 px-1">{c.available}</Label>
+      <List>
+        {devices.map((device) => {
+          const Icon = ICONS[device.id] || Watch;
+          return (
+            <Row key={device.id} isRtl={isRtl}
+              icon={<IconWell tone={device.connected ? "inv" : "sunk"} size={40}><Icon className="w-5 h-5" strokeWidth={2} /></IconWell>}
+              title={device.name}
+              subtitle={`${device.connected ? c.connected : c.category[device.category]}${isRtl ? "، " : " · "}${c.sync[device.lastSync]}`}
+              right={<Toggle checked={device.connected} onChange={() => toggleConnect(device.id)} label={`${c.connect} ${device.name}`} />} />
+          );
+        })}
+      </List>
+    </Screen>
   );
 }

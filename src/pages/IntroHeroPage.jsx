@@ -1,67 +1,76 @@
 import React from "react";
-import Header from "../components/Header";
+import { motion } from "framer-motion";
+import { Clock, SlidersHorizontal } from "lucide-react";
+import { CtaButton, Label } from "../components/ui/kit";
+import Header, { FlowFooter, FlowScreen } from "../components/Header";
+
+// The breath between the account and the questions: an ink hero with the
+// runner, one headline, and the way into the questionnaire.
 
 export default function IntroHeroPage({ onNavigate }) {
   const language = localStorage.getItem("language") || "en";
   const isRtl = language === "fa";
 
+  const c = isRtl
+    ? {
+      eyebrow: "مرحله‌ی بعد",
+      lede: "چند سؤال کوتاه درباره‌ی هدف، بدن و امکاناتت. جواب‌هایت برنامه‌ی تمرین و کالری روزانه‌ات را می‌سازد.",
+      time: "حدود ۲ دقیقه",
+      change: "بعداً قابل تغییر",
+      start: "شروع کنید",
+    }
+    : {
+      eyebrow: "Up next",
+      lede: "A few quick questions about your goal, your body and your kit. Your answers set your training split and daily calories.",
+      time: "About 2 min",
+      change: "Change it any time",
+      start: "Start",
+    };
+
   return (
-    <div className="w-full md:max-w-lg mx-auto min-h-[100dvh] bg-black text-white flex flex-col justify-between overflow-hidden relative font-sans select-none">
-      
-      {/* Full-Screen Premium Athlete Hero Background */}
-      <div className="absolute inset-0 z-0 overflow-hidden">
-        <img
+    <FlowScreen isRtl={isRtl} className="relative !bg-jet !text-hero-fg">
+      {/* The runner, fading into the ink so the copy below sits on solid ground. */}
+      <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-[64%] min-h-[420px] overflow-hidden">
+        <motion.img
           src="/athlete_run_neon.jpg"
-          alt="Athlete Runner"
-          className="w-full h-full object-cover object-center opacity-70 scale-105"
+          alt=""
+          initial={{ opacity: 0, scale: 1.04 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.6, ease: [0.2, 0.8, 0.2, 1] }}
+          className="w-full h-full object-cover object-[center_28%]"
         />
-        {/* Immersive Dark Gradient Overlays */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-black/10" />
+        <div className="absolute inset-0 bg-gradient-to-t from-jet via-jet/30 to-jet/0" />
+        <div className="absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-jet/70 to-jet/0" />
       </div>
 
-      {/* Unified Top Sticky Header */}
-      <Header onBack={() => onNavigate("profile-setup")} isRtl={isRtl} />
+      <Header onBack={() => onNavigate("profile-setup")} isRtl={isRtl} tone="ink" />
 
-      {/* Spacer to push content to bottom */}
-      <div className="flex-grow z-10" />
+      <div className="flex-1 min-h-[300px]" />
 
-      {/* Bottom Info & Action Area */}
-      <div className="relative z-20 mt-auto flex justify-between items-end w-full px-6 pb-10 flex-row rtl:flex-row-reverse">
-        
-        {/* Headline + Pagination Dots */}
-        <div className={`flex flex-col ${isRtl ? "items-end text-right" : "items-start text-left"}`}>
-          <h1 className="text-2xl sm:text-3xl font-black text-white leading-tight uppercase tracking-tight max-w-[280px]">
-            {isRtl ? (
-              <>کشف یک نسخه‌ی<br />سالم‌تر و قوی‌تر.</>
-            ) : (
-              <>Discover A<br />Healthier,<br />Stronger You.</>
-            )}
-          </h1>
-          
-          {/* Pagination Indicators */}
-          <div className="flex gap-1.5 items-center mt-5">
-            <div className="h-1.5 w-6 rounded-full bg-[#844783]" />
-            <div className="h-1.5 w-1.5 rounded-full bg-white/30" />
-            <div className="h-1.5 w-1.5 rounded-full bg-white/30" />
-          </div>
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, delay: 0.1 }}
+        className="relative z-10 flex flex-col gap-3.5 shrink-0">
+        <Label className="!text-hero-muted">{c.eyebrow}</Label>
+        <h1 className="m-0 font-display font-extrabold text-[46px] leading-[0.95] tracking-[-0.045em] rtl:text-[40px] rtl:leading-[1.25] rtl:tracking-normal">
+          {isRtl ? (
+            <>کشف یک نسخه‌ی<br /><span className="text-accent">سالم‌تر و قوی‌تر.</span></>
+          ) : (
+            <>Discover a<br />healthier,<br /><span className="text-accent">stronger you.</span></>
+          )}
+        </h1>
+        <p className="m-0 text-base leading-[1.45] text-hero-muted">{c.lede}</p>
+        <div className="flex flex-wrap gap-1.5">
+          <span className="h-8 px-3 rounded-full bg-hero-2 text-hero-fg/85 text-[13px] font-medium inline-flex items-center gap-1.5">
+            <Clock className="w-4 h-4" strokeWidth={2} />{c.time}
+          </span>
+          <span className="h-8 px-3 rounded-full bg-hero-2 text-hero-fg/85 text-[13px] font-medium inline-flex items-center gap-1.5">
+            <SlidersHorizontal className="w-4 h-4" strokeWidth={2} />{c.change}
+          </span>
         </div>
+      </motion.div>
 
-        {/* Pill-shaped Action Button */}
-        <button
-          onClick={() => onNavigate("onboarding-questions")}
-          className="px-6 py-3.5 rounded-full bg-[#844783] hover:bg-[#965595] active:scale-95 transition-all flex items-center justify-center gap-2 text-white font-black text-sm shadow-lg shadow-[#844783]/20 shrink-0"
-        >
-          <span>{isRtl ? "شروع کنید" : "Start"}</span>
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
-            {isRtl ? (
-              <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-            ) : (
-              <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-            )}
-          </svg>
-        </button>
-
-      </div>
-    </div>
+      <FlowFooter tone="ink" className="!pt-5">
+        <CtaButton tone="accent" isRtl={isRtl} onClick={() => onNavigate("onboarding-questions")}>{c.start}</CtaButton>
+      </FlowFooter>
+    </FlowScreen>
   );
 }

@@ -1,11 +1,62 @@
 import React from "react";
-import { Flame, ArrowLeft, Trophy, Calendar, ListChecks } from "lucide-react";
+import { Calendar, Check as CheckIcon, Trophy } from "lucide-react";
+import { Card, IconWell, Label, List, Row, Screen, TopBar, cx, initials, num } from "../../components/ui/kit";
+import { FlameIcon } from "../../components/ui/icons";
 import { useChecklistStore } from "../../lib/checklistContext";
-import { historyByDate, localized, overallBest, overallStreak, topStreakList } from "../../lib/checklistModel";
+import { historyByDate, localized, overallBest, overallStreak, topStreakList, ymd } from "../../lib/checklistModel";
 import { useChecklistT } from "../../lib/checklistI18n";
+
+// Streak: the number, this week's days, the milestones on the way, the
+// 30-day grid from the checklist history, and every list's own run.
+
+const COPY = {
+  en: {
+    title: "Streak & Habits", current: "Current streak", dayStreak: "Day streak",
+    bestLine: (b, gap) => (gap > 0 ? `Your longest run is ${b} days. ${gap} more to beat it.` : b > 0 ? "This is your longest run yet." : ""),
+    thisWeek: "This week", today: "Today", milestones: "Milestones",
+    last30: "Last 30 days", allDone: "All done", partial: "Partial", none: "No activity",
+    bestStreak: "Best streak", perfectDays: "Perfect days", days: "days",
+    rank: "My Rank", rankSub: "Where you stand on the leaderboard", history: "History", historySub: "Every workout you've logged",
+  },
+  fa: {
+    title: "جزئیات استریک روزانه", current: "استریک فعلی", dayStreak: "روز متوالی",
+    bestLine: (b, gap) => (gap > 0 ? `طولانی‌ترین زنجیره‌ات ${b} روز است. ${gap} روز دیگر تا شکستنش.` : b > 0 ? "این طولانی‌ترین زنجیره‌ی تو تا امروز است." : ""),
+    thisWeek: "این هفته", today: "امروز", milestones: "نقطه‌های عطف",
+    last30: "تقویم فعالیت ۳۰ روز", allDone: "کامل", partial: "ناقص", none: "بدون فعالیت",
+    bestStreak: "طولانی‌ترین زنجیره", perfectDays: "روزهای کامل", days: "روز",
+    rank: "رتبه‌بندی من", rankSub: "جایگاهت در جدول رتبه‌بندی", history: "تاریخچه کامل", historySub: "همه‌ی تمرین‌هایی که ثبت کردی",
+  },
+};
+
+const MILESTONES = [7, 14, 30, 60, 100];
+
+/** The seven days of this week, Monday-first in English and Saturday-first in Persian (as on Today). */
+function weekDays(isRtl, now = new Date()) {
+  const start = new Date(now);
+  start.setHours(0, 0, 0, 0);
+  const firstDay = isRtl ? 6 : 1;
+  start.setDate(start.getDate() - ((start.getDay() - firstDay + 7) % 7));
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(start);
+    d.setDate(start.getDate() + i);
+    return d;
+  });
+}
+
+/** Share of the milestone track to fill: milestones are evenly spaced, the streak sits between two. */
+function trackFill(streak) {
+  if (streak <= MILESTONES[0]) return 0;
+  for (let i = 0; i < MILESTONES.length - 1; i += 1) {
+    const [a, b] = [MILESTONES[i], MILESTONES[i + 1]];
+    if (streak < b) return (i + (streak - a) / (b - a)) / (MILESTONES.length - 1);
+  }
+  return 1;
+}
 
 export default function StreakDetailPage({ onBack, onGoToRank, onGoToHistory, isRtl }) {
   const t = useChecklistT(isRtl);
+  const c = COPY[isRtl ? "fa" : "en"];
+  const n = (v) => num(v, isRtl);
   const { lists } = useChecklistStore();
 
   const currentStreak = overallStreak(lists);
@@ -16,159 +67,156 @@ export default function StreakDetailPage({ onBack, onGoToRank, onGoToHistory, is
   const days = historyByDate(lists, 30);
   const tracked = days.filter((d) => d.tracked);
   const perfectDays = tracked.filter((d) => d.done === d.total).length;
+  const byKey = Object.fromEntries(days.map((d) => [ymd(d.date), d]));
+  const todayKey = ymd(new Date());
+  const week = weekDays(isRtl);
+  const fmt = (d, opts) => new Intl.DateTimeFormat(isRtl ? "fa-IR-u-ca-persian" : "en-GB", opts).format(d);
+
+  const best = Math.max(longestStreak, currentStreak);
+  const bestLine = c.bestLine(n(best), n(best - currentStreak));
+  const nextMilestone = MILESTONES.find((m) => m > currentStreak);
+  const go = (fn) => () => { fn?.(); window.scrollTo(0, 0); };
 
   return (
-    <div className="w-full min-h-[100dvh] bg-black text-white px-4 pt-6 pb-28 space-y-6 select-none">
+    <Screen isRtl={isRtl}>
+      <TopBar isRtl={isRtl} onBack={onBack} title={<span className="sr-only">{c.title}</span>} />
 
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-white/10 pb-4">
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={onBack}
-            className="w-9 h-9 rounded-xl bg-[#141416] border border-white/10 flex items-center justify-center text-gray-300 hover:text-white"
-          >
-            <ArrowLeft className="w-4 h-4 rtl:rotate-180" />
-          </button>
-          <h1 className="text-xl font-black text-white">{isRtl ? "جزئیات استریک روزانه" : "Streak & Habits"}</h1>
+      <section aria-label={c.current} className="flex flex-col items-center text-center pt-1.5 pb-1">
+        <span className="w-16 h-16 rounded-full bg-accent text-on-accent flex items-center justify-center ring-8 ring-card">
+          <FlameIcon size={30} />
+        </span>
+        <h1 className="m-0 mt-5 font-display font-extrabold text-[140px] leading-[0.82] tracking-[-0.06em] text-ink">{n(currentStreak)}</h1>
+        <Label className="mt-3 text-xs">{c.dayStreak}</Label>
+        <p className="m-0 mt-2 text-[15px] leading-[1.45] text-muted max-w-[290px]">
+          {currentStreak > 0 && leader
+            ? <>{bestLine} {t.streakFrom}: <span className="font-semibold text-ink">{localized(leader, isRtl)}</span></>
+            : t.noStreakYet}
+        </p>
+      </section>
+
+      <Card aria-label={c.thisWeek} className="flex justify-between">
+        {week.map((d) => {
+          const key = ymd(d);
+          const day = byKey[key];
+          const isToday = key === todayKey;
+          const full = day?.tracked && day.done === day.total;
+          const past = key < todayKey;
+          return (
+            <span key={key} className="flex flex-col items-center gap-1.5">
+              <span className={cx("w-[38px] h-[38px] rounded-full flex items-center justify-center text-[13px] font-bold",
+                isToday ? "bg-accent text-on-accent ring-2 ring-inset ring-jet"
+                  : full ? "bg-jet text-accent dark:ring-1 dark:ring-inset dark:ring-line"
+                    : past && day?.tracked && day.done > 0 ? "bg-sunk text-ink text-xs"
+                      : "ring-[1.5px] ring-inset ring-line")}>
+                {isToday
+                  ? (day?.tracked ? `${n(day.done)}/${n(day.total)}` : "")
+                  : full ? <CheckIcon className="w-4 h-4" strokeWidth={3} />
+                    : past && day?.tracked && day.done > 0 ? `${n(day.done)}/${n(day.total)}` : ""}
+              </span>
+              <span className={cx("text-xs", isToday ? "font-bold text-ink" : "text-muted")}>
+                {isToday ? c.today : fmt(d, { weekday: "narrow" })}
+              </span>
+            </span>
+          );
+        })}
+      </Card>
+
+      <Card className="flex flex-col gap-4 px-[18px] pb-[18px]" aria-labelledby="streak-miles">
+        <h2 id="streak-miles" className="m-0 text-base font-bold">{c.milestones}</h2>
+        <div className="relative h-14">
+          <span aria-hidden="true" className="absolute inset-x-3.5 top-[13px] h-1 rounded-full bg-line" />
+          <span aria-hidden="true" className="absolute start-3.5 top-[13px] h-1 rounded-full bg-inv"
+            style={{ width: `calc((100% - 28px) * ${trackFill(currentStreak)})` }} />
+          <ol className="absolute inset-0 m-0 p-0 list-none flex justify-between">
+            {MILESTONES.map((m) => {
+              const reached = currentStreak >= m;
+              const next = m === nextMilestone;
+              return (
+                <li key={m} className="flex flex-col items-center gap-2 w-[30px]">
+                  <span className={cx("w-[30px] h-[30px] rounded-full flex items-center justify-center",
+                    reached ? "bg-jet text-accent dark:ring-1 dark:ring-inset dark:ring-line"
+                      : next ? "bg-accent ring-2 ring-inset ring-jet" : "bg-card ring-2 ring-inset ring-line")}>
+                    {reached && <CheckIcon className="w-3.5 h-3.5" strokeWidth={3} />}
+                  </span>
+                  <span className={cx("text-xs", reached || next ? "font-bold text-ink" : "text-muted")}>{n(m)}</span>
+                </li>
+              );
+            })}
+          </ol>
         </div>
-        <Flame className="w-6 h-6 text-amber-400 fill-amber-400" />
-      </div>
+      </Card>
 
-      {/* Hero Streak Flame Card */}
-      <div className="p-7 rounded-3xl bg-gradient-to-br from-orange-500/30 via-amber-500/20 to-neutral-900 border border-orange-500/40 text-center relative overflow-hidden space-y-2">
-        <div className="w-20 h-20 rounded-full bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 mx-auto mb-2 shadow-[0_0_30px_rgba(245,158,11,0.3)]">
-          <Flame className="w-10 h-10 fill-amber-400 animate-bounce" style={{ animationDuration: "2s" }} />
-        </div>
-
-        <h2 className="text-4xl font-black text-white tracking-tighter" dir="ltr">
-          {currentStreak} <span className="text-lg font-black text-amber-400">{isRtl ? "روز متوالی" : "DAYS"}</span>
-        </h2>
-
-        {currentStreak > 0 && leader ? (
-          <p className="text-xs text-neutral-300 font-medium">
-            {t.streakFrom}: <span className="text-white font-black">{leader.emoji} {localized(leader, isRtl)}</span>
-          </p>
-        ) : (
-          <p className="text-xs text-neutral-400 font-medium">{t.noStreakYet}</p>
-        )}
-
-        <div className="flex justify-center gap-6 pt-3 border-t border-white/10 text-xs font-bold">
-          <div>
-            <span className="text-gray-400 block">{isRtl ? "طولانی‌ترین زنجیره" : "Best Streak"}</span>
-            <span className="text-white font-black text-sm">{longestStreak} {isRtl ? "روز" : "Days"}</span>
-          </div>
-          <div className="w-px h-8 bg-white/10" />
-          <div>
-            <span className="text-gray-400 block">{isRtl ? "روزهای کامل" : "Perfect Days"}</span>
-            <span className="text-amber-400 font-black text-sm">{perfectDays} / {tracked.length}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* 30-day activity grid, built from the checklist history */}
-      <div className="p-5 rounded-3xl bg-[#141416] border border-white/10 space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-black text-white uppercase">{isRtl ? "تقویم فعالیت ۳۰ روز" : "Last 30 Days"}</h3>
-          <span className="text-[10px] text-neutral-500 font-black">{t.fromChecklists}</span>
+      <Card className="flex flex-col gap-3" aria-labelledby="streak-30">
+        <div className="flex items-center justify-between gap-2">
+          <h2 id="streak-30" className="m-0 text-base font-bold">{c.last30}</h2>
+          <span className="text-xs text-muted">{t.fromChecklists}</span>
         </div>
 
         {tracked.length === 0 ? (
-          <p className="py-6 text-center text-xs font-bold text-neutral-600">{t.noStreakYet}</p>
+          <p className="m-0 py-6 text-center text-sm text-muted">{t.noStreakYet}</p>
         ) : (
           <>
-            <div className="grid grid-cols-7 gap-2 text-center pt-2" dir="ltr">
+            <div className="grid grid-cols-7 gap-1.5 text-center">
               {days.map((d) => {
                 const full = d.tracked && d.done === d.total;
                 const partial = d.tracked && d.done > 0 && !full;
                 return (
-                  <div
-                    key={d.key}
-                    title={`${d.date.toLocaleDateString()} · ${d.done}/${d.total}`}
-                    className={`h-9 rounded-xl border flex items-center justify-center text-[10px] font-black transition-all ${
-                      full
-                        ? "bg-gradient-to-tr from-amber-500 to-orange-500 border-amber-400 text-black shadow-md"
-                        : partial
-                        ? "bg-amber-500/20 border-amber-500/40 text-amber-300"
-                        : "bg-neutral-900 border-white/5 text-gray-600"
-                    }`}
-                  >
-                    {d.date.getDate()}
-                  </div>
+                  <span key={d.key} title={`${d.date.toLocaleDateString()} ${d.done}/${d.total}`}
+                    className={cx("h-9 rounded-xl flex items-center justify-center text-[11px] font-semibold",
+                      full ? "bg-jet text-accent dark:ring-1 dark:ring-inset dark:ring-line"
+                        : partial ? "bg-accent/40 text-ink" : "bg-sunk text-muted")}>
+                    {n(d.date.getDate())}
+                  </span>
                 );
               })}
             </div>
-
-            <div className="flex items-center justify-center gap-4 pt-1 text-[9px] font-black text-neutral-500" dir="ltr">
-              <span className="flex items-center gap-1.5">
-                <span className="w-3 h-3 rounded bg-gradient-to-tr from-amber-500 to-orange-500" />
-                {isRtl ? "کامل" : "All done"}
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-3 h-3 rounded bg-amber-500/20 border border-amber-500/40" />
-                {isRtl ? "ناقص" : "Partial"}
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-3 h-3 rounded bg-neutral-900 border border-white/10" />
-                {isRtl ? "بدون فعالیت" : "No activity"}
-              </span>
+            <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-muted">
+              <span className="inline-flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-jet" />{c.allDone}</span>
+              <span className="inline-flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-accent/40" />{c.partial}</span>
+              <span className="inline-flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-sunk ring-1 ring-inset ring-line" />{c.none}</span>
             </div>
           </>
         )}
-      </div>
 
-      {/* Per-list streaks */}
-      {lists.some((l) => l.reset?.mode !== "none") && (
-        <div className="space-y-2">
-          <h3 className="flex items-center gap-1.5 text-[10px] font-black text-neutral-500 uppercase tracking-wider px-1">
-            <ListChecks className="w-3 h-3" /> {t.myLists}
-          </h3>
-          {lists.filter((l) => l.reset?.mode !== "none").map((l) => (
-            <div key={l.id} className="p-3 rounded-2xl bg-[#141416] border border-white/10 flex items-center gap-3">
-              <span
-                className="w-9 h-9 rounded-xl flex items-center justify-center text-base shrink-0"
-                style={{ background: `${l.color}22`, border: `1px solid ${l.color}55` }}
-              >
-                {l.emoji}
-              </span>
-              <span className="flex-1 min-w-0">
-                <span className="block text-xs font-black text-white truncate">{localized(l, isRtl)}</span>
-                <span className="block text-[10px] font-bold text-neutral-500">{t.best} {l.bestStreak}</span>
-              </span>
-              <span className="flex items-center gap-1 text-xs font-black text-amber-400 shrink-0">
-                <Flame className="w-3.5 h-3.5 fill-amber-400" />
-                {l.streak}
-              </span>
-            </div>
-          ))}
+        <div className="grid grid-cols-2 gap-2 pt-3 border-t border-hair">
+          <span className="flex flex-col gap-1">
+            <Label>{c.bestStreak}</Label>
+            <span className="font-display font-extrabold text-[22px] leading-none tracking-[-0.02em]">{n(longestStreak)} <span className="text-sm font-semibold text-muted">{c.days}</span></span>
+          </span>
+          <span className="flex flex-col gap-1">
+            <Label>{c.perfectDays}</Label>
+            <span className="font-display font-extrabold text-[22px] leading-none tracking-[-0.02em]">{n(perfectDays)} <span className="text-sm font-semibold text-muted">/ {n(tracked.length)}</span></span>
+          </span>
         </div>
+      </Card>
+
+      {lists.some((l) => l.reset?.mode !== "none") && (
+        <>
+          <Label as="h2" className="m-0 mt-2 px-1">{t.myLists}</Label>
+          <List>
+            {lists.filter((l) => l.reset?.mode !== "none").map((l) => {
+              const name = localized(l, isRtl);
+              return (
+                <Row key={l.id} isRtl={isRtl}
+                  icon={<IconWell tone="sunk" square size={40} className="text-[13px] font-bold">{initials(name)}</IconWell>}
+                  title={name} subtitle={`${t.best} ${n(l.bestStreak || 0)}`}
+                  right={(
+                    <span className="inline-flex items-center gap-1 text-[15px] font-bold text-ink">
+                      <FlameIcon size={16} />{n(l.streak || 0)}
+                    </span>
+                  )} />
+              );
+            })}
+          </List>
+        </>
       )}
 
-      {/* Quick Navigation Buttons */}
-      <div className="grid grid-cols-2 gap-3">
-        <button
-          type="button"
-          onClick={onGoToRank}
-          className="p-4 rounded-2xl bg-[#141416] border border-white/10 flex items-center justify-between hover:border-amber-400/50 transition-all text-left rtl:text-right"
-        >
-          <div className="flex items-center gap-2.5">
-            <Trophy className="w-5 h-5 text-amber-400" />
-            <span className="text-xs font-black text-white">{isRtl ? "رتبه‌بندی من" : "My Rank"}</span>
-          </div>
-        </button>
-
-        <button
-          type="button"
-          onClick={onGoToHistory}
-          className="p-4 rounded-2xl bg-[#141416] border border-white/10 flex items-center justify-between hover:border-[#844783]/50 transition-all text-left rtl:text-right"
-        >
-          <div className="flex items-center gap-2.5">
-            <Calendar className="w-5 h-5 text-[#844783]" />
-            <span className="text-xs font-black text-white">{isRtl ? "تاریخچه کامل" : "History"}</span>
-          </div>
-        </button>
-      </div>
-
-    </div>
+      <List>
+        <Row isRtl={isRtl} chevron onClick={go(onGoToRank)} title={c.rank} subtitle={c.rankSub}
+          icon={<IconWell tone="inv" size={36}><Trophy className="w-[18px] h-[18px]" strokeWidth={2} /></IconWell>} />
+        <Row isRtl={isRtl} chevron onClick={go(onGoToHistory)} title={c.history} subtitle={c.historySub}
+          icon={<IconWell tone="sunk" size={36}><Calendar className="w-[18px] h-[18px]" strokeWidth={2} /></IconWell>} />
+      </List>
+    </Screen>
   );
 }

@@ -111,6 +111,48 @@ const en = {
   weekDays: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
   localOnlyTitle: "Saved on this device",
   localOnly: "Group lists don't sync yet — every tick is stored in this browser.",
+
+  // Ink & Volt checklist screen.
+  rtl: false,
+  sep: " · ",
+  title: "Checklist",
+  newItem: "New",
+  newTaskHint: "New task",
+  allLists: "Lists",
+  switchList: "Switch list",
+  tasks: "Tasks",
+  add: "Add",
+  back: "Back",
+  tickedIt: "Ticked",
+  notYet: "Not yet",
+  less: "Less",
+  more: "More",
+  noteAttached: "Has a note",
+  openTask: "Open task",
+  activeList: "Current list",
+  unit: { daily: ["day", "days"], weekly: ["week", "weeks"], monthly: ["month", "months"], interval: ["cycle", "cycles"], none: ["day", "days"] },
+  // "2 left today", "One left this week", "3 to go"
+  leftHeadline: (left, mode, n) => {
+    const count = left === 1 ? "One" : n(left);
+    const when = { daily: " today", weekly: " this week", monthly: " this month", interval: " this cycle" }[mode];
+    return when ? `${count} left${when}` : `${count} to go`;
+  },
+  keepStreak: (streak, mode, left, n) => {
+    const unit = { daily: "day", weekly: "week", monthly: "month", interval: "cycle" }[mode] || "day";
+    return `Finish ${left === 1 ? "it" : left === 2 ? "both" : "them"} to keep the ${n(streak)}-${unit} streak going.`;
+  },
+  streakCount: (streak, mode, n) => {
+    const [one, many] = en.unit[mode] || en.unit.daily;
+    return `${n(streak)} ${streak === 1 ? one : many}`;
+  },
+  lastWeeks: (w, n) => `Last ${n(w)} weeks`,
+  lastPeriods: (count, mode, n) => `Last ${n(count)} ${(en.unit[mode] || en.unit.daily)[count === 1 ? 0 : 1]}`,
+  cleared: (a, b, mode, n) => `${n(a)} of ${n(b)} ${(en.unit[mode] || en.unit.daily)[b === 1 ? 0 : 1]} cleared`,
+  heatmapLabel: "Completion heatmap",
+  dueToday: "Due today",
+  dueTomorrow: "Due tomorrow",
+  dueOn: "Due",
+  overdueLong: "Overdue",
 };
 
 const fa = {
@@ -224,6 +266,43 @@ const fa = {
   weekDays: ["یک‌شنبه", "دوشنبه", "سه‌شنبه", "چهارشنبه", "پنج‌شنبه", "جمعه", "شنبه"],
   localOnlyTitle: "ذخیره روی همین دستگاه",
   localOnly: "چک‌لیست‌های گروهی هنوز همگام‌سازی نمی‌شوند — همه‌ی تیک‌ها در همین مرورگر ذخیره می‌شود.",
+
+  // Ink & Volt checklist screen.
+  rtl: true,
+  sep: "، ",
+  title: "چک‌لیست",
+  newItem: "جدید",
+  newTaskHint: "کار جدید",
+  allLists: "لیست‌ها",
+  switchList: "تغییر چک‌لیست",
+  tasks: "کارها",
+  add: "افزودن",
+  back: "بازگشت",
+  tickedIt: "تیک زده",
+  notYet: "هنوز نه",
+  less: "کمتر",
+  more: "بیشتر",
+  noteAttached: "یادداشت دارد",
+  openTask: "باز کردن کار",
+  activeList: "چک‌لیست فعلی",
+  unit: { daily: "روز", weekly: "هفته", monthly: "ماه", interval: "دوره", none: "روز" },
+  leftHeadline: (left, mode, n) => {
+    const when = { daily: " برای امروز", weekly: " در این هفته", monthly: " در این ماه", interval: " در این دوره" }[mode] || "";
+    return `${n(left)} کار مانده${when}`;
+  },
+  keepStreak: (streak, mode, left, n) => {
+    const span = { daily: "روزه", weekly: "هفته‌ای", monthly: "ماهه", interval: "دوره‌ای" }[mode] || "روزه";
+    return `${left === 1 ? "تمامش کن" : "تمامشان کن"} تا زنجیره‌ی ${n(streak)} ${span} ادامه پیدا کند.`;
+  },
+  streakCount: (streak, mode, n) => `${n(streak)} ${fa.unit[mode] || fa.unit.daily}`,
+  lastWeeks: (w, n) => `${n(w)} هفته‌ی اخیر`,
+  lastPeriods: (count, mode, n) => `${n(count)} ${fa.unit[mode] || fa.unit.daily} اخیر`,
+  cleared: (a, b, mode, n) => `${n(a)} از ${n(b)} ${fa.unit[mode] || fa.unit.daily} کامل`,
+  heatmapLabel: "نقشه‌ی انجام کارها",
+  dueToday: "موعد امروز",
+  dueTomorrow: "موعد فردا",
+  dueOn: "موعد",
+  overdueLong: "موعد گذشته",
 };
 
 export const checklistText = { en, fa };

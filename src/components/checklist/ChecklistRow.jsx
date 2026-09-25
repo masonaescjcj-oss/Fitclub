@@ -1,16 +1,20 @@
 import React from "react";
-import { Reorder, motion, useDragControls } from "framer-motion";
-import { Check, GripVertical, MessageSquare } from "lucide-react";
+import { Reorder, useDragControls } from "framer-motion";
+import { GripVertical, StickyNote } from "lucide-react";
 import { ME, assigneesOf, itemDone, localized } from "../../lib/checklistModel";
+import { Check, cx, num } from "../ui/kit";
 import { Avatar, DueChip, PRIORITY_STYLE } from "./ChecklistBits";
 
+const PRIORITY_LABEL = { low: "priorityLow", medium: "priorityMedium", high: "priorityHigh" };
+
 /**
- * One task. Tap the box to tick it, tap the row to open its detail sheet,
- * drag the handle to reorder. On a group list the row also shows who is
- * expected to tick it and who already has.
+ * One task row inside the checklist card. Tap the round check to tick it,
+ * tap the text to open its detail sheet, drag the handle to reorder. On a
+ * group list the row also shows who is expected to tick it and who has.
  */
 export default function ChecklistRow({ item, list, isRtl, t, onToggle, onOpen }) {
   const controls = useDragControls();
+  const n = (v) => num(v, isRtl);
   const done = itemDone(item, list);
   const isGroup = list.type === "group";
   const prio = PRIORITY_STYLE[item.priority] || PRIORITY_STYLE.none;
@@ -20,101 +24,77 @@ export default function ChecklistRow({ item, list, isRtl, t, onToggle, onOpen })
   const people = assignees
     .map((id) => list.members.find((m) => m.id === id))
     .filter(Boolean);
-  const myTick = !!item.doneBy?.[ME.id];
+  const myTick = item.doneBy?.[ME.id];
   const tickedCount = people.filter((m) => item.doneBy?.[m.id]).length;
 
-  // On a group list the box reflects *your* tick; the ring reflects the whole task.
-  const boxOn = isGroup ? myTick : done;
+  // On a group list the check reflects *your* tick; the strike-through reflects the whole task.
+  const boxOn = isGroup ? !!myTick : done;
+  const tickedAt = !isGroup && done && myTick
+    ? new Date(myTick).toLocaleTimeString(isRtl ? "fa-IR" : "en-GB", { hour: "2-digit", minute: "2-digit" })
+    : "";
+
+  const hasMeta = (!done && item.due) || item.note || (isGroup && people.length > 0);
+  const showPriority = !done && item.priority && item.priority !== "none";
 
   return (
     <Reorder.Item
+      as="li"
       value={item}
       dragListener={false}
       dragControls={controls}
       layout="position"
-      initial={{ opacity: 0, y: 8 }}
+      initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+      exit={{ opacity: 0, height: 0 }}
       transition={{ duration: 0.18 }}
-      whileDrag={{ scale: 1.03, zIndex: 30, boxShadow: "0 18px 40px rgba(0,0,0,0.65)" }}
-      className={`group relative rounded-2xl border transition-colors ${
-        done
-          ? "bg-[#101012] border-white/[0.06]"
-          : "bg-[#141416] border-white/10 hover:border-white/20"
-      }`}
+      whileDrag={{ scale: 1.02, zIndex: 30, boxShadow: "0 14px 34px rgba(18, 19, 16, 0.22)" }}
+      className="group relative list-none -mx-2 px-2 rounded-2xl bg-card"
     >
-      {/* Priority spine */}
-      {item.priority !== "none" && !done && (
-        <span
-          className="absolute top-3 bottom-3 w-[3px] rounded-full ltr:left-0 rtl:right-0"
-          style={{ background: prio.dot }}
-        />
-      )}
+      <div className={cx("flex items-center gap-2.5 border-t border-hair group-first:border-t-0", hasMeta ? "min-h-[62px] py-1.5" : "min-h-[54px]")}>
+        <Check checked={boxOn} onToggle={(e) => { e.stopPropagation(); onToggle(); }} label={label} />
 
-      <div className="flex items-center gap-3 p-3">
-        {/* Checkbox */}
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); onToggle(); }}
-          aria-pressed={boxOn}
-          aria-label={label}
-          className="shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60 rounded-lg"
-        >
-          <motion.span
-            whileTap={{ scale: 0.8 }}
-            className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${
-              boxOn ? "text-white" : "border-neutral-600 bg-black/40 hover:border-neutral-400"
-            }`}
-            style={boxOn ? { background: list.color, borderColor: list.color } : undefined}
-          >
-            {boxOn && (
-              <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 500, damping: 18 }}>
-                <Check className="w-4 h-4 stroke-[3.5]" />
-              </motion.span>
-            )}
-          </motion.span>
-        </button>
+        <button type="button" onClick={onOpen}
+          className="flex-1 min-w-0 min-h-[44px] flex flex-col justify-center gap-0.5 text-start bg-transparent border-0 p-0 cursor-pointer">
+          <span className={cx("text-[15px] leading-snug break-words",
+            done ? "text-muted line-through decoration-faint" : "font-semibold text-ink")}>
+            {label}
+          </span>
 
-        {/* Text + meta */}
-        <button
-          type="button"
-          onClick={onOpen}
-          className="flex-1 min-w-0 text-start focus:outline-none"
-        >
-          <div className="flex items-center gap-1.5">
-            {item.emoji && <span className="text-sm shrink-0">{item.emoji}</span>}
-            <span className={`text-sm font-bold truncate transition-all ${done ? "line-through text-neutral-600" : "text-white"}`}>
-              {label}
-            </span>
-          </div>
-
-          {(item.due || item.note || isGroup) && (
-            <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-              <DueChip due={item.due} t={t} />
-              {item.note && <MessageSquare className="w-3 h-3 text-neutral-500" />}
+          {hasMeta && (
+            <span className="flex items-center gap-2 flex-wrap">
+              {!done && <DueChip due={item.due} t={t} />}
+              {item.note && (
+                <StickyNote className="w-3.5 h-3.5 text-muted" strokeWidth={2} aria-label={t.noteAttached} />
+              )}
               {isGroup && people.length > 0 && (
-                <span className="flex items-center gap-1" dir="ltr">
-                  {people.slice(0, 5).map((m) => (
-                    <Avatar key={m.id} member={m} size={18} dimmed={!item.doneBy?.[m.id]} />
-                  ))}
-                  <span className="text-[9px] font-black text-neutral-500 ms-0.5">
-                    {tickedCount}/{people.length}
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="flex items-center gap-0.5" dir="ltr">
+                    {people.slice(0, 5).map((m) => (
+                      <Avatar key={m.id} member={m} size={20} ring="" dimmed={!item.doneBy?.[m.id]} />
+                    ))}
                   </span>
+                  <span className="text-xs text-muted">{n(tickedCount)}/{n(people.length)}</span>
                 </span>
               )}
-            </div>
+            </span>
           )}
         </button>
 
-        {/* Drag handle */}
-        <button
-          type="button"
-          onPointerDown={(e) => { e.preventDefault(); controls.start(e); }}
-          aria-label={t.reorderHint}
-          className="shrink-0 p-1 -m-1 text-neutral-700 hover:text-neutral-400 touch-none cursor-grab active:cursor-grabbing"
-        >
-          <GripVertical className="w-4 h-4" />
-        </button>
+        {showPriority && (
+          <span className={cx("shrink-0 h-6 px-2.5 rounded-full inline-flex items-center text-[11px] font-bold", prio.pill)}>
+            {t[PRIORITY_LABEL[item.priority]]}
+          </span>
+        )}
+        {tickedAt && <span className="shrink-0 text-xs text-muted">{tickedAt}</span>}
+
+        {!done && (
+          <button type="button"
+            onPointerDown={(e) => { e.preventDefault(); controls.start(e); }}
+            aria-label={t.reorderHint} title={t.reorderHint}
+            className="shrink-0 w-7 h-11 -me-1.5 flex items-center justify-center bg-transparent border-0 p-0 text-faint touch-none cursor-grab active:cursor-grabbing">
+            <GripVertical className="w-4 h-4" strokeWidth={2} />
+          </button>
+        )}
       </div>
     </Reorder.Item>
   );

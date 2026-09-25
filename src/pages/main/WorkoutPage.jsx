@@ -1,25 +1,110 @@
 import React, { useMemo, useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import {
-  BadgeCheck, Coffee, Copy, Download, Dumbbell, Flame, Pencil, Play, Plus, Search, Share2, Trash2, Trophy,
+  Copy, Download, Dumbbell, History, Moon, Pencil, Play, Plus, Search, Share2, Trash2, TrendingDown, TrendingUp, Trophy,
 } from "lucide-react";
 import ExerciseGraphic from "../../components/ExerciseGraphic";
 import ActiveWorkoutModal from "../../components/modals/ActiveWorkoutModal";
-import { AuthorChip, ImportSheet, ProgramBuilderSheet, ShareSheet, Sheet } from "../../components/training/TrainingSheets";
-import { EXERCISES, MUSCLES, exerciseName, findExercise, searchExercises } from "../../lib/training/exercises";
 import {
-  compactProgram, exerciseBests, exerciseTrend, lastPerformance, sessionSetsDone, sessionVolume, estimateCalories,
+  AuthorChip, ImportSheet, ProgramBuilderSheet, ProgramMark, ShareSheet, Sheet,
+} from "../../components/training/TrainingSheets";
+import {
+  Button, Card, Chip, CtaButton, Empty, Field, IconButton, IconWell, Label, List, PageHead, Row, Screen, SectionHead,
+  Segmented, Tag, Toast, cx, num,
+} from "../../components/ui/kit";
+import { MUSCLES, exerciseName, findExercise, searchExercises } from "../../lib/training/exercises";
+import {
+  bestSetIn, compactProgram, exerciseBests, exerciseTrend, lastPerformance, sessionSetsDone, sessionVolume,
 } from "../../lib/training/programModel";
 import { useTrainingT } from "../../lib/training/trainingI18n";
 import { useTrainingStore } from "../../lib/training/trainingContext";
 import { useNutritionStore } from "../../lib/nutrition/nutritionContext";
 import { loadSession } from "../../lib/session";
 
-const SEGMENTS = ["plan", "programs", "exercises", "progress"];
-const fmtDuration = (sec) => `${Math.round(sec / 60)}`;
-const dateLabel = (iso) => new Date(iso).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+// Train: the week's volume, the sessions coming up in the active split, the
+// latest record, and three more views: every program, the exercise library,
+// and progress over time. The live workout opens as its own ink screen.
 
-export default function WorkoutPage({ isRtl }) {
+const SEGMENTS = ["plan", "programs", "exercises", "progress"];
+const DAY_MS = 86400000;
+
+const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const addDays = (d, k) => { const x = new Date(d); x.setDate(x.getDate() + k); return x; };
+const dayStart = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
+const fmt = (d, isRtl, opts) => new Intl.DateTimeFormat(isRtl ? "fa-IR-u-ca-persian" : "en-GB", opts).format(d);
+const grouped = (v) => Math.round(v).toLocaleString("en-US");
+const compact = (v) => (v >= 10000 ? `${Math.round(v / 1000)}k` : v >= 1000 ? `${(v / 1000).toFixed(1)}k` : `${Math.round(v)}`);
+
+/** The seven days of this week, Monday-first in English and Saturday-first in Persian (as on Today). */
+function weekDays(isRtl, now) {
+  const start = dayStart(now);
+  start.setDate(start.getDate() - ((start.getDay() - (isRtl ? 6 : 1) + 7) % 7));
+  return Array.from({ length: 7 }, (_, i) => addDays(start, i));
+}
+
+function agoLabel(iso, isRtl) {
+  const days = Math.round((dayStart(new Date()) - dayStart(new Date(iso))) / DAY_MS);
+  return new Intl.RelativeTimeFormat(isRtl ? "fa" : "en", { numeric: "auto" }).format(-days, "day");
+}
+
+/** Planned load of a program day: sets × reps × weight for the lifts that have one. */
+function plannedVolume(day) {
+  return (day?.exercises || []).reduce((a, e) => {
+    const ex = findExercise(e.exerciseId);
+    return ex && ex.mode !== "reps" ? a : a + (e.sets || 0) * (e.reps || 0) * (e.weight || 0);
+  }, 0);
+}
+
+const isWorkout = (d) => d && d.type !== "rest" && d.exercises.length > 0;
+
+/**
+ * The active split laid onto the calendar. The next session is the workout
+ * after the last one finished (the same rule Today uses); it falls today,
+ * or tomorrow when today's is done, and the rest of the split follows day by day.
+ */
+function projectPlan(store, today) {
+  const program = store.activeProgram;
+  if (!program || !program.days.length) return null;
+  const days = program.days;
+  const workouts = days.filter(isWorkout);
+  const finished = store.sessions.filter((s) => s.finishedAt && s.programId === program.id)
+    .sort((a, b) => a.finishedAt.localeCompare(b.finishedAt));
+  const last = finished[finished.length - 1];
+  const doneToday = !!last && ymd(new Date(last.finishedAt)) === ymd(today);
+  const weekNo = Math.min(Math.floor((Date.now() - new Date(program.createdAt).getTime()) / (7 * DAY_MS)) + 1, program.weeks || 1);
+  let from = 0;
+  if (workouts.length) {
+    const lastIndex = last ? workouts.findIndex((d) => d.id === last.dayId) : -1;
+    from = days.indexOf(workouts[(lastIndex + 1) % workouts.length]);
+  }
+  const start = doneToday ? addDays(today, 1) : dayStart(today);
+  const cycle = days.map((_, k) => ({ day: days[(from + k) % days.length], date: addDays(start, k) }));
+  return { program, weekNo, doneToday, cycle };
+}
+
+/** The newest record, else the heaviest set ever logged. */
+function highlightLift(sessions) {
+  const done = sessions.filter((s) => s.finishedAt).sort((a, b) => b.finishedAt.localeCompare(a.finishedAt));
+  for (const s of done) {
+    const pr = (s.prs || [])[0];
+    if (!pr) continue;
+    const ex = (s.exercises || []).find((e) => e.exerciseId === pr.exerciseId);
+    const best = ex ? bestSetIn(ex) : null;
+    return { kind: "pr", at: s.finishedAt, exerciseId: pr.exerciseId, weight: best?.weight ?? pr.value, reps: best?.reps };
+  }
+  let top = null;
+  for (const s of done) {
+    for (const ex of s.exercises || []) {
+      for (const set of ex.sets) {
+        const w = Number(set.weight) || 0;
+        if (set.done && w > (top?.weight || 0)) top = { kind: "top", at: s.finishedAt, exerciseId: ex.exerciseId, weight: w, reps: set.reps };
+      }
+    }
+  }
+  return top;
+}
+
+export default function WorkoutPage({ isRtl, onOpen }) {
   const t = useTrainingT(isRtl);
   const store = useTrainingStore();
   const nutrition = useNutritionStore();
@@ -33,127 +118,103 @@ export default function WorkoutPage({ isRtl }) {
 
   const author = { name: loadSession().name || "Isaac", role: store.coachMode ? "coach" : "user" };
   const active = store.activeProgram;
+  const n = (v) => num(v, isRtl);
+  const sep = isRtl ? "، " : " · ";
 
   const flash = (msg) => { setToast(msg); setTimeout(() => setToast(""), 1600); };
-
   const startDay = (day) => { store.startSession(active.id, day.id); setLive(true); };
-
   const programName = (p) => (isRtl && p.nameFa ? p.nameFa : p.name);
-  const dayName = (d) => (d.type === "rest" ? t.rest : (isRtl && d.titleFa ? d.titleFa : d.title));
+
+  const plan = useMemo(() => projectPlan(store, new Date()), [store]);
+  const draft = store.draft;
 
   return (
-    <div className="w-full min-h-[100dvh] bg-black text-white px-4 pt-5 pb-28 space-y-4">
-      {/* Segment switcher */}
-      <div className="p-1 rounded-2xl bg-[#141416] border border-white/10 grid grid-cols-4 gap-1">
-        {SEGMENTS.map((s) => (
-          <button key={s} type="button" onClick={() => setSegment(s)}
-            className={`h-9 rounded-xl text-[11px] font-black transition-all ${segment === s ? "bg-white text-black" : "text-neutral-400 hover:text-white"}`}>
-            {t[s]}
-          </button>
-        ))}
-      </div>
+    <Screen isRtl={isRtl} tabbed>
+      <PageHead
+        eyebrow={plan ? <span className="block truncate">{programName(active)}{sep}{t.weekOf(n(plan.weekNo), n(active.weeks || 1))}</span> : undefined}
+        title={t.title}
+        right={onOpen ? (
+          <IconButton label={t.workoutHistory} onClick={() => onOpen("history")}><History className="w-5 h-5" strokeWidth={2} /></IconButton>
+        ) : null} />
 
-      {/* Resume banner for a workout left open */}
-      {store.draft && !live && (
-        <button type="button" onClick={() => setLive(true)}
-          className="w-full p-3 rounded-2xl bg-emerald-500/15 border border-emerald-500/40 flex items-center gap-3 text-start">
-          <Play className="w-4 h-4 text-emerald-400 shrink-0" />
-          <span className="flex-1 text-xs font-black text-emerald-300 truncate">{isRtl ? "ادامه تمرین باز" : "Resume open workout"} — {store.draft.dayTitle}</span>
-        </button>
+      <Segmented value={segment} onChange={setSegment} options={SEGMENTS.map((id) => ({ id, label: t[id] }))} />
+
+      {/* A workout left open */}
+      {draft && !live && (
+        <Card tone="hero" className="flex flex-col gap-3" aria-label={t.workoutOpen}>
+          <div className="flex items-center justify-between gap-2">
+            <Label className="!text-hero-muted">{t.workoutOpen}</Label>
+            <Tag tone="hero" className="font-semibold">
+              {n(sessionSetsDone(draft))} / {n(draft.exercises.reduce((a, e) => a + e.sets.length, 0))} {t.sets}
+            </Tag>
+          </div>
+          <h2 className="m-0 font-display font-extrabold text-[30px] leading-[0.95] tracking-[-0.035em] break-words">
+            {(isRtl && draft.dayTitleFa) || draft.dayTitle}
+          </h2>
+          <CtaButton tone="accent" isRtl={isRtl} onClick={() => setLive(true)}>
+            <span className="inline-flex items-center gap-2"><Play className="w-4 h-4" strokeWidth={2.2} />{t.resumeWorkout}</span>
+          </CtaButton>
+        </Card>
       )}
 
-      {/* ── PLAN ── */}
-      {segment === "plan" && (active ? (
-        <>
-          <div className="p-5 rounded-3xl border relative overflow-hidden" style={{ background: `linear-gradient(135deg, ${active.color}33, var(--card))`, borderColor: `${active.color}55` }}>
-            <span className="text-[10px] font-black uppercase tracking-wider" style={{ color: active.color }}>{t.currentSplit}</span>
-            <div className="flex items-start justify-between gap-3 mt-1">
-              <div className="min-w-0">
-                <h2 className="text-2xl font-black leading-tight">{active.emoji} {programName(active)}</h2>
-                <p className="text-sm font-bold text-neutral-400 mt-1">{active.days.filter((d) => d.type !== "rest").length} {t.daysWeek} · {active.weeks} {t.weeks}</p>
-                <div className="mt-1"><AuthorChip author={active.author} t={t} /></div>
-              </div>
-              <div className="flex flex-col gap-1.5 shrink-0">
-                <button type="button" onClick={() => setShare(active)} aria-label={t.shareProgram}
-                  className="w-9 h-9 rounded-xl bg-black/40 border border-white/10 flex items-center justify-center text-neutral-300 hover:text-white"><Share2 className="w-4 h-4" /></button>
-                <button type="button" onClick={() => setImporting(true)} aria-label={t.importTitle}
-                  className="w-9 h-9 rounded-xl bg-black/40 border border-white/10 flex items-center justify-center text-neutral-300 hover:text-white"><Download className="w-4 h-4" /></button>
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            {active.days.map((day, i) => {
-              const isRest = day.type === "rest";
-              const est = day.exercises.length * 8;
-              return (
-                <div key={day.id} className={`p-4 rounded-3xl border flex items-center gap-4 ${isRest ? "bg-[#0f0f11] border-white/5 opacity-70" : "bg-[#141416] border-white/10"}`}>
-                  <div className={`w-14 h-14 rounded-2xl flex flex-col items-center justify-center shrink-0 ${isRest ? "bg-neutral-900 border border-white/5" : "text-white"}`}
-                    style={isRest ? undefined : { background: `linear-gradient(135deg, ${active.color}, ${active.color}99)` }}>
-                    <span className="text-[9px] font-black uppercase opacity-80">{t.day}</span>
-                    <span className="text-xl font-black leading-none">{i + 1}</span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className={`text-base font-black truncate ${isRest ? "text-neutral-400" : "text-white"}`}>{dayName(day)}</h3>
-                    <p className="text-xs font-bold text-neutral-500 mt-0.5">
-                      {isRest ? `☕ ${t.recovery}` : `🔥 ${t.session} · ${day.exercises.length} ${t.exercises.toLowerCase()} · ~${est} ${t.min}`}
-                    </p>
-                  </div>
-                  {isRest ? (
-                    <span className="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center text-neutral-600"><Coffee className="w-5 h-5" /></span>
-                  ) : (
-                    <button type="button" onClick={() => startDay(day)}
-                      className="px-5 h-12 rounded-full bg-white text-black text-sm font-black active:scale-95 transition-transform shadow-lg">{t.start}</button>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </>
+      {segment === "plan" && (plan ? (
+        <PlanView t={t} n={n} sep={sep} isRtl={isRtl} store={store} plan={plan} programName={programName}
+          onStart={startDay} onShare={() => setShare(active)} onImport={() => setImporting(true)}
+          onPrograms={() => setSegment("programs")} />
       ) : (
-        <p className="py-16 text-center text-sm font-bold text-neutral-500">{t.noActive}</p>
+        <Card>
+          <Empty icon={<Dumbbell className="w-6 h-6" strokeWidth={2} />} title={t.noActiveTitle} body={t.noActive}
+            action={<Button tone="ink" onClick={() => setSegment("programs")}>{t.browsePrograms}</Button>} />
+        </Card>
       ))}
 
-      {/* ── PROGRAMS ── */}
       {segment === "programs" && (
         <>
-          <div className="grid grid-cols-2 gap-2">
-            <button type="button" onClick={() => setBuilder(null)}
-              className="h-12 rounded-2xl bg-[#844783] text-white text-sm font-black flex items-center justify-center gap-2"><Plus className="w-4 h-4" /> {t.newProgram}</button>
-            <button type="button" onClick={() => setImporting(true)}
-              className="h-12 rounded-2xl bg-[#141416] border border-white/10 text-white text-sm font-black flex items-center justify-center gap-2"><Download className="w-4 h-4" /> {t.importTitle}</button>
+          <div className="grid grid-cols-2 gap-2.5">
+            <Button tone="ink" icon={<Plus className="w-[18px] h-[18px]" strokeWidth={2.2} />} onClick={() => setBuilder(null)}>{t.newProgram}</Button>
+            <Button tone="card" icon={<Download className="w-[18px] h-[18px]" strokeWidth={2} />} onClick={() => setImporting(true)}>{t.importShort}</Button>
           </div>
 
           {[["mine", t.myPrograms], ["imported", t.imported], ["builtin", t.builtin]].map(([source, title]) => {
             const list = store.programs.filter((p) => p.source === source);
             if (!list.length) return null;
             return (
-              <section key={source} className="space-y-2">
-                <h3 className="text-[10px] font-black text-neutral-500 uppercase tracking-wider px-1">{title}</h3>
+              <section key={source} className="flex flex-col gap-2.5">
+                <SectionHead title={title} />
                 {list.map((p) => {
                   const isActive = p.id === active?.id;
+                  const workoutDays = p.days.filter((d) => d.type !== "rest").length;
                   return (
-                    <div key={p.id} className={`p-4 rounded-3xl border space-y-3 ${isActive ? "border-white/30" : "border-white/10"} bg-[#141416]`}>
+                    <Card key={p.id} className="flex flex-col gap-3">
                       <div className="flex items-start gap-3">
-                        <span className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shrink-0" style={{ background: `${p.color}22`, border: `1px solid ${p.color}55` }}>{p.emoji}</span>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <h4 className="text-sm font-black text-white truncate">{programName(p)}</h4>
-                            {isActive && <span className="px-2 py-0.5 rounded-full text-[9px] font-black text-white shrink-0" style={{ background: p.color }}>{t.active}</span>}
+                        <ProgramMark name={p.name} active={isActive} />
+                        <div className="flex-1 min-w-0 flex flex-col gap-1">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <h3 className="m-0 min-w-0 text-[17px] font-bold leading-snug text-ink">{programName(p)}</h3>
+                            {isActive && <Tag tone="accent" className="h-6 px-2.5 font-bold shrink-0">{t.active}</Tag>}
                           </div>
-                          <p className="text-[11px] font-bold text-neutral-500">{p.days.filter((d) => d.type !== "rest").length} {t.daysWeek} · {p.weeks} {t.weeks}</p>
+                          <span className="text-[13px] text-muted">{n(workoutDays)} {t.daysWeek}{sep}{n(p.weeks)} {t.weeks}</span>
                           <AuthorChip author={p.author} t={t} />
                         </div>
                       </div>
-                      {p.description && <p className="text-[11px] text-neutral-400">{p.description}</p>}
-                      <div className="flex flex-wrap gap-1.5">
-                        {!isActive && <Act icon={Play} label={t.setActive} onClick={() => { store.setActiveProgram(p.id); setSegment("plan"); }} tone="text-emerald-400" />}
-                        {p.source !== "builtin" && <Act icon={Pencil} label={t.editProgram} onClick={() => setBuilder(p)} />}
-                        <Act icon={Copy} label={t.duplicate} onClick={() => { store.duplicateProgram(p.id, `${t.copyOf} ${p.name}`, author); flash(t.copied); }} />
-                        <Act icon={Share2} label={t.share} onClick={() => setShare(p)} />
-                        {p.source !== "builtin" && <Act icon={Trash2} label={t.delete} tone="text-rose-400" onClick={() => { if (window.confirm(t.deleteProgramConfirm)) store.removeProgram(p.id); }} />}
+                      {p.description && <p className="m-0 text-sm leading-relaxed text-muted">{p.description}</p>}
+                      <div className="flex flex-wrap gap-2">
+                        {!isActive && (
+                          <Button tone="ink" size="sm" icon={<Play className="w-3.5 h-3.5" strokeWidth={2.2} />}
+                            onClick={() => { store.setActiveProgram(p.id); setSegment("plan"); }}>{t.setActive}</Button>
+                        )}
+                        {p.source !== "builtin" && (
+                          <Button tone="soft" size="sm" icon={<Pencil className="w-3.5 h-3.5" strokeWidth={2} />} onClick={() => setBuilder(p)}>{t.editProgram}</Button>
+                        )}
+                        <Button tone="soft" size="sm" icon={<Copy className="w-3.5 h-3.5" strokeWidth={2} />}
+                          onClick={() => { store.duplicateProgram(p.id, `${t.copyOf} ${p.name}`, author); flash(t.copied); }}>{t.duplicate}</Button>
+                        <Button tone="soft" size="sm" icon={<Share2 className="w-3.5 h-3.5" strokeWidth={2} />} onClick={() => setShare(p)}>{t.share}</Button>
+                        {p.source !== "builtin" && (
+                          <Button tone="danger" size="sm" icon={<Trash2 className="w-3.5 h-3.5" strokeWidth={2} />}
+                            onClick={() => { if (window.confirm(t.deleteProgramConfirm)) store.removeProgram(p.id); }}>{t.delete}</Button>
+                        )}
                       </div>
-                    </div>
+                    </Card>
                   );
                 })}
               </section>
@@ -162,11 +223,9 @@ export default function WorkoutPage({ isRtl }) {
         </>
       )}
 
-      {/* ── EXERCISES ── */}
-      {segment === "exercises" && <Library isRtl={isRtl} t={t} sessions={store.sessions} onOpen={setTrendFor} />}
+      {segment === "exercises" && <Library isRtl={isRtl} t={t} n={n} sep={sep} sessions={store.sessions} onOpen={setTrendFor} />}
 
-      {/* ── PROGRESS ── */}
-      {segment === "progress" && <Progress isRtl={isRtl} t={t} store={store} />}
+      {segment === "progress" && <Progress isRtl={isRtl} t={t} n={n} sep={sep} store={store} onOpen={onOpen} />}
 
       {/* overlays */}
       {live && (
@@ -194,21 +253,17 @@ export default function WorkoutPage({ isRtl }) {
       <AnimatePresence>
         {importing && (
           <ImportSheet isRtl={isRtl} t={t}
-            onImportProgram={(compact) => { const p = store.importProgram(compact); store.setActiveProgram(p.id); setImporting(false); setSegment("plan"); flash(t.importedOk); }}
+            onImportProgram={(compactP) => { const p = store.importProgram(compactP); store.setActiveProgram(p.id); setImporting(false); setSegment("plan"); flash(t.importedOk); }}
             onApplyMeal={(meal) => { applyMealPlan(nutrition, meal); setImporting(false); flash(t.appliedOk); }}
             onClose={() => setImporting(false)} />
         )}
       </AnimatePresence>
       <AnimatePresence>
-        {trendFor && <TrendSheet exerciseId={trendFor} sessions={store.sessions} isRtl={isRtl} t={t} onClose={() => setTrendFor(null)} />}
+        {trendFor && <TrendSheet exerciseId={trendFor} sessions={store.sessions} isRtl={isRtl} t={t} n={n} sep={sep} onClose={() => setTrendFor(null)} />}
       </AnimatePresence>
 
-      {toast && (
-        <div className="fixed bottom-24 inset-x-0 flex justify-center z-[95] pointer-events-none">
-          <span className="px-4 py-2 rounded-full bg-white/15 backdrop-blur text-xs font-black text-white">{toast}</span>
-        </div>
-      )}
-    </div>
+      {toast && <Toast>{toast}</Toast>}
+    </Screen>
   );
 }
 
@@ -223,163 +278,359 @@ export function applyMealPlan(nutrition, meal) {
   for (const m of meal.meals) nutrition.saveMeal(m.name, m.items);
 }
 
-function Act({ icon: Icon, label, onClick, tone = "text-neutral-300" }) {
-  return (
-    <button type="button" onClick={onClick}
-      className={`px-2.5 h-8 rounded-lg bg-white/5 border border-white/10 text-[10px] font-black flex items-center gap-1 hover:bg-white/10 ${tone}`}>
-      <Icon className="w-3 h-3" /> {label}
-    </button>
-  );
-}
+/* ─────────────────────────────── charts ─────────────────────────────── */
 
-function Library({ isRtl, t, sessions, onOpen }) {
-  const [q, setQ] = useState("");
-  const [muscle, setMuscle] = useState(null);
-  const list = useMemo(() => searchExercises(q, muscle), [q, muscle]);
+const HATCH = { backgroundImage: "repeating-linear-gradient(135deg, rgb(var(--ui-line)) 0 6px, rgb(var(--ui-bg)) 6px 12px)" };
+const BAR_TONES = {
+  done: "bg-inv",
+  today: "bg-accent ring-2 ring-inset ring-jet",
+  planned: "",
+  none: "bg-line",
+};
+
+/**
+ * Column bars on a card. Each item: `ratio` 0..1 of the tallest, `kind`
+ * (done ink, today accent, planned hatched, none a stub), `label` under it
+ * and an optional `top` value above it.
+ */
+function Bars({ items, max = 80 }) {
   return (
-    <div className="space-y-3">
-      <div className="relative">
-        <Search className={`w-4 h-4 text-neutral-500 absolute top-1/2 -translate-y-1/2 ${isRtl ? "right-3" : "left-3"}`} />
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t.searchExercises}
-          className={`w-full h-11 ${isRtl ? "pr-10 pl-3" : "pl-10 pr-3"} rounded-2xl bg-[#141416] border border-white/10 text-sm font-bold text-white placeholder:text-neutral-600 focus:outline-none focus:border-white/30`} />
-      </div>
-      <div className="flex gap-1.5 overflow-x-auto scrollbar-hide pb-1">
-        {[{ id: null, en: t.allMuscles, fa: t.allMuscles }, ...MUSCLES].map((m) => (
-          <button key={String(m.id)} type="button" onClick={() => setMuscle(m.id)}
-            className={`px-3 h-8 rounded-lg text-[10px] font-black whitespace-nowrap border ${muscle === m.id ? "bg-white/10 border-white/30 text-white" : "bg-[#141416] border-white/10 text-neutral-400"}`}>
-            {isRtl ? m.fa : m.en}
-          </button>
-        ))}
-      </div>
-      <div className="space-y-2">
-        {list.map((e) => {
-          const best = exerciseBests(sessions, e.id);
-          return (
-            <button key={e.id} type="button" onClick={() => onOpen(e.id)}
-              className="w-full p-3 rounded-2xl bg-[#141416] border border-white/10 flex items-center gap-3 text-start hover:border-white/25">
-              <span className="w-12 h-12 rounded-xl bg-neutral-950 border border-white/10 overflow-hidden shrink-0"><ExerciseGraphic exerciseId={e.id} name={e.nameEn} /></span>
-              <span className="flex-1 min-w-0">
-                <span className="block text-sm font-black text-white truncate">{isRtl ? e.nameFa : e.nameEn}</span>
-                <span className="block text-[10px] font-bold text-neutral-500">{e.equipment}</span>
-              </span>
-              {best.maxWeight > 0 && (
-                <span className="text-end shrink-0">
-                  <span className="block text-[9px] font-black text-amber-400 uppercase">{t.e1rm}</span>
-                  <span className="block text-sm font-black text-white tabular-nums">{Math.round(best.bestE1rm)} {t.kg}</span>
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
+    <div aria-hidden="true" className="flex items-end justify-between gap-2.5 pt-1.5">
+      {items.map((it) => (
+        <span key={it.key} className="flex-1 min-w-0 flex flex-col items-center justify-end gap-1.5">
+          {it.top != null && <span className="text-[10px] leading-none text-muted tabular-nums whitespace-nowrap">{it.top}</span>}
+          <span className={cx("w-full rounded-[10px]", BAR_TONES[it.kind])}
+            style={{ height: it.kind === "none" ? 6 : Math.max(8, Math.round(it.ratio * max)), ...(it.kind === "planned" ? HATCH : null) }} />
+          <span className={cx("text-[11px] leading-none whitespace-nowrap", it.bold ? "font-bold text-ink" : "text-muted")}>{it.label || " "}</span>
+        </span>
+      ))}
     </div>
   );
 }
 
-function TrendSheet({ exerciseId, sessions, isRtl, t, onClose }) {
+function Swatch({ kind }) {
+  return <span className={cx("w-2.5 h-2.5 rounded-[3px] shrink-0", BAR_TONES[kind])} style={kind === "planned" ? HATCH : undefined} />;
+}
+
+/* ─────────────────────────────── plan ─────────────────────────────── */
+
+function PlanView({ t, n, sep, isRtl, store, plan, programName, onStart, onShare, onImport, onPrograms }) {
+  const [expanded, setExpanded] = useState(false);
+  const todayKey = ymd(new Date());
+  const program = plan.program;
+
+  // Volume per day this week: logged sessions, then the split's plan for what's still ahead.
+  const week = useMemo(() => {
+    const days = weekDays(isRtl, new Date(`${todayKey}T00:00:00`));
+    const done = {};
+    for (const s of store.sessions) {
+      if (!s.finishedAt) continue;
+      const k = ymd(new Date(s.finishedAt));
+      done[k] = (done[k] || 0) + sessionVolume(s);
+    }
+    const planned = {};
+    for (const c of plan.cycle) planned[ymd(c.date)] = c.day;
+    const rows = days.map((d) => {
+      const key = ymd(d);
+      const vol = done[key] || 0;
+      const p = key >= todayKey ? planned[key] : null;
+      const kind = vol > 0 ? "done" : isWorkout(p) ? (key === todayKey ? "today" : "planned") : "none";
+      return { key, d, vol, kind, est: kind === "today" || kind === "planned" ? plannedVolume(p) : 0 };
+    });
+    const top = Math.max(...rows.map((r) => Math.max(r.vol, r.est)), 1);
+    const total = rows.reduce((a, r) => a + r.vol, 0);
+    // Last week up to the same weekday, so early in the week isn't a false drop.
+    const span = rows.findIndex((r) => r.key === todayKey) + 1;
+    const lastFrom = addDays(days[0], -7);
+    const lastTo = addDays(days[0], span - 7);
+    const lastTotal = store.sessions.filter((s) => s.finishedAt && new Date(s.finishedAt) >= lastFrom && new Date(s.finishedAt) < lastTo)
+      .reduce((a, s) => a + sessionVolume(s), 0);
+    return {
+      total,
+      delta: lastTotal > 0 ? Math.round(((total - lastTotal) / lastTotal) * 100) : null,
+      items: rows.map((r) => ({
+        key: r.key, kind: r.kind, bold: r.key === todayKey,
+        ratio: r.kind === "done" ? r.vol / top : r.est ? r.est / top : 0.55,
+        label: fmt(r.d, isRtl, { weekday: "narrow" }),
+      })),
+    };
+  }, [store.sessions, plan, isRtl, todayKey]);
+
+  const upcoming = expanded ? plan.cycle : plan.cycle.filter((c) => isWorkout(c.day)).slice(0, 4);
+  const lift = highlightLift(store.sessions);
+  const Trend = week.delta !== null && week.delta < 0 ? TrendingDown : TrendingUp;
+  const workoutDays = program.days.filter((d) => d.type !== "rest").length;
+
+  return (
+    <>
+      <Card pad={false} className="rounded-4xl px-[18px] pt-[18px] pb-3.5 flex flex-col gap-2.5" aria-labelledby="train-vol">
+        <div className="flex items-center justify-between gap-2">
+          <h2 id="train-vol" className="m-0 text-[15px] font-semibold text-ink">{t.volumeThisWeek}</h2>
+          {week.delta !== null && (
+            <span className="h-[26px] px-2.5 rounded-full inline-flex items-center gap-1 text-xs font-bold bg-jet text-accent dark:ring-1 dark:ring-inset dark:ring-line">
+              <Trend className="w-3.5 h-3.5" strokeWidth={2.4} />
+              <span dir="ltr">{week.delta > 0 ? "+" : week.delta < 0 ? "−" : ""}{n(Math.abs(week.delta))}%</span> {t.vsLastWeek}
+            </span>
+          )}
+        </div>
+        <div className="flex items-baseline gap-1.5">
+          <span className="font-display font-extrabold text-[40px] leading-none tracking-[-0.04em] text-ink">{n(grouped(week.total))}</span>
+          <span className="text-[15px] text-muted">{t.kgSoFar}</span>
+        </div>
+        <Bars items={week.items} max={86} />
+        <div className="flex flex-wrap gap-x-3.5 gap-y-1 text-xs text-muted">
+          <span className="inline-flex items-center gap-1.5"><Swatch kind="done" />{t.legendDone}</span>
+          <span className="inline-flex items-center gap-1.5"><Swatch kind="today" />{t.legendToday}</span>
+          <span className="inline-flex items-center gap-1.5"><Swatch kind="planned" />{t.legendPlanned}</span>
+        </div>
+      </Card>
+
+      <div className="mt-1 flex items-center justify-between gap-3">
+        <h2 className="m-0 font-display font-bold text-[22px] tracking-[-0.02em] text-ink">{t.upNext}</h2>
+        <button type="button" onClick={() => setExpanded((v) => !v)} aria-expanded={expanded}
+          className="h-11 -my-3 px-1 text-sm font-semibold text-ink underline underline-offset-[3px] bg-transparent border-0 cursor-pointer">
+          {expanded ? t.showLess : t.fullPlan}
+        </button>
+      </div>
+
+      <List>
+        {upcoming.map(({ day, date }, i) => {
+          const key = ymd(date);
+          const isToday = key === todayKey;
+          const first = i === 0;
+          const well = (
+            <span className={cx("w-12 h-12 shrink-0 rounded-2xl flex flex-col items-center justify-center gap-0.5",
+              first && isWorkout(day) ? "bg-jet text-accent dark:ring-1 dark:ring-inset dark:ring-line" : "bg-sunk text-ink",
+              !isWorkout(day) && "opacity-60")}>
+              <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.06em] leading-none">{fmt(date, isRtl, { weekday: "short" })}</span>
+              <span className="text-[15px] font-bold leading-none">{fmt(date, isRtl, { day: "numeric" })}</span>
+            </span>
+          );
+          if (!isWorkout(day)) {
+            return (
+              <Row key={`${day.id}-${key}`} icon={well} isRtl={isRtl}
+                title={<span className="text-muted">{day.type === "rest" ? t.rest : (isRtl && day.titleFa) || day.title || t.rest}</span>}
+                subtitle={t.recovery} right={<Moon className="w-[18px] h-[18px]" strokeWidth={2} />} />
+            );
+          }
+          const name = (isRtl && day.titleFa) || day.title;
+          return (
+            <Row key={`${day.id}-${key}`} icon={well} isRtl={isRtl} chevron onClick={() => onStart(day)}
+              title={(
+                <span className="inline-flex items-center gap-2 flex-wrap">
+                  <span className="text-base font-bold">{name}</span>
+                  {isToday && <span className="h-[22px] px-2 rounded-full bg-accent text-on-accent inline-flex items-center text-[11px] font-bold">{t.today}</span>}
+                </span>
+              )}
+              subtitle={`${n(day.exercises.length * 8)} ${t.min}${sep}${n(day.exercises.length)} ${t.exercisesLc}`} />
+          );
+        })}
+      </List>
+
+      {lift && (
+        <section aria-label={lift.kind === "pr" ? t.latestPr : t.heaviestLift}
+          className="ui-hero rounded-3xl bg-hero text-hero-fg p-4 flex items-center gap-3.5">
+          <IconWell tone="accent" size={52}><Trophy className="w-6 h-6" strokeWidth={2} /></IconWell>
+          <div className="flex-1 min-w-0 flex flex-col gap-1">
+            <Label className="!text-hero-muted">{lift.kind === "pr" ? t.latestPr : t.heaviestLift}{sep}{agoLabel(lift.at, isRtl)}</Label>
+            <span className="font-display font-extrabold text-2xl leading-tight tracking-[-0.03em] break-words">
+              {exerciseName(lift.exerciseId, isRtl)} {n(lift.weight)} {t.kg}{lift.reps ? ` × ${n(lift.reps)}` : ""}
+            </span>
+            <span className="text-[13px] text-hero-muted">{t.beatIt}</span>
+          </div>
+        </section>
+      )}
+
+      <SectionHead title={t.currentProgram} action={t.change} onAction={onPrograms} />
+      <Card className="flex items-center gap-3">
+        <ProgramMark name={program.name} />
+        <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+          <span className="text-[15px] font-bold leading-snug text-ink">{programName(program)}</span>
+          <span className="text-[13px] text-muted">{n(workoutDays)} {t.daysWeek}{sep}{n(program.weeks)} {t.weeks}</span>
+          <AuthorChip author={program.author} t={t} />
+        </div>
+        <IconButton label={t.shareProgram} tone="soft" onClick={onShare}><Share2 className="w-[18px] h-[18px]" strokeWidth={2} /></IconButton>
+        <IconButton label={t.importTitle} tone="soft" onClick={onImport}><Download className="w-[18px] h-[18px]" strokeWidth={2} /></IconButton>
+      </Card>
+    </>
+  );
+}
+
+/* ─────────────────────────────── exercises ─────────────────────────────── */
+
+function Library({ isRtl, t, n, sep, sessions, onOpen }) {
+  const [q, setQ] = useState("");
+  const [muscle, setMuscle] = useState(null);
+  const list = useMemo(() => searchExercises(q, muscle), [q, muscle]);
+  const muscleName = (id) => { const m = MUSCLES.find((x) => x.id === id); return m ? (isRtl ? m.fa : m.en) : ""; };
+  return (
+    <>
+      <Field type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={t.searchExercises} aria-label={t.searchExercises}
+        prefix={<Search className="w-[18px] h-[18px] text-muted" strokeWidth={2} />} />
+      <div className="-mx-5 px-5 flex gap-2 overflow-x-auto scrollbar-hide">
+        {[{ id: null, en: t.allMuscles, fa: t.allMuscles }, ...MUSCLES].map((m) => (
+          <Chip key={String(m.id)} active={muscle === m.id} onClick={() => setMuscle(m.id)}>{isRtl ? m.fa : m.en}</Chip>
+        ))}
+      </div>
+      {list.length === 0 ? (
+        <Card><Empty icon={<Search className="w-6 h-6" strokeWidth={2} />} title={t.searchExercises} /></Card>
+      ) : (
+        <List>
+          {list.map((e) => {
+            const best = exerciseBests(sessions, e.id);
+            return (
+              <Row key={e.id} onClick={() => onOpen(e.id)} isRtl={isRtl} chevron
+                icon={<span className="w-11 h-11 rounded-[14px] overflow-hidden shrink-0"><ExerciseGraphic exerciseId={e.id} name={e.nameEn} /></span>}
+                title={isRtl ? e.nameFa : e.nameEn}
+                subtitle={`${muscleName(e.muscle)}${sep}${e.equipment}`}
+                right={best.maxWeight > 0 ? (
+                  <span className="flex flex-col items-end gap-0.5">
+                    <span className="font-mono text-[10px] uppercase tracking-label text-muted">{t.e1rm}</span>
+                    <span className="text-[15px] font-bold text-ink tabular-nums">{n(Math.round(best.bestE1rm))} {t.kg}</span>
+                  </span>
+                ) : null} />
+            );
+          })}
+        </List>
+      )}
+    </>
+  );
+}
+
+function TrendSheet({ exerciseId, sessions, isRtl, t, n, sep, onClose }) {
   const ex = findExercise(exerciseId);
   const points = exerciseTrend(sessions, exerciseId);
   const best = exerciseBests(sessions, exerciseId);
   const last = lastPerformance(sessions, exerciseId);
   const max = Math.max(...points.map((p) => p.e1rm), 1);
+  const sparse = points.length > 6;
   return (
     <Sheet title={exerciseName(exerciseId, isRtl)} isRtl={isRtl} t={t} onClose={onClose}>
-      <div className="flex items-center gap-3">
-        <span className="w-20 h-20 rounded-2xl bg-neutral-950 border border-white/10 overflow-hidden shrink-0"><ExerciseGraphic exerciseId={exerciseId} name={ex?.nameEn} /></span>
-        <div className="grid grid-cols-2 gap-2 flex-1">
-          <Stat label={t.topSet} value={best.maxWeight ? `${best.maxWeight} ${t.kg}` : "—"} />
-          <Stat label={t.e1rm} value={best.bestE1rm ? `${Math.round(best.bestE1rm)} ${t.kg}` : "—"} />
-        </div>
+      <div className="flex items-stretch gap-2.5">
+        <span className="w-[88px] h-[88px] rounded-3xl overflow-hidden shrink-0"><ExerciseGraphic exerciseId={exerciseId} name={ex?.nameEn} /></span>
+        {[[t.topSet, best.maxWeight], [t.e1rm, Math.round(best.bestE1rm)]].map(([label, value]) => (
+          <Card key={label} className="flex-1 min-w-0 flex flex-col justify-between gap-2">
+            <Label className="truncate">{label}</Label>
+            <span className="font-display font-extrabold text-[26px] leading-none tracking-[-0.03em] text-ink">
+              {value ? <>{n(value)}<span className="ms-1 text-sm font-semibold text-muted">{t.kg}</span></> : "–"}
+            </span>
+          </Card>
+        ))}
       </div>
       {points.length >= 2 ? (
-        <div className="p-3 rounded-2xl bg-[#141416] border border-white/10">
-          <span className="block text-[10px] font-black text-neutral-500 uppercase tracking-wider mb-2">{t.trend} · {t.e1rm}</span>
-          <div className="flex items-end gap-1.5 h-28" dir="ltr">
-            {points.map((p, i) => (
-              <div key={i} className="flex-1 flex flex-col items-center gap-1" title={`${p.weight}×${p.reps}`}>
-                <span className="text-[9px] font-black text-neutral-400 tabular-nums">{p.e1rm}</span>
-                <div className="w-full rounded-t-lg bg-gradient-to-t from-[#844783] to-[#c07dbf]" style={{ height: `${Math.max((p.e1rm / max) * 80, 6)}%` }} />
-                <span className="text-[8px] font-bold text-neutral-600">{new Date(p.at).toLocaleDateString(undefined, { month: "numeric", day: "numeric" })}</span>
-              </div>
-            ))}
-          </div>
-        </div>
+        <Card className="flex flex-col gap-3">
+          <Label>{t.trend}{sep}{t.e1rm}</Label>
+          <Bars max={92} items={points.map((p, i) => ({
+            key: `${p.at}-${i}`,
+            kind: i === points.length - 1 ? "today" : "done",
+            ratio: p.e1rm / max,
+            top: n(p.e1rm),
+            bold: i === points.length - 1,
+            label: !sparse || i === 0 || i === points.length - 1 ? fmt(new Date(p.at), isRtl, { day: "numeric", month: "numeric" }) : "",
+          }))} />
+        </Card>
       ) : (
-        <p className="text-xs font-bold text-neutral-600 text-center py-6">{t.noTrend}</p>
+        <p className="m-0 py-6 text-center text-sm text-muted">{t.noTrend}</p>
       )}
       {last && (
-        <p className="text-[11px] font-bold text-neutral-400" dir="ltr">{t.lastTime}: {last.map((s) => `${s.weight || 0}×${s.reps}`).join(" · ")}</p>
+        <p className="m-0 text-[13px] text-muted">
+          <span className="font-semibold text-ink">{t.lastTime}: </span>
+          {last.map((s) => `${n(s.weight || 0)} × ${n(s.reps)}`).join(sep)}
+        </p>
       )}
     </Sheet>
   );
 }
 
-function Stat({ label, value }) {
-  return (
-    <div className="p-3 rounded-2xl bg-[#141416] border border-white/10">
-      <span className="block text-[9px] font-black text-neutral-500 uppercase tracking-wider">{label}</span>
-      <span className="block text-sm font-black text-white tabular-nums">{value}</span>
-    </div>
-  );
-}
+/* ─────────────────────────────── progress ─────────────────────────────── */
 
-function Progress({ isRtl, t, store }) {
+function Progress({ isRtl, t, n, sep, store, onOpen }) {
   const sessions = [...store.sessions].filter((s) => s.finishedAt).sort((a, b) => (a.startedAt < b.startedAt ? 1 : -1));
   const prs = sessions.flatMap((s) => (s.prs || []).map((pr) => ({ ...pr, at: s.startedAt }))).slice(0, 8);
   const maxVol = Math.max(...store.weekly.map((w) => w.volume), 1);
+  const stats = [
+    [t.totalVolume, n(compact(store.stats.volume)), t.kg],
+    [t.workouts, n(store.stats.count), ""],
+    [t.totalBurn, n(compact(store.stats.calories)), "kcal"],
+  ];
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-3 gap-2 text-center">
-        {[[t.totalVolume, `${Math.round(store.stats.volume).toLocaleString()} ${t.kg}`, "text-amber-400"], [t.workouts, store.stats.count, "text-[#c07dbf]"], [t.totalBurn, `${store.stats.calories.toLocaleString()} kcal`, "text-emerald-400"]].map(([l, v, tone]) => (
-          <div key={l} className="p-3 rounded-2xl bg-[#141416] border border-white/10">
-            <span className={`block text-[9px] font-black uppercase ${tone}`}>{l}</span>
-            <span className="block text-sm font-black text-white tabular-nums mt-0.5">{v}</span>
-          </div>
+    <>
+      <Card className="grid grid-cols-3">
+        {stats.map(([label, value, unit], i) => (
+          <span key={label} className={cx("min-w-0 flex flex-col gap-1.5 px-3", i === 0 ? "ps-0" : "border-s border-hair", i === 2 && "pe-0")}>
+            <span className="font-display font-extrabold text-[26px] leading-none tracking-[-0.03em] text-ink whitespace-nowrap">
+              {value}{unit && <span className="ms-1 text-xs font-semibold text-muted tracking-normal">{unit}</span>}
+            </span>
+            <span className="text-xs text-muted">{label}</span>
+          </span>
         ))}
-      </div>
+      </Card>
 
-      <div className="p-4 rounded-3xl bg-[#141416] border border-white/10">
-        <span className="block text-[10px] font-black text-neutral-500 uppercase tracking-wider mb-3">{t.weeklyVolume}</span>
-        <div className="flex items-end gap-3 h-28" dir="ltr">
-          {store.weekly.map((w, i) => (
-            <div key={i} className="flex-1 flex flex-col items-center gap-1">
-              <span className="text-[9px] font-black text-neutral-400 tabular-nums">{w.volume ? `${Math.round(w.volume / 1000)}k` : "—"}</span>
-              <div className="w-full rounded-t-xl bg-gradient-to-t from-[#844783] to-[#a356a2]" style={{ height: `${Math.max((w.volume / maxVol) * 80, 4)}%` }} />
-              <span className="text-[9px] font-bold text-neutral-600">{w.from.toLocaleDateString(undefined, { month: "numeric", day: "numeric" })}</span>
-            </div>
-          ))}
+      <Card pad={false} className="rounded-4xl px-[18px] pt-[18px] pb-3.5 flex flex-col gap-3">
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="m-0 text-[15px] font-semibold text-ink">{t.weeklyVolume}</h2>
+          {onOpen && (
+            <button type="button" onClick={() => onOpen("workoutReport")}
+              className="h-11 -my-3 px-1 text-sm font-semibold text-ink underline underline-offset-[3px] bg-transparent border-0 cursor-pointer">
+              {t.fullReport}
+            </button>
+          )}
         </div>
-      </div>
+        <Bars max={96} items={store.weekly.map((w, i) => {
+          const current = i === store.weekly.length - 1;
+          return {
+            key: String(w.from.getTime()),
+            kind: w.volume ? (current ? "today" : "done") : "none",
+            ratio: w.volume / maxVol,
+            top: w.volume ? n(compact(w.volume)) : "–",
+            bold: current,
+            label: fmt(w.from, isRtl, { day: "numeric", month: "short" }),
+          };
+        })} />
+      </Card>
 
       {prs.length > 0 && (
-        <div className="p-4 rounded-3xl bg-[#141416] border border-white/10 space-y-2">
-          <span className="flex items-center gap-1.5 text-[10px] font-black text-amber-400 uppercase tracking-wider"><Trophy className="w-3.5 h-3.5" /> {t.personalRecords}</span>
-          {prs.map((pr, i) => (
-            <div key={i} className="flex items-center justify-between gap-2 text-xs">
-              <span className="font-black text-white truncate">{exerciseName(pr.exerciseId, isRtl)}</span>
-              <span className="font-bold text-emerald-400 shrink-0" dir="ltr">{pr.kind === "first" ? t.prFirst : `${pr.prev} → ${pr.value} ${t.kg}`}</span>
-            </div>
-          ))}
-        </div>
+        <>
+          <SectionHead title={t.personalRecords} />
+          <List>
+            {prs.map((pr, i) => (
+              <Row key={i} isRtl={isRtl}
+                icon={<IconWell tone="inv" size={40}><Trophy className="w-[18px] h-[18px]" strokeWidth={2} /></IconWell>}
+                title={exerciseName(pr.exerciseId, isRtl)}
+                subtitle={pr.kind === "first" ? t.prFirst : `${pr.kind === "weight" ? t.prWeight : t.prE1rm}${sep}${t.prFrom(`${n(pr.prev)} ${t.kg}`)}`}
+                right={pr.kind === "first" ? null : <span className="text-[15px] font-bold text-ink">{n(pr.value)} {t.kg}</span>} />
+            ))}
+          </List>
+        </>
       )}
 
-      <div className="space-y-2">
-        <h3 className="text-[10px] font-black text-neutral-500 uppercase tracking-wider px-1">{t.history}</h3>
-        {sessions.length === 0 && <p className="py-8 text-center text-xs font-bold text-neutral-600">{t.noSessions}</p>}
-        {sessions.map((s) => (
-          <div key={s.id} className="p-4 rounded-2xl bg-[#141416] border border-white/10 flex items-center gap-3">
-            <span className="w-10 h-10 rounded-xl bg-[#844783]/20 border border-[#844783]/40 flex items-center justify-center text-[#c07dbf] shrink-0"><Dumbbell className="w-5 h-5" /></span>
-            <span className="flex-1 min-w-0">
-              <span className="block text-sm font-black text-white truncate">{(isRtl && s.dayTitleFa) || s.dayTitle} <span className="text-neutral-500 font-bold">· {s.programName}</span></span>
-              <span className="block text-[10px] font-bold text-neutral-500" dir="ltr">{dateLabel(s.startedAt)} · {fmtDuration(s.durationSec)} {t.min} · {Math.round(sessionVolume(s)).toLocaleString()} {t.kg} · {sessionSetsDone(s)} {t.sets}{s.prs?.length ? ` · 🏆 ${s.prs.length}` : ""}</span>
-            </span>
-            <button type="button" onClick={() => { if (window.confirm(t.deleteSessionConfirm)) store.removeSession(s.id); }} aria-label={t.deleteSession}
-              className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-neutral-600 hover:text-rose-400 shrink-0"><Trash2 className="w-3.5 h-3.5" /></button>
-          </div>
-        ))}
-      </div>
-    </div>
+      <SectionHead title={t.history} action={onOpen && sessions.length ? t.seeAll : null} onAction={() => onOpen?.("history")} />
+      {sessions.length === 0 ? (
+        <Card><Empty icon={<Dumbbell className="w-6 h-6" strokeWidth={2} />} title={t.history} body={t.noSessions} /></Card>
+      ) : (
+        <List>
+          {sessions.map((s) => (
+            <Row key={s.id} isRtl={isRtl}
+              icon={<IconWell tone="sunk" size={40}><Dumbbell className="w-[18px] h-[18px]" strokeWidth={2} /></IconWell>}
+              title={(isRtl && s.dayTitleFa) || s.dayTitle}
+              subtitle={(
+                <>
+                  <span className="block">{fmt(new Date(s.startedAt), isRtl, { weekday: "short", day: "numeric", month: "short" })}{sep}{s.programName}</span>
+                  <span className="flex flex-wrap items-center gap-x-1">
+                    {n(Math.round(s.durationSec / 60))} {t.min}{sep}{n(grouped(sessionVolume(s)))} {t.kg}{sep}{n(sessionSetsDone(s))} {t.sets}
+                    {s.prs?.length ? <span className="inline-flex items-center gap-1">{sep}<Trophy className="w-3.5 h-3.5" strokeWidth={2} />{n(s.prs.length)}</span> : null}
+                  </span>
+                </>
+              )}
+              right={(
+                <IconButton label={t.deleteSession} tone="ghost" size={40}
+                  onClick={() => { if (window.confirm(t.deleteSessionConfirm)) store.removeSession(s.id); }}>
+                  <Trash2 className="w-[18px] h-[18px] text-muted" strokeWidth={2} />
+                </IconButton>
+              )} />
+          ))}
+        </List>
+      )}
+    </>
   );
 }
-
-export { BadgeCheck, Flame, EXERCISES, estimateCalories };

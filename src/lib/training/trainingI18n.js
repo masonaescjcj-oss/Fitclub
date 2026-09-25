@@ -47,6 +47,18 @@ const en = {
 
   save: "Save", cancel: "Cancel", close: "Close", done: "Done", delete: "Delete",
   today: "Today", yesterday: "Yesterday",
+  // Ink & Volt redesign
+  title: "Train", weekOf: (w, n) => `Week ${w} of ${n}`, volumeThisWeek: "Volume this week", kgSoFar: "kg so far",
+  vsLastWeek: "vs last week", legendDone: "Done", legendToday: "Today, planned", legendPlanned: "Planned",
+  upNext: "Up next", fullPlan: "Full plan", showLess: "Show less", doneToday: "Done today",
+  latestPr: "Latest PR", heaviestLift: "Heaviest lift", beatIt: "Beat it next block.",
+  currentProgram: "Current program", change: "Change", workoutOpen: "Workout in progress", resumeWorkout: "Resume workout",
+  workoutHistory: "Workout history", fullReport: "Full report", seeAll: "See all", importShort: "Add from link",
+  exercisesLc: "exercises", exerciseOf: (i, n) => `Exercise ${i} of ${n}`, setOf: (i, n) => `Set ${i} of ${n}`,
+  allSetsDone: "All sets done", completeSet: (i) => `Complete set ${i}`, now: "Now", left: (v) => `${v} left`,
+  restFor: (v) => `${v} s rest`, minimise: "Minimise", increase: "Increase", decrease: "Decrease",
+  completedTitle: "Workout complete", prFrom: (v) => `up from ${v}`, days: "Days", recoveryDay: "Recovery day",
+  noActiveTitle: "No active program", browsePrograms: "Browse programs", muscle: "Muscle",
 };
 
 const fa = {
@@ -98,6 +110,18 @@ const fa = {
 
   save: "ذخیره", cancel: "انصراف", close: "بستن", done: "تمام", delete: "حذف",
   today: "امروز", yesterday: "دیروز",
+  // Ink & Volt redesign
+  title: "تمرین", weekOf: (w, n) => `هفته‌ی ${w} از ${n}`, volumeThisWeek: "حجم این هفته", kgSoFar: "کیلو تا اینجا",
+  vsLastWeek: "نسبت به هفته‌ی قبل", legendDone: "انجام‌شده", legendToday: "امروز، در برنامه", legendPlanned: "در برنامه",
+  upNext: "جلسه‌های بعد", fullPlan: "کل برنامه", showLess: "نمایش کمتر", doneToday: "امروز انجام شد",
+  latestPr: "آخرین رکورد", heaviestLift: "سنگین‌ترین ست", beatIt: "در بلوک بعد رکوردش را بزن.",
+  currentProgram: "برنامه‌ی فعلی", change: "تغییر", workoutOpen: "تمرین نیمه‌تمام", resumeWorkout: "ادامه‌ی تمرین",
+  workoutHistory: "تاریخچه‌ی تمرین", fullReport: "گزارش کامل", seeAll: "همه", importShort: "افزودن از لینک",
+  exercisesLc: "حرکت", exerciseOf: (i, n) => `حرکت ${i} از ${n}`, setOf: (i, n) => `ست ${i} از ${n}`,
+  allSetsDone: "همه‌ی ست‌ها انجام شد", completeSet: (i) => `ثبت ست ${i}`, now: "الان", left: (v) => `${v} مانده`,
+  restFor: (v) => `${v} ثانیه استراحت`, minimise: "کوچک کردن", increase: "افزایش", decrease: "کاهش",
+  completedTitle: "تمرین کامل شد", prFrom: (v) => `قبلی ${v}`, days: "روزها", recoveryDay: "روز ریکاوری",
+  noActiveTitle: "برنامه‌ی فعالی نیست", browsePrograms: "دیدن برنامه‌ها", muscle: "عضله",
 };
 
 export const useTrainingT = (isRtl) => (isRtl ? fa : en);

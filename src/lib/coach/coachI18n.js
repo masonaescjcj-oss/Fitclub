@@ -1,5 +1,5 @@
 const en = {
-  title: "AI Coach",
+  title: "Coach",
   live: "Reads your real data",
   demo: "Demo mode",
   demoHint: "Add your Anthropic API key to talk to Claude. Until then, replies are built offline from your own numbers.",
@@ -53,10 +53,24 @@ const en = {
   openSettings: "Open settings",
   retry: "Retry",
   poweredBy: "Claude",
+  liveSub: "Reads your diary, log and checklist",
+  setupTitle: "Connect Claude",
+  addKey: "Add API key",
+  showKey: "Show key",
+  hideKey: "Hide key",
+  composeLabel: "Message the coach",
+  conversation: "Conversation",
+  suggestions: "Suggestions",
+  kcal: "kcal",
+  kg: "kg",
+  over: "over",
+  open: "open",
+  trained: (when) => `trained ${when}`,
+  weightChange: (sign, days) => `${sign} kg in ${days}d`,
 };
 
 const fa = {
-  title: "مربی هوشمند",
+  title: "مربی",
   live: "داده‌ی واقعی خودت را می‌خواند",
   demo: "حالت نمایشی",
   demoHint: "برای گفتگو با Claude کلید API آنتروپیک خودت را وارد کن. تا آن وقت، پاسخ‌ها آفلاین و از روی اعداد خودت ساخته می‌شوند.",
@@ -110,6 +124,20 @@ const fa = {
   openSettings: "تنظیمات",
   retry: "دوباره",
   poweredBy: "Claude",
+  liveSub: "غذا، تمرین و چک‌لیستت را می‌خواند",
+  setupTitle: "اتصال به Claude",
+  addKey: "افزودن کلید API",
+  showKey: "نمایش کلید",
+  hideKey: "پنهان کردن کلید",
+  composeLabel: "پیام به مربی",
+  conversation: "گفتگو",
+  suggestions: "پیشنهادها",
+  kcal: "کالری",
+  kg: "کیلو",
+  over: "اضافه",
+  open: "کار باز",
+  trained: (when) => `تمرین: ${when}`,
+  weightChange: (sign, days) => `${sign} کیلو در ${days} روز`,
 };
 
 export const useCoachT = (isRtl) => (isRtl ? fa : en);

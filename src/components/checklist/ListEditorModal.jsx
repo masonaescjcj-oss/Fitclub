@@ -1,9 +1,10 @@
 import React, { useMemo, useState } from "react";
-import { motion } from "framer-motion";
-import { Check, Infinity as InfinityIcon, Repeat, Trash2, User, UserPlus, Users, X } from "lucide-react";
+import { Check as CheckIcon, ChevronDown, Infinity as InfinityIcon, Plus, Repeat, Trash2, X } from "lucide-react";
 import { LIST_COLORS, ME, localized } from "../../lib/checklistModel";
 import { FRIEND_POOL } from "../../lib/checklistStore";
+import { Button, Field, IconButton, Label, Segmented, Sheet, cx, num } from "../ui/kit";
 import { Avatar } from "./ChecklistBits";
+import { Tick } from "./ItemDetailSheet";
 
 const EMOJI = ["✅", "🔥", "🎯", "💪", "🥗", "🧘", "🏃", "⚡", "🎒", "📚", "💧", "🌙", "🏆", "📅", "🧠", "❤️"];
 
@@ -15,21 +16,60 @@ const MODES = [
   { id: "interval", icon: Repeat, label: "resetInterval", hint: "resetIntervalHint" },
 ];
 
-function Field({ label, hint, children }) {
+/** A labelled group of controls inside the sheet. */
+function Group({ label, hint, children }) {
   return (
-    <div className="space-y-2">
-      <span className="block">
-        <span className="block text-[10px] font-black text-neutral-500 uppercase tracking-wider">{label}</span>
-        {hint && <span className="block text-[10px] font-medium text-neutral-600 normal-case mt-0.5">{hint}</span>}
+    <div className="flex flex-col gap-2">
+      <span className="flex flex-col gap-1 px-1">
+        <Label>{label}</Label>
+        {hint && <span className="text-[13px] text-muted">{hint}</span>}
       </span>
       {children}
     </div>
   );
 }
 
+/** A white card of rows, like the kit's List, for rows with their own buttons. */
+function Rows({ children }) {
+  return <ul className="m-0 p-0 py-1 list-none rounded-3xl bg-card divide-y divide-hair">{children}</ul>;
+}
+
+/** A native select on the kit's field well. */
+function Select({ label, value, onChange, children }) {
+  return (
+    <label className="flex items-center justify-between gap-3 min-h-[56px] px-4">
+      <span className="text-[15px] font-semibold text-ink">{label}</span>
+      <span className="relative">
+        <select value={value} onChange={onChange}
+          className="h-10 ps-4 pe-9 rounded-full bg-sunk border-0 text-[15px] font-semibold text-ink appearance-none !outline-none focus:ring-2 focus:ring-inset focus:ring-ink cursor-pointer">
+          {children}
+        </select>
+        <ChevronDown aria-hidden="true" className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
+      </span>
+    </label>
+  );
+}
+
+/** A number stepper field for the reset detail. */
+function NumberRow({ label, suffix, value, min, max, onChange }) {
+  return (
+    <label className="flex items-center justify-between gap-3 min-h-[56px] px-4">
+      <span className="text-[15px] font-semibold text-ink">{label}</span>
+      <span className="inline-flex items-center gap-2">
+        <input type="number" inputMode="numeric" min={min} max={max} value={value} dir="ltr"
+          onChange={(e) => onChange(Math.min(Math.max(+e.target.value || min, min), max))}
+          className="w-20 h-10 px-3 rounded-full bg-sunk border-0 text-[15px] font-semibold text-ink text-center !outline-none focus:ring-2 focus:ring-inset focus:ring-ink" />
+        {suffix && <span className="text-sm text-muted">{suffix}</span>}
+      </span>
+    </label>
+  );
+}
+
 /** Create or edit a list: identity, sharing, and the reset schedule. */
-export default function ListEditorModal({ list, isRtl, t, onSave, onDelete, onClose }) {
+export default function ListEditorModal({ list, isRtl, t, onSave, onDelete, onClose, open = true }) {
   const isNew = !list;
+  const n = (v) => num(v, isRtl);
+  const sep = t.sep || " · ";
   const [draft, setDraft] = useState(() => ({
     name: list ? localized(list, isRtl) : "",
     emoji: list?.emoji ?? "✅",
@@ -66,243 +106,190 @@ export default function ListEditorModal({ list, isRtl, t, onSave, onDelete, onCl
     });
   };
 
+  const typeHint = draft.type === "group" ? t.groupDesc : t.personalDesc;
+  const ruleHint = draft.groupRule === "anyone" ? t.ruleAnyoneHint : t.ruleEveryoneHint;
+
   return (
-    <div dir={isRtl ? "rtl" : "ltr"} className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center">
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-        onClick={onClose} className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
-
-      <motion.div
-        initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
-        transition={{ type: "spring", stiffness: 320, damping: 34 }}
-        className="relative w-full sm:max-w-lg bg-[#0d0d0f] border-t sm:border border-white/15 rounded-t-3xl sm:rounded-3xl max-h-[90dvh] flex flex-col overflow-hidden"
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-white/10 shrink-0">
-          <h2 className="text-base font-black text-white">{isNew ? t.newList : t.editList}</h2>
-          <button type="button" onClick={onClose} aria-label={t.close}
-            className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-neutral-400 hover:text-white">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-hide">
-          {/* Name + icon */}
-          <Field label={t.listName}>
-            <div className="flex items-center gap-2">
-              <span className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl shrink-0"
-                style={{ background: `${draft.color}22`, border: `1px solid ${draft.color}55` }}>
-                {draft.emoji}
-              </span>
-              <input
-                autoFocus={isNew}
-                value={draft.name}
-                onChange={(e) => set({ name: e.target.value })}
-                onKeyDown={(e) => e.key === "Enter" && submit()}
-                placeholder={t.listNamePlaceholder}
-                className="flex-1 h-12 px-4 rounded-2xl bg-[#141416] border border-white/10 text-sm font-bold text-white placeholder:text-neutral-600 focus:outline-none focus:border-white/30"
-              />
-            </div>
-            <div className="flex flex-wrap gap-1.5 pt-1">
-              {EMOJI.map((e) => (
-                <button key={e} type="button" onClick={() => set({ emoji: e })}
-                  className={`w-8 h-8 rounded-lg text-base flex items-center justify-center transition-all ${
-                    draft.emoji === e ? "bg-white/15 ring-1 ring-white/40" : "bg-white/5 hover:bg-white/10"
-                  }`}>
-                  {e}
-                </button>
-              ))}
-            </div>
-          </Field>
-
-          <Field label={t.color}>
-            <div className="flex flex-wrap gap-2">
-              {LIST_COLORS.map((c) => (
-                <button key={c} type="button" onClick={() => set({ color: c })}
-                  aria-label={c}
-                  className="w-8 h-8 rounded-full flex items-center justify-center transition-transform hover:scale-110"
-                  style={{ background: c, boxShadow: draft.color === c ? `0 0 0 2px var(--sheet), 0 0 0 4px ${c}` : "none" }}>
-                  {draft.color === c && <Check className="w-4 h-4 text-white stroke-[3]" />}
-                </button>
-              ))}
-            </div>
-          </Field>
-
-          {/* Personal vs group */}
-          <Field label={t.listType}>
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                { id: "personal", icon: User, label: t.personal, desc: t.personalDesc },
-                { id: "group", icon: Users, label: t.group, desc: t.groupDesc },
-              ].map((opt) => {
-                const Icon = opt.icon;
-                const on = draft.type === opt.id;
-                return (
-                  <button key={opt.id} type="button" onClick={() => set({ type: opt.id })}
-                    className={`p-3 rounded-2xl border text-start transition-all ${
-                      on ? "bg-white/[0.07] border-white/30" : "bg-[#141416] border-white/10 hover:border-white/20"
-                    }`}>
-                    <Icon className="w-4 h-4 mb-1.5" style={{ color: on ? draft.color : "#71717a" }} />
-                    <span className="block text-xs font-black text-white">{opt.label}</span>
-                    <span className="block text-[9px] font-medium text-neutral-500 leading-snug mt-0.5">{opt.desc}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </Field>
-
-          {/* Group-only settings */}
-          {draft.type === "group" && (
-            <>
-              <Field label={t.groupRule}>
-                <div className="grid grid-cols-2 gap-2">
-                  {[
-                    { id: "everyone", label: t.ruleEveryone, desc: t.ruleEveryoneHint },
-                    { id: "anyone", label: t.ruleAnyone, desc: t.ruleAnyoneHint },
-                  ].map((opt) => {
-                    const on = draft.groupRule === opt.id;
-                    return (
-                      <button key={opt.id} type="button" onClick={() => set({ groupRule: opt.id })}
-                        className={`p-3 rounded-2xl border text-start transition-all ${
-                          on ? "bg-white/[0.07] border-white/30" : "bg-[#141416] border-white/10 hover:border-white/20"
-                        }`}>
-                        <span className="block text-xs font-black text-white">{opt.label}</span>
-                        <span className="block text-[9px] font-medium text-neutral-500 leading-snug mt-0.5">{opt.desc}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </Field>
-
-              <Field label={`${t.members} · ${draft.members.length}`}>
-                <div className="space-y-1.5">
-                  {draft.members.map((m) => (
-                    <div key={m.id} className="flex items-center gap-2.5 p-2 rounded-xl bg-[#141416] border border-white/10">
-                      <Avatar member={m} size={28} ring="var(--card)" />
-                      <span className="flex-1 text-xs font-bold text-white truncate">
-                        {m.id === ME.id ? t.you : localized(m, isRtl)}
-                      </span>
-                      {m.id !== ME.id && (
-                        <button type="button" onClick={() => toggleFriend(m)} aria-label={t.removeMember}
-                          className="w-7 h-7 rounded-lg bg-white/5 flex items-center justify-center text-neutral-500 hover:text-rose-400">
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-
-                {available.length > 0 ? (
-                  <div className="pt-2 space-y-1.5">
-                    <span className="flex items-center gap-1.5 text-[10px] font-black text-neutral-500 uppercase">
-                      <UserPlus className="w-3 h-3" /> {t.addFriends}
-                    </span>
-                    {available.map((f) => (
-                      <button key={f.id} type="button" onClick={() => toggleFriend(f)}
-                        className="w-full flex items-center gap-2.5 p-2 rounded-xl bg-black/40 border border-white/5 hover:border-white/20 transition-all">
-                        <Avatar member={f} size={28} ring="var(--sheet)" />
-                        <span className="flex-1 text-xs font-bold text-neutral-300 truncate text-start">{localized(f, isRtl)}</span>
-                        <span className="w-6 h-6 rounded-lg bg-white/5 flex items-center justify-center text-neutral-400">+</span>
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-[10px] text-neutral-600 font-medium pt-1">{t.noFriendsLeft}</p>
-                )}
-              </Field>
-            </>
-          )}
-
-          {/* Reset schedule */}
-          <Field label={t.resetTitle} hint={t.resetDesc}>
-            <div className="space-y-1.5">
-              {MODES.map((m) => {
-                const Icon = m.icon;
-                const on = draft.reset.mode === m.id;
-                return (
-                  <button key={m.id} type="button" onClick={() => setReset({ mode: m.id, anchor: Date.now() })}
-                    className={`w-full p-3 rounded-2xl border flex items-center gap-3 text-start transition-all ${
-                      on ? "bg-white/[0.07] border-white/30" : "bg-[#141416] border-white/10 hover:border-white/20"
-                    }`}>
-                    <Icon className="w-4 h-4 shrink-0" style={{ color: on ? draft.color : "#71717a" }} />
-                    <span className="flex-1 min-w-0">
-                      <span className="block text-xs font-black text-white">{t[m.label]}</span>
-                      <span className="block text-[9px] font-medium text-neutral-500">{t[m.hint]}</span>
-                    </span>
-                    {on && <Check className="w-4 h-4 shrink-0" style={{ color: draft.color }} />}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Mode-specific detail */}
-            {draft.reset.mode === "weekly" && (
-              <div className="flex flex-wrap gap-1.5 pt-1">
-                {t.weekDays.map((d, i) => (
-                  <button key={i} type="button" onClick={() => setReset({ weekStart: i })}
-                    className={`px-2.5 h-8 rounded-lg text-[10px] font-black transition-all ${
-                      draft.reset.weekStart === i ? "text-white" : "bg-white/5 text-neutral-400 hover:bg-white/10"
-                    }`}
-                    style={draft.reset.weekStart === i ? { background: draft.color } : undefined}>
-                    {d.slice(0, 3)}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {draft.reset.mode === "monthly" && (
-              <label className="flex items-center gap-2 pt-1">
-                <span className="text-[10px] font-black text-neutral-400">{t.dayOfMonth}</span>
-                <input type="number" min="1" max="28" value={draft.reset.monthDay}
-                  onChange={(e) => setReset({ monthDay: Math.min(Math.max(+e.target.value || 1, 1), 28) })}
-                  className="w-16 h-9 px-2 rounded-lg bg-[#141416] border border-white/10 text-xs font-bold text-white text-center focus:outline-none focus:border-white/30" />
-              </label>
-            )}
-
-            {draft.reset.mode === "interval" && (
-              <label className="flex items-center gap-2 pt-1">
-                <span className="text-[10px] font-black text-neutral-400">{t.everyNDays}</span>
-                <input type="number" min="1" max="90" value={draft.reset.every}
-                  onChange={(e) => setReset({ every: Math.min(Math.max(+e.target.value || 1, 1), 90) })}
-                  className="w-16 h-9 px-2 rounded-lg bg-[#141416] border border-white/10 text-xs font-bold text-white text-center focus:outline-none focus:border-white/30" />
-                <span className="text-[10px] font-black text-neutral-400">{t.days}</span>
-              </label>
-            )}
-
-            {draft.reset.mode !== "none" && (
-              <label className="flex items-center gap-2 pt-1">
-                <span className="text-[10px] font-black text-neutral-400">{t.resetHour}</span>
-                <select value={draft.reset.resetHour}
-                  onChange={(e) => setReset({ resetHour: +e.target.value })}
-                  className="h-9 px-2 rounded-lg bg-[#141416] border border-white/10 text-xs font-bold text-white focus:outline-none focus:border-white/30">
-                  {Array.from({ length: 24 }, (_, h) => (
-                    <option key={h} value={h}>{String(h).padStart(2, "0")}:00</option>
-                  ))}
-                </select>
-              </label>
-            )}
-          </Field>
-
-          {!isNew && (
-            <button type="button" onClick={onDelete}
-              className="w-full h-11 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-400 font-black text-xs flex items-center justify-center gap-2 hover:bg-rose-500/20 transition-all">
-              <Trash2 className="w-4 h-4" /> {t.deleteList}
-            </button>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="p-4 border-t border-white/10 flex gap-2 shrink-0">
-          <button type="button" onClick={onClose}
-            className="flex-1 h-12 rounded-2xl bg-white/5 border border-white/10 text-neutral-300 font-black text-sm hover:bg-white/10 transition-all">
-            {t.cancel}
-          </button>
-          <button type="button" onClick={submit} disabled={!draft.name.trim()}
-            className="flex-1 h-12 rounded-2xl text-white font-black text-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:brightness-110 active:scale-[0.98]"
-            style={{ background: draft.color }}>
+    <Sheet open={open} title={isNew ? t.newList : t.editList} onClose={onClose} isRtl={isRtl} closeLabel={t.close} tall
+      footer={(
+        <>
+          <Button tone="card" size="lg" className="flex-1" onClick={onClose}>{t.cancel}</Button>
+          <Button tone="ink" size="lg" className="flex-1" onClick={submit} disabled={!draft.name.trim()}>
             {isNew ? t.createList : t.save}
-          </button>
+          </Button>
+        </>
+      )}>
+      {/* Name */}
+      <Group label={t.listName}>
+        <Field value={draft.name} autoFocus={isNew} aria-label={t.listName}
+          onChange={(e) => set({ name: e.target.value })}
+          onKeyDown={(e) => e.key === "Enter" && submit()}
+          placeholder={t.listNamePlaceholder}
+          prefix={<span aria-hidden="true" className="text-base leading-none">{draft.emoji}</span>} />
+      </Group>
+
+      {/* Icon: the list's own emoji, a piece of the athlete's data. */}
+      <Group label={t.emoji}>
+        <div className="grid grid-cols-8 p-1.5 rounded-3xl bg-card">
+          {EMOJI.map((e) => {
+            const on = draft.emoji === e;
+            return (
+              <button key={e} type="button" onClick={() => set({ emoji: e })} aria-pressed={on} aria-label={e}
+                className={cx("h-11 rounded-full text-lg leading-none flex items-center justify-center border-0 cursor-pointer transition-colors",
+                  on ? "bg-sunk ring-2 ring-inset ring-ink" : "bg-transparent")}>
+                {e}
+              </button>
+            );
+          })}
         </div>
-      </motion.div>
-    </div>
+      </Group>
+
+      <Group label={t.color}>
+        <div className="grid grid-cols-8 p-1.5 rounded-3xl bg-card">
+          {LIST_COLORS.map((c) => {
+            const on = draft.color === c;
+            return (
+              <button key={c} type="button" onClick={() => set({ color: c })} aria-pressed={on} aria-label={c}
+                className="h-11 rounded-full flex items-center justify-center bg-transparent border-0 cursor-pointer">
+                <span className={cx("w-7 h-7 rounded-full flex items-center justify-center", on && "ring-2 ring-ink ring-offset-2 ring-offset-card")}
+                  style={{ background: c }}>
+                  {on && <CheckIcon className="w-4 h-4 text-hero-fg" strokeWidth={3} />}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </Group>
+
+      {/* Personal vs group */}
+      <Group label={t.listType}>
+        <Segmented value={draft.type} onChange={(id) => set({ type: id })}
+          options={[{ id: "personal", label: t.personal }, { id: "group", label: t.group }]} />
+        <p className="m-0 px-1 text-[13px] text-muted">{typeHint}</p>
+      </Group>
+
+      {/* Group-only settings */}
+      {draft.type === "group" && (
+        <>
+          <Group label={t.groupRule}>
+            <Segmented value={draft.groupRule} onChange={(id) => set({ groupRule: id })}
+              options={[{ id: "everyone", label: t.ruleEveryone }, { id: "anyone", label: t.ruleAnyone }]} />
+            <p className="m-0 px-1 text-[13px] text-muted">{ruleHint}</p>
+          </Group>
+
+          <Group label={`${t.members}${sep}${n(draft.members.length)}`}>
+            <Rows>
+              {draft.members.map((m) => (
+                <li key={m.id} className="list-none flex items-center gap-3.5 min-h-[56px] px-4 py-1.5">
+                  <Avatar member={m} size={36} ring="" />
+                  <span className="flex-1 min-w-0 text-[15px] font-semibold text-ink truncate">
+                    {m.id === ME.id ? t.you : localized(m, isRtl)}
+                  </span>
+                  {m.id !== ME.id && (
+                    <IconButton label={`${t.removeMember} ${localized(m, isRtl)}`} tone="soft" size={36} className="-me-1"
+                      onClick={() => toggleFriend(m)}>
+                      <X className="w-4 h-4" strokeWidth={2} />
+                    </IconButton>
+                  )}
+                </li>
+              ))}
+            </Rows>
+          </Group>
+
+          <Group label={t.addFriends}>
+            {available.length > 0 ? (
+              <Rows>
+                {available.map((f) => (
+                  <li key={f.id} className="list-none">
+                    <button type="button" onClick={() => toggleFriend(f)}
+                      className="w-full min-h-[56px] flex items-center gap-3.5 px-4 py-1.5 text-start bg-transparent border-0 cursor-pointer active:bg-sunk transition-colors">
+                      <Avatar member={f} size={36} ring="" />
+                      <span className="flex-1 min-w-0 text-[15px] font-semibold text-ink truncate">{localized(f, isRtl)}</span>
+                      <span className="w-9 h-9 -me-1 rounded-full bg-sunk text-ink flex items-center justify-center">
+                        <Plus className="w-4 h-4" strokeWidth={2.4} />
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </Rows>
+            ) : (
+              <p className="m-0 px-1 text-sm text-muted">{t.noFriendsLeft}</p>
+            )}
+          </Group>
+        </>
+      )}
+
+      {/* Reset schedule */}
+      <Group label={t.resetTitle} hint={t.resetDesc}>
+        <Rows>
+          {MODES.map((m) => {
+            const Icon = m.icon;
+            const on = draft.reset.mode === m.id;
+            return (
+              <li key={m.id} className="list-none">
+                <button type="button" role="radio" aria-checked={on} onClick={() => setReset({ mode: m.id, anchor: Date.now() })}
+                  className="w-full min-h-[60px] flex items-center gap-3.5 px-4 py-2 text-start bg-transparent border-0 cursor-pointer active:bg-sunk transition-colors">
+                  <span className={cx("w-9 h-9 shrink-0 rounded-full flex items-center justify-center", on ? "bg-jet text-accent dark:bg-accent dark:text-on-accent" : "bg-sunk text-ink")}>
+                    <Icon className="w-4 h-4" strokeWidth={2} />
+                  </span>
+                  <span className="flex-1 min-w-0 flex flex-col gap-0.5">
+                    <span className="text-[15px] font-semibold text-ink">{t[m.label]}</span>
+                    <span className="text-[13px] text-muted">{t[m.hint]}</span>
+                  </span>
+                  <Tick on={on} />
+                </button>
+              </li>
+            );
+          })}
+        </Rows>
+
+        {/* Mode-specific detail */}
+        {draft.reset.mode === "weekly" && (
+          <div role="radiogroup" aria-label={t.resetsOn} className="grid grid-cols-7 gap-1 p-1.5 rounded-3xl bg-card">
+            {t.weekDays.map((d, i) => {
+              const on = draft.reset.weekStart === i;
+              return (
+                <button key={i} type="button" role="radio" aria-checked={on} aria-label={d} onClick={() => setReset({ weekStart: i })}
+                  className={cx("h-11 rounded-full border-0 cursor-pointer text-sm transition-colors",
+                    on ? "bg-inv text-on-inv font-semibold" : "bg-transparent text-ink font-medium")}>
+                  {isRtl ? [...d][0] : d.slice(0, 3)}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {draft.reset.mode !== "none" && (
+          <Rows>
+            {draft.reset.mode === "monthly" && (
+              <li className="list-none">
+                <NumberRow label={t.dayOfMonth} value={draft.reset.monthDay} min={1} max={28}
+                  onChange={(v) => setReset({ monthDay: v })} />
+              </li>
+            )}
+            {draft.reset.mode === "interval" && (
+              <li className="list-none">
+                <NumberRow label={t.everyNDays} suffix={t.days} value={draft.reset.every} min={1} max={90}
+                  onChange={(v) => setReset({ every: v })} />
+              </li>
+            )}
+            <li className="list-none">
+              <Select label={t.resetHour} value={draft.reset.resetHour} onChange={(e) => setReset({ resetHour: +e.target.value })}>
+                {Array.from({ length: 24 }, (_, h) => (
+                  <option key={h} value={h}>{n(String(h).padStart(2, "0"))}:{n("00")}</option>
+                ))}
+              </Select>
+            </li>
+          </Rows>
+        )}
+      </Group>
+
+      {!isNew && (
+        <Button tone="danger" size="md" className="self-start -ms-1 px-1" onClick={onDelete}
+          icon={<Trash2 className="w-[18px] h-[18px]" strokeWidth={2} />}>
+          {t.deleteList}
+        </Button>
+      )}
+    </Sheet>
   );
 }
