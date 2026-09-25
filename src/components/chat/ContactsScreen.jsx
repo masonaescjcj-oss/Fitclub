@@ -59,7 +59,10 @@ export function ContactSheet({ store, initial = null, isRtl, t, onSave, onClose 
 }
 
 /** Contact directory, sorted the way Telegram sorts it: online first, then last seen. */
-export default function ContactsScreen({ store, isRtl, t, onBack, onGoCalls, onNewGroup, onNewChannel, sections = null }) {
+// Level with the chat list's header, right under the safe area.
+const ROOT_TOP = { paddingTop: "calc(env(safe-area-inset-top) + 6px)" };
+
+export default function ContactsScreen({ store, isRtl, t, onGoCalls, onNewGroup, onNewChannel }) {
   const [query, setQuery] = useState("");
   const [adding, setAdding] = useState(false);
 
@@ -88,8 +91,8 @@ export default function ContactsScreen({ store, isRtl, t, onBack, onGoCalls, onN
   ];
 
   return (
-    <Screen isRtl={isRtl} tabbed>
-      <header className="flex items-center justify-between gap-3 pt-3">
+    <Screen isRtl={isRtl} tabbed style={ROOT_TOP}>
+      <header className="flex items-center justify-between gap-3">
         <h1 className="m-0 min-w-0 truncate font-display font-extrabold text-[38px] leading-[0.95] tracking-[-0.04em] text-ink">{t.contactsTitle}</h1>
         <div className="flex gap-2 shrink-0">
           <IconButton label={t.recentCalls} tone="card" onClick={onGoCalls}>
@@ -100,8 +103,6 @@ export default function ContactsScreen({ store, isRtl, t, onBack, onGoCalls, onN
           </IconButton>
         </div>
       </header>
-
-      {sections}
 
       <Field type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t.searchContacts} aria-label={t.searchContacts}
         prefix={<Search className="w-[18px] h-[18px] text-muted" strokeWidth={2} />} />

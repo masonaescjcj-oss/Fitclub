@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChecklistProvider, useChecklistStore } from "../lib/checklistContext";
 import { NutritionProvider } from "../lib/nutrition/nutritionContext";
@@ -84,11 +84,13 @@ function MainAppShell({ onNavigate }) {
   useEffect(() => { if (joinCode) { clearJoinFromLocation(); setSubPage(null); setActiveTab("club"); } }, [joinCode]);
   useEffect(() => { if (!flash) return undefined; const id = setTimeout(() => setFlash(""), 1800); return () => clearTimeout(id); }, [flash]);
 
-  // The messenger keeps its Telegram layout in the app's colours. It draws
-  // the app's tab bar itself on its root screens (chats, contacts,
-  // settings) and hides it inside a conversation, so the shell's bar steps
-  // aside on the whole Club tab.
+  // The messenger keeps its Telegram layout in the app's colours and is a
+  // place of its own: it draws its own bottom bar (chats, contacts,
+  // settings, and a round button back), so the shell's bar steps aside on
+  // the whole Club tab. Back returns to the tab the athlete came from.
   const immersive = activeTab === "club" && !subPage;
+  const homeTab = useRef("today");
+  useEffect(() => { if (activeTab !== "club") homeTab.current = activeTab; }, [activeTab]);
   const alerts = chat.unreadMentionTotal + chat.notifications.filter((n) => n.unread && n.kind === "system").length
     + unreadAppAlerts(appAlerts({ training, checklist, nutrition }));
 
@@ -149,7 +151,7 @@ function MainAppShell({ onNavigate }) {
               {activeTab === "train" && <WorkoutPage isRtl={isRtl} onOpen={handleSubNavigate} />}
               {activeTab === "fuel" && <DietPage isRtl={isRtl} onGoToRecipe={() => setSubPage("recipeExplore")} onGoToGuide={() => setSubPage("dietGuide")} />}
               {activeTab === "coach" && <AiCoachPage isRtl={isRtl} />}
-              {activeTab === "club" && <CommunityPage isRtl={isRtl} onExit={() => setActiveTab("today")} onTab={setActiveTab} joinCode={joinCode} onJoinHandled={() => setJoinCode(null)}
+              {activeTab === "club" && <CommunityPage isRtl={isRtl} onExit={() => setActiveTab(homeTab.current)} joinCode={joinCode} onJoinHandled={() => setJoinCode(null)}
                 openTarget={openTarget} onOpenHandled={() => setOpenTarget(null)} />}
             </>
           )}

@@ -1,14 +1,14 @@
 import React, { useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import {
-  ArrowLeft, ArrowRight, Ban, BarChart3, BatteryMedium, BellRing, Check, ChevronLeft, ChevronRight, Crown, Folder, Gift,
+  Ban, BarChart3, BatteryMedium, BellRing, Check, ChevronLeft, ChevronRight, Crown, Folder, Gift,
   Globe, HelpCircle, Heart, KeyRound, Languages, Laptop, MessageCircle, MessagesSquare, Mic, Moon, Server, Smile, Star,
   Store, User, Zap,
 } from "lucide-react";
 import { AnimatePresence as AP } from "framer-motion";
 import { GIFTS, PREF_TOGGLES, SETTINGS_ROWS } from "../../lib/chat/extras";
 import { useTheme } from "../../lib/theme";
-import { Button, Card, Field, IconButton, IconWell, Label, List, Row, Screen, Sheet, Toggle, cx, num } from "../ui/kit";
+import { Button, Card, Field, IconWell, Label, List, Row, Screen, Sheet, Toggle, cx, num } from "../ui/kit";
 import { Avatar } from "./ChatBits";
 import { GiftTile, StatusIcon } from "./ProfileBits";
 
@@ -216,32 +216,25 @@ function ServerSheet({ store, name, isRtl, t, onClose, onToast }) {
 /**
  * The messenger's settings, Telegram's order in the app's cards: who you
  * are, the account rows, appearance and server, Premium, and Help.
- * `sections` is the Chats · Contacts · Settings switch, rendered under the header.
  */
-export default function SettingsScreen({ store, name, isRtl, t, onBack, onGoProfile, onToast, onToggleLanguage, sections = null }) {
+export default function SettingsScreen({ store, name, isRtl, t, onGoProfile, onToast, onToggleLanguage }) {
   const me = store.me;
   const [theme, setTheme] = useTheme();
   const [detail, setDetail] = useState(null); // settings row id
   const [sheet, setSheet] = useState(null);   // "premium" | "gift" | "server"
   const [gift, setGift] = useState(null);     // chosen gift, awaiting a recipient
   const Chevron = isRtl ? ChevronLeft : ChevronRight;
-  const Back = isRtl ? ArrowRight : ArrowLeft;
   const status = store.server?.status || "offline";
 
   return (
-    <Screen isRtl={isRtl} tabbed>
-      <header className="flex items-center gap-3 pt-3">
-        {/* The app's tab bar and the section switch replace the old back button; it stays for callers without them. */}
-        {!sections && onBack && (
-          <IconButton label={t.close} tone="card" onClick={onBack}><Back className="w-5 h-5" strokeWidth={2} /></IconButton>
-        )}
+    <Screen isRtl={isRtl} tabbed style={{ paddingTop: "calc(env(safe-area-inset-top) + 6px)" }}>
+      <header className="flex items-center gap-3">
         <h1 className="m-0 flex-1 min-w-0 truncate font-display font-extrabold text-[34px] leading-none tracking-[-0.04em] text-ink">{t.settingsTitle}</h1>
         <button type="button" onClick={onGoProfile}
           className="h-11 px-[18px] rounded-full bg-card text-ink text-[15px] font-semibold border-0 cursor-pointer shrink-0 transition-transform active:scale-[0.98]">
           {t.edit}
         </button>
       </header>
-      {sections}
 
       {/* Profile strip */}
       <button type="button" onClick={onGoProfile}

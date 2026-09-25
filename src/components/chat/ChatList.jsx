@@ -27,12 +27,11 @@ export function matchesFolder(chat, folder, unread) {
 }
 
 /**
- * The header sits where a kit PageHead would (safe area, then 12 px), so the
- * section switch under it lands at the same height on all three root
- * screens. The folder tabs stick right under the header.
+ * The header sits right under the safe area, at the same height as the
+ * contacts and settings headers. The folder tabs stick right under it.
  */
-const HEAD_TOP = "calc(max(env(safe-area-inset-top), 20px) + 12px)";
-const stickTop = { top: `calc(max(env(safe-area-inset-top), 20px) + 64px)` };
+const HEAD_TOP = "calc(env(safe-area-inset-top) + 6px)";
+const stickTop = { top: "calc(env(safe-area-inset-top) + 58px)" };
 
 /** A story bubble: an ink ring while unseen, a faint one once watched, a plus on your own. */
 function StoryBubble({ user, seen, mine, label, name, onClick }) {
@@ -265,7 +264,7 @@ function SearchResults({ query, store, people, isRtl, t, onOpen, onOpenUser, onJ
   );
 }
 
-export default function ChatList({ store, isRtl, t, onOpen, onOpenAt, onMenu, onCompose, onOpenStory, onAddStory, onOpenUser, onJoin, people = [], sections = null }) {
+export default function ChatList({ store, isRtl, t, onOpen, onOpenAt, onMenu, onCompose, onOpenStory, onAddStory, onOpenUser, onJoin, people = [] }) {
   const [editing, setEditing] = useState(false);
   const [query, setQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
@@ -321,8 +320,6 @@ export default function ChatList({ store, isRtl, t, onOpen, onOpenAt, onMenu, on
       </header>
 
       <div className="px-5 pt-1.5 pb-3 flex flex-col gap-3">
-        {!searching && sections}
-
         {/* Search — by name, @username or a pasted link */}
         <div className="flex items-center gap-3">
           <label className="flex-1 h-11 rounded-2xl bg-card flex items-center gap-2.5 px-3.5 transition-shadow focus-within:ring-2 focus-within:ring-inset focus-within:ring-ink">

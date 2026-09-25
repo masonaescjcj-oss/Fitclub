@@ -28,8 +28,8 @@ import { useChecklistStore } from "../../lib/checklistContext";
 import { Avatar, toneOf } from "../../components/chat/ChatBits";
 import { ChatActionsSheet } from "../../components/chat/ChatSheets";
 import { loadSession } from "../../lib/session";
-import BottomNavBar from "../../components/BottomNavBar";
-import { Segmented, cx, num } from "../../components/ui/kit";
+import MessengerNav from "../../components/chat/MessengerNav";
+import { cx, num } from "../../components/ui/kit";
 
 /** Screens that show the app's tab bar and the section switch; the rest are pushed on top. */
 const ROOT_SCREENS = ["list", "contacts", "settings"];
@@ -127,13 +127,12 @@ function Flash({ children }) {
 }
 
 /**
- * The messenger: chat list plus the Telegram-style shell around it. The
- * three root screens (chats, contacts, settings) switch with a segmented
- * control under their header and sit above the app's own tab bar; a
- * conversation or a pushed screen covers both. `onExit` is still accepted
- * for callers that pass no `onTab`; the tab bar is the way out now.
+ * The messenger: chat list plus the Telegram-style shell around it. It is a
+ * place of its own: the three root screens (chats, contacts, settings)
+ * switch with the messenger's bottom bar, whose round button (`onExit`)
+ * goes back to the app. A conversation or a pushed screen covers the bar.
  */
-export default function CommunityPage({ isRtl, onExit, onTab, joinCode = null, onJoinHandled, openTarget = null, onOpenHandled }) {
+export default function CommunityPage({ isRtl, onExit, joinCode = null, onJoinHandled, openTarget = null, onOpenHandled }) {
   const chatT = useChatT(isRtl);
   const buddyT = useBuddyT(isRtl);
   const t = useMemo(() => ({ ...chatT, ...buddyT }), [chatT, buddyT]);
@@ -380,53 +379,17 @@ export default function CommunityPage({ isRtl, onExit, onTab, joinCode = null, o
     store.closeChat();
   };
 
-  // Chats · Contacts · Settings: one switch, rendered by each root screen under its header.
-  const unread = store.unreadTotal;
-  const sections = (
-    <nav aria-label={t.sectionsLabel}>
-      <Segmented line value={store.screen} onChange={(id) => store.setScreen(id)}
-        options={[
-          {
-            id: "list",
-            label: (
-              <span className="inline-flex items-center justify-center gap-1.5">
-                <span>{t.chats}</span>
-                {unread > 0 && (
-                  <>
-                    <span aria-hidden="true"
-                      className="min-w-[18px] h-[18px] px-1 rounded-full bg-inv text-on-inv text-[11px] font-bold inline-flex items-center justify-center">
-                      {num(unread > 99 ? "99+" : unread, isRtl)}
-                    </span>
-                    <span className="sr-only">{t.unreadChats(num(unread, isRtl))}</span>
-                  </>
-                )}
-              </span>
-            ),
-          },
-          { id: "contacts", label: t.contactsTab },
-          { id: "settings", label: t.settingsTab },
-        ]} />
-    </nav>
-  );
-
-  // The app's tab bar: another tab leaves the messenger; Club itself goes back to the chat list.
-  const goTab = (tab) => {
-    if (tab === "club") { store.setScreen("list"); return; }
-    if (onTab) onTab(tab); else onExit?.();
-  };
-
   const screenView = () => {
     switch (store.screen) {
       case "contacts":
-        return <ContactsScreen store={store} isRtl={isRtl} t={t} sections={sections}
-          onBack={() => store.setScreen("list")} onGoCalls={() => store.setScreen("calls")}
+        return <ContactsScreen store={store} isRtl={isRtl} t={t}
+          onGoCalls={() => store.setScreen("calls")}
           onNewGroup={startGroup} onNewChannel={startChannel} />;
       case "calls":
         return <CallsScreen isRtl={isRtl} t={t}
           onBack={() => store.setScreen("list")} onToast={setToast} />;
       case "settings":
-        return <SettingsScreen store={store} name={name} isRtl={isRtl} t={t} sections={sections}
-          onBack={() => store.setScreen("list")}
+        return <SettingsScreen store={store} name={name} isRtl={isRtl} t={t}
           onGoProfile={() => store.setScreen("profile")}
           onToast={setToast} onToggleLanguage={toggleLanguage} />;
       case "profile":
@@ -436,7 +399,7 @@ export default function CommunityPage({ isRtl, onExit, onTab, joinCode = null, o
           onToast={setToast}
           onOpenChannel={() => { store.openChat("news"); store.setScreen("list"); }} />;
       default:
-        return <ChatList store={store} isRtl={isRtl} t={t} sections={sections}
+        return <ChatList store={store} isRtl={isRtl} t={t}
           onOpen={store.openChat}
           onOpenAt={openAt}
           onMenu={setMenuChat}
@@ -471,7 +434,8 @@ export default function CommunityPage({ isRtl, onExit, onTab, joinCode = null, o
       </AnimatePresence>
 
       {!open && ROOT_SCREENS.includes(store.screen) && (
-        <BottomNavBar activeTab="club" setActiveTab={goTab} isRtl={isRtl} clubDot={false} />
+        <MessengerNav screen={store.screen} onScreen={store.setScreen} onBack={() => onExit?.()}
+          unread={store.unreadTotal} isRtl={isRtl} t={t} />
       )}
 
       <AnimatePresence>
