@@ -126,7 +126,7 @@ export default function AiPlanSummaryPage({ onNavigate }) {
       sub: isRtl ? `حدود ${n(proteinPerKg(planProtein, profile.weight).toFixed(1))} گرم به ازای هر کیلو`
         : `about ${proteinPerKg(planProtein, profile.weight).toFixed(1)} g per kg`,
     },
-    { id: "train", label: isRtl ? "تمرین" : "Training", value: `${n(days)} × ${n(minutes)}`, sub: isRtl ? "جلسه × دقیقه در هفته" : "sessions × minutes a week" },
+    { id: "train", label: isRtl ? "تمرین" : "Training", value: `${n(days)} × ${n(minutes)}`, sub: isRtl ? "جلسه × دقیقه" : "sessions × minutes" },
     { id: "habits", label: isRtl ? "چک‌لیست" : "Checklist", value: n(habits), sub: isRtl ? "عادت در روز" : "habits a day" },
   ];
 
@@ -164,7 +164,7 @@ export default function AiPlanSummaryPage({ onNavigate }) {
                 return (
                   <li key={d.id} title={title} aria-label={`${isRtl ? "روز" : "Day"} ${n(i + 1)}: ${title}`}
                     className={cx("w-[38px] h-[38px] rounded-full flex items-center justify-center text-[13px]",
-                      rest ? "ring-[1.5px] ring-inset ring-hero-2 text-hero-muted font-semibold" : "bg-accent text-on-accent font-bold")}>
+                      rest ? "ring-[1.5px] ring-inset ring-hero-muted/35 text-hero-muted font-semibold" : "bg-accent text-on-accent font-bold")}>
                     {n(i + 1)}
                   </li>
                 );
@@ -232,6 +232,7 @@ export default function AiPlanSummaryPage({ onNavigate }) {
           {delta !== 0 && (
             <span className="shrink-0 font-display font-extrabold text-[26px] leading-none tracking-[-0.03em]" dir="ltr">
               {delta > 0 ? "+" : "−"}{n(Math.abs(delta).toFixed(1))}
+              <span className="ms-1 font-ui text-sm font-semibold text-muted tracking-normal">{kg}</span>
             </span>
           )}
         </Card>

@@ -708,7 +708,7 @@ export default function OnboardingWizard({ onNavigate }) {
             <CtaButton isRtl={isRtl} onClick={handleNext}
               className={type === "meal-program-picker" ? "!h-auto min-h-[56px] py-2 !text-[15px]" : ""}>
               {type === "meal-program-picker"
-                ? <span className="block whitespace-normal leading-tight">{footerLabel}</span>
+                ? <span className="block whitespace-normal text-start leading-tight">{footerLabel}</span>
                 : footerLabel}
             </CtaButton>
           </FlowFooter>

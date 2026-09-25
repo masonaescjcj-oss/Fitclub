@@ -39,7 +39,7 @@ export default function IntroHeroPage({ onNavigate }) {
           transition={{ duration: 0.6, ease: [0.2, 0.8, 0.2, 1] }}
           className="w-full h-full object-cover object-[center_28%]"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-jet via-jet/30 to-jet/0" />
+        <div className="absolute inset-0 bg-gradient-to-t from-jet from-5% via-jet/50 via-30% to-jet/0 to-70%" />
         <div className="absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-jet/70 to-jet/0" />
       </div>
 
