@@ -399,6 +399,8 @@ export function initials(name = "") {
 
 /** Initials on one of five tones, picked from the name so a person keeps theirs. */
 export function Avatar({ name, src, size = 44, tone, className = "" }) {
+  // A photo that can't load (offline, removed) falls back to the initials.
+  const [broken, setBroken] = React.useState(null);
   const hash = [...String(name || "")].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7);
   const bg = tone || TONES[hash % TONES.length];
   // Jet stays ink at night, so it gets a hairline to lift off a night card.
@@ -406,7 +408,7 @@ export function Avatar({ name, src, size = 44, tone, className = "" }) {
   return (
     <span style={{ width: size, height: size, fontSize: Math.round(size * 0.34) }}
       className={cx("shrink-0 rounded-full flex items-center justify-center font-bold overflow-hidden", bg, fg, className)}>
-      {src ? <img src={src} alt="" className="w-full h-full object-cover" /> : initials(name)}
+      {src && broken !== src ? <img src={src} alt="" className="w-full h-full object-cover" onError={() => setBroken(src)} /> : initials(name)}
     </span>
   );
 }

@@ -150,7 +150,7 @@ export default function TodayPage({ isRtl, alerts = 0, onOpen, onTab }) {
             <Bell className="w-5 h-5" strokeWidth={2} />
           </IconButton>
           <button type="button" aria-label={c.profile} onClick={() => onOpen("profile")} className="rounded-full border-0 p-0 bg-transparent cursor-pointer">
-            <Avatar name={name} tone="bg-sand" />
+            <Avatar name={name} src={session.avatarUrl} tone="bg-sand" />
           </button>
         </div>
       </header>

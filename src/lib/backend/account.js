@@ -256,18 +256,34 @@ export async function saveProfile(patch) {
   return { error: null, profile: saved };
 }
 
-/** Uploads a profile photo to fitclub-avatars/<user id>/ and saves its public URL. */
-export async function uploadAvatar(file) {
+// One photo per person: a new one replaces the old file rather than piling up.
+const avatarPath = (userId) => `${userId}/avatar.jpg`;
+
+/**
+ * Uploads a profile photo (a JPEG blob, already cropped and shrunk) to
+ * fitclub-avatars/<user id>/avatar.jpg and saves its public URL. The URL
+ * carries a version, so every device fetches the new photo, not a cached one.
+ */
+export async function uploadAvatar(blob) {
   if (!backendOn) return offline;
   const { data } = await supabase.auth.getUser();
   const user = data.user;
   if (!user) return { error: "invalid" };
-  const ext = (file.name?.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
-  const path = `${user.id}/avatar-${Date.now()}.${ext}`;
-  const { error } = await supabase.storage.from(AVATAR_BUCKET).upload(path, file, { upsert: true, contentType: file.type || undefined });
-  if (error) return { error: "unknown" };
-  const url = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(path).data.publicUrl;
+  const path = avatarPath(user.id);
+  const { error } = await supabase.storage.from(AVATAR_BUCKET).upload(path, blob, { upsert: true, contentType: "image/jpeg", cacheControl: "31536000" });
+  if (error) return { error: error.statusCode === "413" ? "request" : "unknown" };
+  const url = `${supabase.storage.from(AVATAR_BUCKET).getPublicUrl(path).data.publicUrl}?v=${Date.now()}`;
   return saveProfile({ avatar_url: url });
+}
+
+/** Takes the profile photo down: the file and the link to it. */
+export async function removeAvatar() {
+  if (!backendOn) return offline;
+  const { data } = await supabase.auth.getUser();
+  const user = data.user;
+  if (!user) return { error: "invalid" };
+  await supabase.storage.from(AVATAR_BUCKET).remove([avatarPath(user.id)]).catch(() => {});
+  return saveProfile({ avatar_url: null });
 }
 
 /** Signs out everywhere on this device and forgets the account's data here. */

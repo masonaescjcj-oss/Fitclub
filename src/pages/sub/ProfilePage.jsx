@@ -1,12 +1,15 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Award, BarChart3, Check as CheckIcon, Crown, Dumbbell, FileText, Flame, GraduationCap, Languages, LogOut, Moon,
+  Award, BarChart3, Camera, Check as CheckIcon, Crown, Dumbbell, FileText, Loader2, Trash2, Flame, GraduationCap, Languages, LogOut, Moon,
   Settings, ShieldCheck, Sun, Trophy, Users, Wallet, Watch,
 } from "lucide-react";
-import { Avatar, Card, IconButton, IconWell, Label, List, Row, Screen, Segmented, TopBar, cx, num } from "../../components/ui/kit";
+import { Avatar, Card, IconButton, IconWell, Label, List, Row, Screen, Segmented, Sheet, Toast, TopBar, cx, num } from "../../components/ui/kit";
 import { useTheme } from "../../lib/theme";
 import { ACCENTS, useAccent } from "../../lib/accent";
-import { loadSession } from "../../lib/session";
+import { loadSession, saveSession } from "../../lib/session";
+import { backendOn } from "../../lib/backend/supabase";
+import { removeAvatar, uploadAvatar } from "../../lib/backend/account";
+import { squareJpeg, toDataUrl } from "../../lib/image";
 import { useTrainingStore } from "../../lib/training/trainingContext";
 import { useNutritionStore } from "../../lib/nutrition/nutritionContext";
 import { useChecklistStore } from "../../lib/checklistContext";
@@ -17,7 +20,7 @@ import { overallBest, overallStreak } from "../../lib/checklistModel";
 
 const COPY = {
   en: {
-    title: "Profile & Settings", settings: "Settings", pro: "PRO",
+    title: "Profile & Settings", settings: "Settings",
     workouts: "workouts", streak: "day streak", records: "records",
     weight: "Weight", height: "Height", bmi: "BMI", kg: "kg", cm: "cm",
     change: (d) => `${d > 0 ? "+" : "−"}${Math.abs(d).toFixed(1)} kg in 30 days`, noTrend: "Log your weight in Fuel to see the trend here.",
@@ -31,9 +34,11 @@ const COPY = {
     appearance: "Appearance", theme: "Theme", paper: "Paper", night: "Night", accent: "Accent",
     preferences: "Preferences", language: "App language", languageName: "English",
     logout: "Log out", privacy: "Privacy policy", terms: "Terms of use",
+    photo: "Profile photo", addPhoto: "Add a profile photo", changePhoto: "Change profile photo", newPhoto: "Choose a new photo",
+    removePhoto: "Remove photo", photoFailed: "Couldn't save the photo. Try again.", close: "Close",
   },
   fa: {
-    title: "پروفایل کاربری", settings: "تنظیمات", pro: "PRO",
+    title: "پروفایل کاربری", settings: "تنظیمات",
     workouts: "تمرین", streak: "روز استریک", records: "رکورد",
     weight: "وزن", height: "قد", bmi: "شاخص BMI", kg: "کیلو", cm: "سانتی‌متر",
     change: (d, n) => `${d > 0 ? "+" : "−"}${n(Math.abs(d).toFixed(1))} کیلو در ۳۰ روز`, noTrend: "وزنت را در بخش تغذیه ثبت کن تا روندش اینجا بیاید.",
@@ -47,6 +52,8 @@ const COPY = {
     appearance: "ظاهر برنامه", theme: "تم", paper: "روشن", night: "تیره", accent: "رنگ اصلی",
     preferences: "ترجیحات", language: "زبان برنامه", languageName: "فارسی",
     logout: "خروج از حساب کاربری", privacy: "حریم خصوصی", terms: "شرایط استفاده",
+    photo: "عکس پروفایل", addPhoto: "افزودن عکس پروفایل", changePhoto: "تغییر عکس پروفایل", newPhoto: "انتخاب عکس تازه",
+    removePhoto: "حذف عکس", photoFailed: "عکس ذخیره نشد. دوباره امتحان کن.", close: "بستن",
   },
 };
 
@@ -60,6 +67,50 @@ export default function ProfilePage({ onNavigate, onBack, isRtl }) {
 
   const session = loadSession();
   const name = session.name || (isRtl ? "ورزشکار" : "Athlete");
+
+  // The profile photo: picked here, cropped square and shrunk on the device,
+  // then uploaded to the account (or, in the demo build, kept on the device).
+  const [photo, setPhoto] = useState(session.avatarUrl || null);
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoSheet, setPhotoSheet] = useState(false);
+  const [toast, setToast] = useState("");
+  const fileRef = useRef(null);
+  useEffect(() => { if (!toast) return undefined; const id = setTimeout(() => setToast(""), 2200); return () => clearTimeout(id); }, [toast]);
+  const pickPhoto = () => { setPhotoSheet(false); fileRef.current?.click(); };
+  const onPhoto = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setPhotoBusy(true);
+    try {
+      if (backendOn) {
+        const res = await uploadAvatar(await squareJpeg(file, 512));
+        if (res.error) throw new Error(res.error);
+        setPhoto(res.profile?.avatar_url || loadSession().avatarUrl);
+      } else {
+        const url = await toDataUrl(await squareJpeg(file, 256, 0.8));
+        saveSession({ avatarUrl: url });
+        setPhoto(url);
+      }
+    } catch {
+      setToast(c.photoFailed);
+    } finally {
+      setPhotoBusy(false);
+    }
+  };
+  const dropPhoto = async () => {
+    setPhotoSheet(false);
+    setPhotoBusy(true);
+    try {
+      if (backendOn) { const res = await removeAvatar(); if (res.error) throw new Error(res.error); }
+      else saveSession({ avatarUrl: null });
+      setPhoto(null);
+    } catch {
+      setToast(c.photoFailed);
+    } finally {
+      setPhotoBusy(false);
+    }
+  };
   const training = useTrainingStore();
   const nutrition = useNutritionStore();
   const { lists } = useChecklistStore();
@@ -112,12 +163,15 @@ export default function ProfilePage({ onNavigate, onBack, isRtl }) {
         )} />
 
       <section aria-label={name} className="flex flex-col items-center text-center">
-        <span className="relative">
-          <Avatar name={name} tone="bg-sand" size={96} className="font-display !font-extrabold tracking-[-0.03em]" />
-          <span className="absolute -end-1.5 bottom-0.5 h-[26px] px-2.5 rounded-full bg-jet text-accent inline-flex items-center font-mono text-[11px] font-semibold tracking-label ring-[3px] ring-canvas">
-            {c.pro}
+        <button type="button" onClick={() => (photo ? setPhotoSheet(true) : pickPhoto())} disabled={photoBusy}
+          aria-label={photo ? c.changePhoto : c.addPhoto} aria-busy={photoBusy}
+          className="relative rounded-full border-0 p-0 bg-transparent cursor-pointer transition-transform active:scale-[0.97] disabled:cursor-wait">
+          <Avatar name={name} src={photo} tone="bg-sand" size={96} className="font-display !font-extrabold tracking-[-0.03em]" />
+          <span aria-hidden="true" className="absolute -end-0.5 bottom-0.5 w-8 h-8 rounded-full bg-jet text-accent flex items-center justify-center ring-[3px] ring-canvas">
+            {photoBusy ? <Loader2 className="w-4 h-4 animate-spin" strokeWidth={2.4} /> : <Camera className="w-4 h-4" strokeWidth={2.2} />}
           </span>
-        </span>
+        </button>
+        <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onPhoto} aria-hidden="true" tabIndex={-1} />
         <h2 className="m-0 mt-3.5 font-display font-extrabold text-[36px] leading-none tracking-[-0.04em] text-ink">{name}</h2>
         {session.username && <span className="mt-1.5 text-[15px] text-muted" dir="ltr">@{session.username}</span>}
         {session.email && <span className="mt-0.5 text-sm text-muted" dir="ltr">{session.email}</span>}
@@ -248,6 +302,14 @@ export default function ProfilePage({ onNavigate, onBack, isRtl }) {
             title={c.logout} onClick={() => go("welcome")} />
         </List>
       </div>
+      <Sheet open={photoSheet} title={c.photo} isRtl={isRtl} onClose={() => setPhotoSheet(false)} closeLabel={c.close}>
+        <List>
+          <Row isRtl={isRtl} icon={icon(Camera)} title={c.newPhoto} onClick={pickPhoto} />
+          <Row isRtl={isRtl} danger icon={<IconWell tone="alert" size={36}><Trash2 className="w-[18px] h-[18px]" strokeWidth={2} /></IconWell>}
+            title={c.removePhoto} onClick={dropPhoto} />
+        </List>
+      </Sheet>
+      {toast && <Toast check={false}>{toast}</Toast>}
     </Screen>
   );
 }
