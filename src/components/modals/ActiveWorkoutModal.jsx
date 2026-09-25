@@ -337,7 +337,7 @@ function Current({ t, n, sep, isRtl, index, count, current, exercise, last, onPa
       <ol aria-label={t.sets} className="m-0 mt-3.5 p-0 list-none flex flex-col gap-1.5">
         {sets.map((s, k) => {
           const now = k === focusIdx;
-          const input = cx("h-9 rounded-lg border-0 bg-sunk/70 text-center tabular-nums outline-none focus:ring-2 focus:ring-inset focus:ring-accent placeholder:text-muted/60",
+          const input = cx("h-9 rounded-lg border-0 bg-sunk/70 text-center tabular-nums !outline-none focus:ring-2 focus:ring-inset focus:ring-accent placeholder:text-muted/60",
             bare, now ? "text-ink font-semibold text-base" : s.done ? "text-ink/85 text-[15px]" : "text-muted text-[15px]");
           return (
             <li key={k} aria-current={now ? "step" : undefined}

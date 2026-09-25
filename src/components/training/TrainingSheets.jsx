@@ -199,7 +199,7 @@ export function ProgramBuilderSheet({ program, isRtl, t, author, onSave, onClose
                               <span className="text-[11px] font-medium text-muted text-center truncate">{lbl}</span>
                               <input type="number" inputMode="decimal" min={min} max={max} value={e[k] ?? ""} placeholder="–"
                                 onChange={(ev) => patchEx(di, ei, { [k]: ev.target.value === "" ? null : Math.min(max, Math.max(min, +ev.target.value)) })}
-                                className="w-full h-11 rounded-xl bg-card border-0 text-center text-[15px] font-semibold text-ink tabular-nums outline-none focus:ring-2 focus:ring-inset focus:ring-ink placeholder:text-muted/70" />
+                                className="w-full h-11 rounded-xl bg-card border-0 text-center text-[15px] font-semibold text-ink tabular-nums !outline-none focus:ring-2 focus:ring-inset focus:ring-ink placeholder:text-muted/70" />
                             </label>
                           ))}
                         </div>
@@ -330,7 +330,7 @@ export function ImportSheet({ initialCode, isRtl, t, onImportProgram, onApplyMea
       <p className="m-0 text-sm leading-relaxed text-muted">{t.importHint}</p>
       <textarea rows={3} value={input} onChange={(e) => { setInput(e.target.value); check(e.target.value); }}
         placeholder={t.pastePh} dir="ltr" autoFocus={!initialCode} aria-label={t.pastePh}
-        className={cx("w-full rounded-2xl bg-card border-0 p-4 text-[13px] font-mono text-ink resize-none outline-none placeholder:text-muted/70",
+        className={cx("w-full rounded-2xl bg-card border-0 p-4 text-[13px] font-mono text-ink resize-none !outline-none placeholder:text-muted/70",
           state.status === "error" ? "ring-2 ring-inset ring-alert" : "focus:ring-2 focus:ring-inset focus:ring-ink")} />
 
       {state.status === "error" && (
