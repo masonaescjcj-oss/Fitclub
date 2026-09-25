@@ -3,6 +3,7 @@
 // every member's ticks live in this browser.
 
 import { ME, applyResets, createItem, createList, periodKey, previousPeriodKeys } from "./checklistModel";
+import { backendOn } from "./backend/supabase";
 
 const KEY = "fitclub.checklists.v1";
 
@@ -34,7 +35,34 @@ function seedHistory(list, count, perfect) {
   });
 }
 
-function seed() {
+/**
+ * A real account's first lists: two starters to tick or edit, nothing done
+ * yet, no streak, no history and no stand-in friends.
+ */
+function starter() {
+  const habits = createList({
+    nameEn: "Daily Habits", nameFa: "عادت‌های روزانه", emoji: "🔥", color: "#844783",
+    type: "personal", reset: { mode: "daily", resetHour: 0 },
+  });
+  habits.items = [
+    createItem({ textEn: "Drink 8 glasses of water", textFa: "۸ لیوان آب بنوشید", emoji: "💧", priority: "medium" }),
+    createItem({ textEn: "Train or move for 30 minutes", textFa: "۳۰ دقیقه تمرین یا تحرک", emoji: "🏋️", priority: "high" }),
+    createItem({ textEn: "Sleep 7 hours or more", textFa: "۷ ساعت خواب یا بیشتر", emoji: "😴", priority: "low" }),
+  ];
+  const weekly = createList({
+    nameEn: "Weekly Goals", nameFa: "اهداف هفتگی", emoji: "🎯", color: "#38bdf8",
+    type: "personal", reset: { mode: "weekly", resetHour: 0, weekStart: 6 },
+  });
+  weekly.items = [
+    createItem({ textEn: "Finish this week's sessions", textFa: "جلسه‌های این هفته را تمام کن", emoji: "💪", priority: "high" }),
+    createItem({ textEn: "Weigh in once", textFa: "یک بار وزن‌کشی", emoji: "⚖️", priority: "low" }),
+  ];
+  return { lists: [habits, weekly], activeId: habits.id };
+}
+
+/** A fresh install: the starters for a real account, the lived-in sample for the demo build. */
+export function seed({ demo = !backendOn } = {}) {
+  if (!demo) return starter();
   const habits = createList({
     nameEn: "Daily Habits",
     nameFa: "عادت‌های روزانه",

@@ -1,6 +1,7 @@
 // Programs and logged sessions, persisted in localStorage.
 
 import { createDay, createProgram, createProgramExercise, createSet } from "./programModel";
+import { backendOn } from "../backend/supabase";
 
 const KEY = "fitclub.training.v1";
 
@@ -105,10 +106,19 @@ function seedSessions(programs) {
   ];
 }
 
-function seed() {
+/**
+ * A fresh install. A real account starts with the built-in programs and no
+ * history of its own; the demo build shows a few past sessions so Progress
+ * has something in it.
+ */
+export function seed({ demo = !backendOn } = {}) {
   const programs = builtinPrograms();
-  return { programs, activeProgramId: programs[0].id, sessions: seedSessions(programs), draft: null, coachMode: false };
+  return { programs, activeProgramId: programs[0].id, sessions: demo ? seedSessions(programs) : [], draft: null, coachMode: false };
 }
+
+/** Takes the demo's sample sessions out of a real account that picked them up before accounts started empty. */
+export const withoutSamples = (state, demo = !backendOn) =>
+  (demo ? state : { ...state, sessions: state.sessions.filter((x) => !String(x.id).startsWith("seed-")) });
 
 function normalize(state) {
   const programs = (state.programs || []).map((p) => ({
@@ -131,7 +141,7 @@ function normalize(state) {
 export function loadTraining() {
   try {
     const raw = window.localStorage.getItem(KEY);
-    if (raw) return normalize(JSON.parse(raw));
+    if (raw) return withoutSamples(normalize(JSON.parse(raw)));
   } catch {
     // Corrupt or unavailable storage — start from the seeded programs.
   }

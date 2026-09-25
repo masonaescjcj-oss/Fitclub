@@ -26,6 +26,7 @@ const COPY = {
     noProgramBody: "Choose a split in Train and today's session shows up here.", openTrain: "Open Train",
     fuel: "Fuel", kcalLeft: "kcal left", over: "kcal over", protein: "Protein",
     streak: "Streak", days: "days", best: (b, gap, n) => (gap > 0 ? `Best run ${n(b)} · ${n(gap)} to go` : "Your best run yet"),
+    startStreak: "Finish today's checklist to start one",
     checklist: "Checklist", of: (d, n) => `${d} of ${n}`, allDone: "All done for today", empty: "Nothing on your list yet.",
     coach: "Coach", ask: "Ask coach", notifications: (n) => (n ? `Notifications, ${n} new` : "Notifications"), profile: "Profile",
     thisWeek: "This week",
@@ -38,6 +39,7 @@ const COPY = {
     noProgramBody: "در بخش تمرین یک برنامه انتخاب کن تا جلسه‌ی امروز اینجا بیاید.", openTrain: "برو به تمرین",
     fuel: "تغذیه", kcalLeft: "کالری مانده", over: "کالری اضافه", protein: "پروتئین",
     streak: "استریک", days: "روز", best: (b, gap, n) => (gap > 0 ? `بهترین رکورد ${n(b)}، ${n(gap)} روز مانده` : "بهترین رکوردت تا امروز"),
+    startStreak: "چک‌لیست امروز را کامل کن تا شروع شود",
     checklist: "چک‌لیست", of: (d, n) => `${d} از ${n}`, allDone: "همه‌ی کارهای امروز انجام شد", empty: "هنوز چیزی در لیستت نیست.",
     coach: "مربی", ask: "از مربی بپرس", notifications: (n) => (n ? `اعلان‌ها، ${n} جدید` : "اعلان‌ها"), profile: "پروفایل",
     thisWeek: "این هفته",
@@ -201,7 +203,7 @@ export default function TodayPage({ isRtl, alerts = 0, onOpen, onTab }) {
             <span className="font-display font-extrabold text-[64px] leading-[0.85] tracking-[-0.05em]">{n(streak)}</span>
             <span className="text-[15px] font-semibold">{c.days}</span>
           </span>
-          <span className="text-[13px] font-medium">{c.best(best, best - streak, n)}</span>
+          <span className="text-[13px] font-medium">{best === 0 ? c.startStreak : c.best(best, best - streak, n)}</span>
         </button>
       </div>
 
