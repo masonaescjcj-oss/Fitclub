@@ -1,143 +1,162 @@
 import React, { useState } from "react";
 import { AnimatePresence } from "framer-motion";
-import { ArrowLeft, Check, ChevronRight, Gift, Star } from "lucide-react";
+import {
+  ArrowLeft, ArrowRight, Ban, BarChart3, BatteryMedium, BellRing, Check, ChevronLeft, ChevronRight, Crown, Folder, Gift,
+  Globe, HelpCircle, Heart, KeyRound, Languages, Laptop, MessageCircle, MessagesSquare, Mic, Moon, Server, Smile, Star,
+  Store, User, Zap,
+} from "lucide-react";
 import { AnimatePresence as AP } from "framer-motion";
-import { GIFTS, PREF_TOGGLES, SETTINGS_ROWS, TG } from "../../lib/chat/extras";
+import { GIFTS, PREF_TOGGLES, SETTINGS_ROWS } from "../../lib/chat/extras";
 import { useTheme } from "../../lib/theme";
+import { Button, Card, Field, IconButton, IconWell, Label, List, Row, Screen, Sheet, Toggle, cx, num } from "../ui/kit";
+import { Avatar } from "./ChatBits";
+import { GiftTile, StatusIcon } from "./ProfileBits";
 
-import { Sheet, ForwardSheet } from "./ChatSheets";
+import { ForwardSheet } from "./ChatSheets";
 
-function Row({ icon, tint, label, sub, value, isRtl, onClick }) {
+/** Each settings row's icon, keyed by its id in SETTINGS_ROWS. */
+const ROW_ICONS = {
+  account: User, chatSettings: MessageCircle, privacy: KeyRound, notifications: BellRing,
+  data: BarChart3, folders: Folder, devices: Laptop, power: BatteryMedium,
+};
+
+const well = (Icon, tone = "sunk") => (
+  <IconWell tone={tone} size={36}><Icon className="w-[18px] h-[18px]" strokeWidth={2} /></IconWell>
+);
+
+/** A row with a kit toggle on the far side; the row is its label, so a tap anywhere flips it. */
+function ToggleRow({ icon, label, sub, on, onChange }) {
   return (
-    <button type="button" onClick={onClick}
-      className="w-full flex items-center gap-3.5 px-4 py-3 hover:bg-white/[0.04] transition-colors text-start">
-      <span className="w-9 h-9 rounded-xl flex items-center justify-center text-base shrink-0 on-accent"
-        style={{ background: tint }}>
+    <li className="list-none">
+      <label className="w-full min-h-[56px] flex items-center gap-3.5 px-4 py-2.5 cursor-pointer">
         {icon}
-      </span>
-      <span className="flex-1 min-w-0">
-        <span className="block text-sm font-bold text-white truncate">{label}</span>
-        {sub && <span className="block text-xs font-medium text-neutral-500 truncate">{sub}</span>}
-      </span>
-      {value && <span className="text-sm font-bold shrink-0" style={{ color: TG.accent }}>{value}</span>}
-      <ChevronRight className={`w-4 h-4 text-neutral-600 shrink-0 ${isRtl ? "rotate-180" : ""}`} />
-    </button>
+        <span className="flex-1 min-w-0 flex flex-col gap-0.5">
+          <span className="text-[15px] font-semibold leading-snug text-ink">{label}</span>
+          {sub && <span className="text-[13px] leading-snug text-muted">{sub}</span>}
+        </span>
+        <Toggle checked={on} onChange={onChange} label={label} />
+      </label>
+    </li>
   );
 }
 
-function Toggle({ label, sub, icon, tint, on, isRtl, onChange }) {
+/** A label and a quiet value, as a sheet's fact row. */
+function FactRow({ label, value }) {
   return (
-    <button type="button" role="switch" aria-checked={on} aria-label={label} onClick={() => onChange(!on)}
-      className="w-full flex items-center gap-3.5 px-4 py-3">
-      {icon && (
-        <span className="w-9 h-9 rounded-xl flex items-center justify-center text-base shrink-0 on-accent" style={{ background: tint }}>{icon}</span>
-      )}
-      <span className="flex-1 min-w-0 text-start">
-        <span className="block text-sm font-bold text-white truncate">{label}</span>
-        {sub && <span className="block text-xs font-medium text-neutral-500 truncate">{sub}</span>}
-      </span>
-      <span className={`w-11 h-6 rounded-full p-0.5 shrink-0 transition-colors ${on ? "" : "bg-white/10"}`}
-        style={on ? { background: TG.accentDeep } : undefined}>
-        <span className={`block w-5 h-5 rounded-full bg-white transition-transform ${
-          on ? (isRtl ? "-translate-x-5" : "translate-x-5") : ""
-        }`} />
-      </span>
-    </button>
+    <li className="list-none min-h-[52px] flex items-center justify-between gap-3 px-4 py-2.5">
+      <span className="text-[15px] font-semibold text-ink">{label}</span>
+      {value && <span className="text-sm text-muted text-end">{value}</span>}
+    </li>
   );
 }
 
 /** Detail sheet for one settings row: prefs where they exist, facts otherwise. */
-function DetailSheet({ id, me, store, isRtl, t, onClose }) {
+function DetailSheet({ id, me, store, theme, isRtl, t, onClose }) {
   const toggles = PREF_TOGGLES[id === "notifications" ? "notifications" : id === "data" ? "data" : id === "power" ? "power" : ""] || [];
-  const title = t[SETTINGS_ROWS.find((r) => r.id === id)?.label] || "";
+  const label = SETTINGS_ROWS.find((r) => r.id === id)?.label;
+  // Same lookup as the row itself: notifications has its own row label.
+  const title = t[id === "notifications" ? "notificationsRow" : label] || t[label] || "";
+  const L = (en, fa) => (isRtl ? fa : en);
 
   const FACTS = {
-    account: [[t.mobile, me.phone], [t.usernameLabel, `@${me.username}`], [t.bio, me.bio]],
-    privacy: [["Last Seen", "Everybody"], ["Profile Photo", "Everybody"], ["Calls", "My Contacts"], ["Two-Step Verification", "On"]],
-    chatSettings: [["Wallpaper", "FitClub pattern"], ["Night Mode", "Always on"], ["Message Size", "14"]],
+    account: [[t.mobile, <span dir="ltr">{me.phone}</span>], [t.usernameLabel, <span dir="ltr">@{me.username}</span>], [t.bio, me.bio]],
+    privacy: [
+      [L("Last Seen", "آخرین بازدید"), L("Everybody", "همه")],
+      [L("Profile Photo", "عکس پروفایل"), L("Everybody", "همه")],
+      [L("Calls", "تماس‌ها"), L("My Contacts", "مخاطبین من")],
+      [L("Two-Step Verification", "تأیید دومرحله‌ای"), L("On", "روشن")],
+    ],
+    chatSettings: [
+      [L("Wallpaper", "تصویر زمینه"), L("FitClub pattern", "طرح فیت‌کلاب")],
+      [t.nightMode, theme === "dark" ? L("On", "روشن") : L("Off", "خاموش")],
+      [L("Message Size", "اندازه پیام"), num(14, isRtl)],
+    ],
     folders: [[t.all, ""], [t.unreadFolder, ""], [t.family, ""], [t.gym, ""], [t.work, ""], [t.people, ""]],
     devices: [[t.thisDevice, t.webSession]],
   };
   const facts = FACTS[id] || [];
 
   return (
-    <Sheet title={title} isRtl={isRtl} t={t} onClose={onClose}>
-      <div className="py-1">
-        {facts.map(([label, value]) => (
-          <div key={label} className="flex items-center justify-between gap-3 px-4 py-3 border-b border-white/[0.04]">
-            <span className="text-sm font-bold text-white">{label}</span>
-            <span className="text-xs font-bold text-neutral-500 text-end">{value}</span>
-          </div>
-        ))}
-        {toggles.map((tg) => (
-          <Toggle key={tg.key} label={t[tg.label]} isRtl={isRtl}
-            on={me.prefs?.[tg.key] ?? tg.def}
-            onChange={(v) => store.setPref(tg.key, v)} />
-        ))}
-        <p className="px-4 py-3 text-[10px] font-bold text-neutral-600">{t.uiOnlyNote}</p>
-      </div>
+    <Sheet title={title} isRtl={isRtl} closeLabel={t.close} onClose={onClose}>
+      {facts.length > 0 && (
+        <List>
+          {facts.map(([label, value]) => <FactRow key={label} label={label} value={value} />)}
+        </List>
+      )}
+      {toggles.length > 0 && (
+        <List>
+          {toggles.map((tg) => (
+            <ToggleRow key={tg.key} label={t[tg.label]}
+              on={me.prefs?.[tg.key] ?? tg.def}
+              onChange={(v) => store.setPref(tg.key, v)} />
+          ))}
+        </List>
+      )}
+      <p className="m-0 px-1 text-[13px] leading-snug text-muted">{t.uiOnlyNote}</p>
     </Sheet>
   );
 }
 
 const FEATURES = [
-  ["⚡", "featLimits", "featLimitsSub"],
-  ["🎤", "featVoice", "featVoiceSub"],
-  ["🌐", "featTranslate", "featTranslateSub"],
-  ["❤️", "featReactions", "featReactionsSub"],
-  ["😀", "featStatus", "featStatusSub"],
-  ["⭐", "featBadge", "featBadgeSub"],
-  ["🚫", "featNoAds", "featNoAdsSub"],
+  [Zap, "featLimits", "featLimitsSub"],
+  [Mic, "featVoice", "featVoiceSub"],
+  [Globe, "featTranslate", "featTranslateSub"],
+  [Heart, "featReactions", "featReactionsSub"],
+  [Smile, "featStatus", "featStatusSub"],
+  [Star, "featBadge", "featBadgeSub"],
+  [Ban, "featNoAds", "featNoAdsSub"],
 ];
 
 function PremiumSheet({ isRtl, t, onClose }) {
   return (
-    <Sheet title={t.premiumTitle} isRtl={isRtl} t={t} onClose={onClose}>
-      <div className="p-4 space-y-4">
-        <div className="p-4 rounded-2xl text-center space-y-1 on-accent"
-          style={{ background: "linear-gradient(135deg,#8b5cf6,#3390ec)" }}>
-          <span className="text-3xl block">⭐</span>
-          <span className="block text-sm font-black text-white">{t.premiumActive}</span>
-        </div>
-        <div className="rounded-2xl overflow-hidden" style={{ background: TG.card }}>
-          {FEATURES.map(([emoji, label, sub]) => (
-            <div key={label} className="flex items-center gap-3 px-4 py-3 border-b border-white/[0.04] last:border-0">
-              <span className="text-xl shrink-0">{emoji}</span>
-              <span className="flex-1 min-w-0">
-                <span className="block text-sm font-bold text-white">{t[label]}</span>
-                <span className="block text-xs font-medium text-neutral-500">{t[sub]}</span>
-              </span>
-              <Check className="w-4 h-4 shrink-0" style={{ color: TG.accent }} />
-            </div>
-          ))}
-        </div>
-      </div>
+    <Sheet title={t.premiumTitle} isRtl={isRtl} closeLabel={t.close} onClose={onClose}>
+      <Card tone="hero" className="flex items-center gap-3.5">
+        <IconWell tone="accent" size={48}><Crown className="w-6 h-6" strokeWidth={2} /></IconWell>
+        <span className="flex-1 min-w-0 flex flex-col gap-0.5">
+          <span className="font-display font-extrabold text-[20px] leading-tight tracking-[-0.02em]">{t.premiumTitle}</span>
+          <span className="text-[13px] text-hero-muted">{t.premiumActive}</span>
+        </span>
+      </Card>
+      <List>
+        {FEATURES.map(([Icon, label, sub]) => (
+          <Row key={label} icon={well(Icon)} title={t[label]} subtitle={t[sub]}
+            right={<Check className="w-[18px] h-[18px] text-ink" strokeWidth={2.6} />} />
+        ))}
+      </List>
     </Sheet>
   );
 }
 
 function GiftPicker({ me, isRtl, t, onPick, onClose }) {
   return (
-    <Sheet title={t.chooseGift} isRtl={isRtl} t={t} onClose={onClose}>
-      <div className="p-4 grid grid-cols-3 gap-2">
-        {GIFTS.map((g) => (
-          <button key={g.id} type="button" onClick={() => onPick(g)}
-            disabled={g.stars > me.stars}
-            className="rounded-2xl p-3 flex flex-col items-center gap-1.5 disabled:opacity-40 active:scale-95 transition-transform on-accent"
-            style={{ background: g.bg }}>
-            <span className="text-3xl">{g.emoji}</span>
-            <span className="text-[10px] font-black text-white text-center leading-tight">
-              {isRtl ? g.nameFa : g.nameEn}
-            </span>
-            <span className="px-2 py-0.5 rounded-full bg-black/30 text-[10px] font-black text-amber-300">
-              ⭐ {g.stars}
-            </span>
+    <Sheet title={t.chooseGift} isRtl={isRtl} closeLabel={t.close} onClose={onClose}>
+      <div className="grid grid-cols-3 gap-2">
+        {GIFTS.map((g, i) => (
+          <button key={g.id} type="button" onClick={() => onPick(g)} disabled={g.stars > me.stars}
+            className="rounded-[22px] border-0 p-0 bg-transparent cursor-pointer transition-transform active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed">
+            <GiftTile gift={g} index={i} isRtl={isRtl} className="!bg-card h-full">
+              <span className="h-6 px-2 rounded-full bg-sunk inline-flex items-center gap-1 text-[11px] font-bold text-ink">
+                <Star className="w-3 h-3" strokeWidth={2.4} />{num(g.stars, isRtl)}
+              </span>
+            </GiftTile>
           </button>
         ))}
       </div>
     </Sheet>
   );
 }
+
+/** A small dot for the server's state: accent on ink when online. */
+function StatusDot({ status }) {
+  const tone = status === "online" ? "bg-accent ring-2 ring-jet" : status === "error" ? "bg-alert" : status === "connecting" ? "bg-ochre" : "bg-faint";
+  return <span aria-hidden="true" className={cx("w-2.5 h-2.5 rounded-full shrink-0", tone)} />;
+}
+
+const serverLine = (server, t) => (
+  server?.status === "online" ? t.serverSubOnline(server.url)
+    : server?.status === "connecting" ? t.serverSubConnecting
+      : server?.status === "error" ? t.serverSubError : t.serverSubOffline
+);
 
 /** Where the messenger talks to: sign in to a server, or stay on this device. */
 function ServerSheet({ store, name, isRtl, t, onClose, onToast }) {
@@ -146,7 +165,6 @@ function ServerSheet({ store, name, isRtl, t, onClose, onToast }) {
   const [error, setError] = useState("");
   const me = store.me;
   const connected = !!store.server?.token;
-  const field = "w-full h-11 px-3 rounded-2xl text-sm font-bold text-white placeholder:text-neutral-500 focus:outline-none";
   const connect = async () => {
     setBusy(true); setError("");
     try {
@@ -159,118 +177,131 @@ function ServerSheet({ store, name, isRtl, t, onClose, onToast }) {
   };
   const status = store.server?.status || "offline";
   return (
-    <Sheet title={t.serverTitle} isRtl={isRtl} t={t} onClose={onClose}
+    <Sheet title={t.serverTitle} isRtl={isRtl} closeLabel={t.close} onClose={onClose}
       footer={
         connected ? (
           <>
-            <button type="button" onClick={() => { store.disconnectServer(); onClose(); }}
-              className="flex-1 h-12 rounded-2xl bg-white/5 border border-white/10 text-rose-400 font-black text-sm">{t.disconnect}</button>
-            <button type="button" onClick={() => { store.syncNow().then(() => onToast?.(t.done)).catch(() => onToast?.(t.serverSubError)); }}
-              className="flex-1 h-12 rounded-2xl text-white font-black text-sm on-accent" style={{ background: TG.accentDeep }}>{t.syncNow}</button>
+            <Button tone="card" className="flex-1 !text-alert" onClick={() => { store.disconnectServer(); onClose(); }}>{t.disconnect}</Button>
+            <Button tone="ink" className="flex-1"
+              onClick={() => { store.syncNow().then(() => onToast?.(t.done)).catch(() => onToast?.(t.serverSubError)); }}>{t.syncNow}</Button>
           </>
         ) : (
           <>
-            <button type="button" onClick={onClose}
-              className="flex-1 h-12 rounded-2xl bg-white/5 border border-white/10 text-neutral-300 font-black text-sm">{t.cancel}</button>
-            <button type="button" disabled={busy || !url.trim()} onClick={connect}
-              className="flex-1 h-12 rounded-2xl text-white font-black text-sm on-accent disabled:opacity-40" style={{ background: TG.accentDeep }}>{busy ? t.connecting : t.connect}</button>
+            <Button tone="card" className="flex-1" onClick={onClose}>{t.cancel}</Button>
+            <Button tone="ink" className="flex-1" disabled={busy || !url.trim()} onClick={connect}>{busy ? t.connecting : t.connect}</Button>
           </>
         )
       }>
-      <div className="p-4 space-y-4">
-        <label className="block">
-          <span className="block text-[10px] font-black text-neutral-500 uppercase tracking-wider mb-1.5">{t.serverUrl}</span>
-          <input value={url} onChange={(e) => setUrl(e.target.value)} disabled={connected} aria-label={t.serverUrl} dir="ltr" inputMode="url"
-            className={field} style={{ background: TG.card }} />
-        </label>
-        <p className="text-[12px] leading-snug" style={{ color: TG.muted }}>{t.serverHint}</p>
-        <div className="rounded-2xl px-3 py-2.5 text-[13px]" style={{ background: TG.card }}>
-          <span className="block font-semibold text-white">{connected ? t.connectedAs(store.server.me?.name || name, store.server.me?.username || me.username) : t.connectNameHint}</span>
-          <span className="block mt-0.5" style={{ color: status === "online" ? "#1f9d4d" : status === "error" ? "#ef4444" : TG.muted }} data-server-status={status}>
-            {status === "online" ? t.serverSubOnline(store.server.url) : status === "connecting" ? t.serverSubConnecting : status === "error" ? t.serverSubError : t.serverSubOffline}
+      <Field label={t.serverUrl} aria-label={t.serverUrl} value={url} onChange={(e) => setUrl(e.target.value)}
+        disabled={connected} dir="ltr" inputMode="url" inputClass="disabled:text-muted" />
+      <p className="m-0 px-1 text-[13px] leading-snug text-muted">{t.serverHint}</p>
+      <Card className="flex items-start gap-3">
+        <IconWell tone={status === "online" ? "inv" : "sunk"} size={36}><Server className="w-[18px] h-[18px]" strokeWidth={2} /></IconWell>
+        <span className="flex-1 min-w-0 flex flex-col gap-1 text-[13px]">
+          <span className="text-[15px] font-semibold text-ink">
+            {connected ? t.connectedAs(store.server.me?.name || name, store.server.me?.username || me.username) : t.connectNameHint}
           </span>
-        </div>
-        {error && <p className="text-[12px] text-rose-500">{error}</p>}
-      </div>
+          <span className={cx("inline-flex items-center gap-2", status === "error" ? "text-alert" : status === "online" ? "text-ink font-medium" : "text-muted")}
+            data-server-status={status}>
+            <StatusDot status={status} />
+            {serverLine(store.server, t)}
+          </span>
+        </span>
+      </Card>
+      {error && <p className="m-0 px-1 text-[13px] text-alert">{error}</p>}
     </Sheet>
   );
 }
 
-export default function SettingsScreen({ store, name, isRtl, t, onBack, onGoProfile, onToast, onToggleLanguage }) {
+/**
+ * The messenger's settings, Telegram's order in the app's cards: who you
+ * are, the account rows, appearance and server, Premium, and Help.
+ * `sections` is the Chats · Contacts · Settings switch, rendered under the header.
+ */
+export default function SettingsScreen({ store, name, isRtl, t, onBack, onGoProfile, onToast, onToggleLanguage, sections = null }) {
   const me = store.me;
   const [theme, setTheme] = useTheme();
   const [detail, setDetail] = useState(null); // settings row id
-  const [sheet, setSheet] = useState(null);   // "premium" | "gift"
+  const [sheet, setSheet] = useState(null);   // "premium" | "gift" | "server"
   const [gift, setGift] = useState(null);     // chosen gift, awaiting a recipient
+  const Chevron = isRtl ? ChevronLeft : ChevronRight;
+  const Back = isRtl ? ArrowRight : ArrowLeft;
+  const status = store.server?.status || "offline";
 
   return (
-    <div className="w-full min-h-[100dvh] text-white pb-44" style={{ background: TG.bg }}>
-      <div className="sticky top-0 z-20 flex items-center gap-2 px-3 h-14 border-b border-white/[0.07]"
-        style={{ background: TG.surface }}>
-        <button type="button" onClick={onBack} aria-label={t.close}
-          className="w-9 h-9 rounded-xl flex items-center justify-center text-neutral-300 hover:text-white shrink-0">
-          <ArrowLeft className={`w-5 h-5 ${isRtl ? "rotate-180" : ""}`} />
+    <Screen isRtl={isRtl} tabbed>
+      <header className="flex items-center gap-3 pt-3">
+        {/* The app's tab bar and the section switch replace the old back button; it stays for callers without them. */}
+        {!sections && onBack && (
+          <IconButton label={t.close} tone="card" onClick={onBack}><Back className="w-5 h-5" strokeWidth={2} /></IconButton>
+        )}
+        <h1 className="m-0 flex-1 min-w-0 truncate font-display font-extrabold text-[34px] leading-none tracking-[-0.04em] text-ink">{t.settingsTitle}</h1>
+        <button type="button" onClick={onGoProfile}
+          className="h-11 px-[18px] rounded-full bg-card text-ink text-[15px] font-semibold border-0 cursor-pointer shrink-0 transition-transform active:scale-[0.98]">
+          {t.edit}
         </button>
-        <h1 className="text-lg font-black text-white flex-1">{t.settingsTitle}</h1>
-      </div>
+      </header>
+      {sections}
 
       {/* Profile strip */}
       <button type="button" onClick={onGoProfile}
-        className="w-full flex items-center gap-3.5 px-4 py-4 hover:bg-white/[0.03] transition-colors text-start"
-        style={{ background: TG.surface }}>
-        <span className="w-14 h-14 rounded-full flex items-center justify-center text-2xl shrink-0"
-          style={{ background: "linear-gradient(135deg,#3390ec55,#3390ec22)", border: "1.5px solid #3390ec77" }}>
-          {me.avatar}
-        </span>
-        <span className="flex-1 min-w-0">
-          <span className="flex items-center gap-1.5">
-            <span className="text-base font-black text-white truncate">{name}</span>
-            <span className="text-base leading-none">{me.emojiStatus}</span>
+        className="w-full rounded-3xl bg-card px-4 py-3 flex items-center gap-3 text-start border-0 cursor-pointer transition-transform active:scale-[0.99]">
+        <Avatar user={{ ...me, id: "me", name: me.name || name, online: false, emojiStatus: null }} size={52} showStatus={false} />
+        <span className="flex-1 min-w-0 flex flex-col gap-0.5">
+          <span className="flex items-center gap-1.5 min-w-0">
+            <span className="text-base font-bold text-ink truncate">{me.name || name}</span>
+            <span className="w-5 h-5 rounded-full bg-jet text-accent inline-flex items-center justify-center shrink-0 dark:ring-1 dark:ring-inset dark:ring-line" aria-label={t.emojiStatus}>
+              <StatusIcon status={me.emojiStatus} className="w-3 h-3" />
+            </span>
           </span>
-          <span className="block text-xs font-bold text-neutral-500" dir="ltr">{me.phone} · @{me.username}</span>
+          <span className="flex flex-wrap gap-x-3 text-[13px] text-muted">
+            <span dir="ltr">@{me.username}</span>
+            <span dir="ltr">{me.phone}</span>
+          </span>
         </span>
-        <ChevronRight className={`w-4 h-4 text-neutral-600 shrink-0 ${isRtl ? "rotate-180" : ""}`} />
+        <Chevron className="w-[18px] h-[18px] text-muted shrink-0" strokeWidth={2} />
       </button>
 
       {/* Main rows */}
-      <div className="mx-3 mt-3 rounded-2xl overflow-hidden divide-y divide-white/[0.04]" style={{ background: TG.surface }}>
+      <List>
         {SETTINGS_ROWS.map((row) => (
-          <Row isRtl={isRtl} key={row.id} icon={row.icon} tint={row.tint}
-            label={t[row.id === "notifications" ? "notificationsRow" : row.label] || t[row.label]}
-            sub={t[row.sub]}
+          <Row key={row.id} isRtl={isRtl} chevron icon={well(ROW_ICONS[row.id] || User)}
+            title={t[row.id === "notifications" ? "notificationsRow" : row.label] || t[row.label]}
+            subtitle={t[row.sub]}
             onClick={() => setDetail(row.id)} />
         ))}
-        <Row isRtl={isRtl} icon="🌐" tint="#8b5cf6" label={t.language}
-          sub={isRtl ? "فارسی" : "English"}
-          onClick={onToggleLanguage} />
-        <Toggle icon="🌙" tint="#5856d6" label={t.nightMode} sub={t.nightModeSub} isRtl={isRtl}
+      </List>
+
+      <Label as="h2" className="m-0 mt-2 px-1">{isRtl ? "ظاهر و اتصال" : "Appearance & server"}</Label>
+      <List>
+        <Row isRtl={isRtl} chevron icon={well(Languages)} title={t.language}
+          right={isRtl ? "فارسی" : "English"} onClick={onToggleLanguage} />
+        <ToggleRow icon={well(Moon)} label={t.nightMode} sub={t.nightModeSub}
           on={theme === "dark"} onChange={(on) => setTheme(on ? "dark" : "light")} />
-        <Row isRtl={isRtl} icon="🛰️" tint={store.online ? "#1f9d4d" : "#6b7c8a"} label={t.serverRow}
-          sub={store.server?.status === "online" ? t.serverSubOnline(store.server.url) : store.server?.status === "connecting" ? t.serverSubConnecting : store.server?.status === "error" ? t.serverSubError : t.serverSubOffline}
+        <Row isRtl={isRtl} chevron icon={well(Server, status === "online" ? "inv" : "sunk")} title={t.serverRow}
+          subtitle={serverLine(store.server, t)} right={<StatusDot status={status} />}
           onClick={() => setSheet("server")} />
-      </div>
+      </List>
 
       {/* Premium block */}
-      <div className="mx-3 mt-3 rounded-2xl overflow-hidden divide-y divide-white/[0.04]" style={{ background: TG.surface }}>
-        <Row isRtl={isRtl} icon="⭐" tint="linear-gradient(135deg,#8b5cf6,#3390ec)" label={t.premiumTitle}
-          onClick={() => setSheet("premium")} />
-        <Row isRtl={isRtl} icon={<Star className="w-4 h-4 text-white fill-white" />} tint="#f59e0b" label={t.stars}
-          value={me.stars.toLocaleString()} onClick={() => setSheet("premium")} />
-        <Row isRtl={isRtl} icon="🏪" tint="#ef4444" label={t.business} onClick={() => onToast(t.uiOnlyNote)} />
-        <Row isRtl={isRtl} icon={<Gift className="w-4 h-4 text-white" />} tint="#e0567d" label={t.sendGift}
-          onClick={() => setSheet("gift")} />
-      </div>
+      <List>
+        <Row isRtl={isRtl} chevron icon={well(Crown, "inv")} title={t.premiumTitle} onClick={() => setSheet("premium")} />
+        <Row isRtl={isRtl} chevron icon={well(Star)} title={t.stars}
+          right={<span className="font-semibold text-ink">{me.stars.toLocaleString(isRtl ? "fa-IR" : "en-US")}</span>} onClick={() => setSheet("premium")} />
+        <Row isRtl={isRtl} chevron icon={well(Store)} title={t.business} onClick={() => onToast(t.uiOnlyNote)} />
+        <Row isRtl={isRtl} chevron icon={well(Gift)} title={t.sendGift} onClick={() => setSheet("gift")} />
+      </List>
 
       {/* Help */}
-      <div className="mx-3 mt-3 rounded-2xl overflow-hidden divide-y divide-white/[0.04]" style={{ background: TG.surface }}>
-        <span className="block px-4 pt-3 pb-1 text-xs font-bold" style={{ color: TG.accent }}>{t.help}</span>
-        <Row isRtl={isRtl} icon="💬" tint="#f59e0b" label={t.askQuestion} onClick={() => onToast(t.uiOnlyNote)} />
-        <Row isRtl={isRtl} icon="❓" tint="#3390ec" label={t.faq} onClick={() => onToast(t.uiOnlyNote)} />
-      </div>
+      <Label as="h2" className="m-0 mt-2 px-1">{t.help}</Label>
+      <List>
+        <Row isRtl={isRtl} chevron icon={well(MessagesSquare)} title={t.askQuestion} onClick={() => onToast(t.uiOnlyNote)} />
+        <Row isRtl={isRtl} chevron icon={well(HelpCircle)} title={t.faq} onClick={() => onToast(t.uiOnlyNote)} />
+      </List>
 
       <AnimatePresence>
         {detail && (
-          <DetailSheet id={detail} me={me} store={store} isRtl={isRtl} t={t} onClose={() => setDetail(null)} />
+          <DetailSheet id={detail} me={me} store={store} theme={theme} isRtl={isRtl} t={t} onClose={() => setDetail(null)} />
         )}
       </AnimatePresence>
       <AnimatePresence>
@@ -308,6 +339,6 @@ export default function SettingsScreen({ store, name, isRtl, t, onBack, onGoProf
           />
         )}
       </AP>
-    </div>
+    </Screen>
   );
 }

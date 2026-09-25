@@ -1,50 +1,132 @@
 import React, { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, Heart, MapPin, Settings2, Users, X } from "lucide-react";
-import { TG } from "../../lib/chat/extras";
+import {
+  ArrowLeft, ArrowRight, Check, Flame, MapPin, Radar, SlidersHorizontal, Target, Users, VenetianMask, X,
+} from "lucide-react";
 import { CHALLENGE_KINDS, CHALLENGE_PRESETS, GENDERS, HABIT_LABEL, LOOKING_FOR, TIMES, WANT_LABEL, aliasOf } from "../../lib/buddy/buddyModel";
-import { Sheet } from "./ChatSheets";
-import { Avatar } from "./ChatBits";
+import { ME } from "../../lib/chat/chatModel";
 import { findUser } from "../../lib/chat/chatStore";
+import {
+  Button, Card, Check as RoundCheck, Chip, Empty, Field, IconButton, Label, List, Segmented, Sheet, Tag, cx, num,
+} from "../ui/kit";
+import { Avatar } from "./ChatBits";
+import { RadioMark } from "./CreateScreens";
 
-/** Compatibility as a ring with the number inside, the way match apps show it. */
-function ScoreRing({ score, size = 72 }) {
-  const r = (size - 8) / 2;
-  const c = 2 * Math.PI * r;
-  const tone = score >= 70 ? "#34c759" : score >= 45 ? "#f59e0b" : "#8e8e93";
+// Persian reads a middle dot beside its digits as a zero, so it gets its own comma.
+const sepOf = (isRtl) => (isRtl ? "، " : " · ");
+
+/** The light avatar tones, picked per candidate so a card keeps its colour. */
+const BANDS = ["bg-sand", "bg-sage", "bg-mist"];
+const bandOf = (id) => BANDS[[...String(id)].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7) % BANDS.length];
+
+const timeLabel = (time, t) => t[time === "any" ? "anyTime" : time];
+
+/** Why two athletes fit, as short lines. Shared habits fold into one line, the way the card reads best. */
+function reasonLines(reasons, t, isRtl) {
+  const lines = [];
+  const habits = reasons.filter((r) => r.startsWith("habit:")).map((r) => HABIT_LABEL[r.slice(6)]?.[isRtl ? 1 : 0] || r.slice(6));
+  for (const key of reasons) {
+    if (key.startsWith("habit:")) continue;
+    if (key.startsWith("want:")) lines.push(WANT_LABEL[key.slice(5)]?.[isRtl ? 1 : 0] || key);
+    else lines.push(t[key] || key);
+  }
+  if (habits.length) lines.push(`${t.habits}: ${habits.join(isRtl ? "، " : ", ")}`);
+  return lines.slice(0, 6);
+}
+
+/** Where the two of you differ on the hour you train, if you both have one. */
+function mismatchLine(me, c, t, isRtl) {
+  if (!me || !me.time || me.time === "any" || c.time === "any" || me.time === c.time) return null;
+  return isRtl
+    ? `${timeLabel(c.time, t)} تمرین می‌کند، تو ${timeLabel(me.time, t)}`
+    : `Trains ${timeLabel(c.time, t).toLowerCase()}, you train ${timeLabel(me.time, t).toLowerCase()}`;
+}
+
+function CandidateCard({ entry, me, isRtl, t }) {
+  const { candidate: c, score, reasons } = entry;
+  const n = (v) => num(v, isRtl);
+  const sep = sepOf(isRtl);
+  const alias = aliasOf(c, isRtl);
+  const lines = reasonLines(reasons, t, isRtl);
+  const miss = mismatchLine(me, c, t, isRtl);
   return (
-    <div className="relative shrink-0" style={{ width: size, height: size }}>
-      <svg width={size} height={size} className="-rotate-90">
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--track)" strokeWidth={6} />
-        <motion.circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={tone} strokeWidth={6} strokeLinecap="round"
-          strokeDasharray={c} initial={{ strokeDashoffset: c }} animate={{ strokeDashoffset: c * (1 - score / 100) }}
-          transition={{ type: "spring", stiffness: 120, damping: 20 }} />
-      </svg>
-      <span className="absolute inset-0 flex items-center justify-center text-[18px] font-bold text-white tabular-nums">{score}%</span>
-    </div>
+    <motion.div key={c.id} initial={{ opacity: 0, x: isRtl ? -40 : 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: isRtl ? 40 : -40 }}
+      transition={{ duration: 0.18 }} className="relative pt-5">
+      {/* The next cards in the pile, peeking over the top. */}
+      <span aria-hidden="true" className="absolute inset-x-6 top-0 h-[60px] rounded-[28px] bg-line" />
+      <span aria-hidden="true" className="absolute inset-x-3 top-2.5 h-[60px] rounded-[30px] bg-hair" />
+      <article aria-label={`${alias}, ${n(score)}%`}
+        className="relative rounded-[32px] bg-card overflow-hidden shadow-[0_10px_30px_rgba(18,19,16,0.08)]">
+        <div className={cx("h-[150px] p-5 flex items-end justify-between text-on-accent", bandOf(c.id))}>
+          <span className="w-[84px] h-[84px] rounded-full bg-jet text-accent flex items-center justify-center ring-[5px] ring-card">
+            <VenetianMask className="w-10 h-10" strokeWidth={1.8} />
+          </span>
+          <span className="flex flex-col items-end">
+            <span className="font-display font-extrabold text-[56px] leading-[0.85] tracking-[-0.05em]">{n(score)}%</span>
+            <span className="text-[13px] font-semibold">{t.compatible}</span>
+          </span>
+        </div>
+        <div className="px-5 pt-[18px] pb-5 flex flex-col gap-3.5">
+          <div className="flex flex-col gap-1">
+            <h2 className="m-0 font-display font-extrabold text-[28px] leading-tight tracking-[-0.03em] text-ink">{alias}</h2>
+            <span className="text-sm text-muted">{[t[c.level], timeLabel(c.time, t), `${n(c.days)} ${t.daysWeek}`].join(sep)}</span>
+            <span className="flex items-center gap-1 text-[13px] text-muted">
+              <MapPin className="w-3.5 h-3.5 shrink-0" strokeWidth={2} />{isRtl ? c.cityFa : c.city}{sep}{n(c.age)}
+            </span>
+          </div>
+          <p className="m-0 text-[15px] leading-[1.45] text-ink">{isRtl ? c.bioFa : c.bio}</p>
+          {(lines.length > 0 || miss) && (
+            <section className="flex flex-col gap-2.5" aria-label={t.whyMatch}>
+              <Label as="h3" className="m-0">{t.whyMatch}</Label>
+              <ul className="m-0 p-0 list-none flex flex-col gap-2.5">
+                {lines.map((line) => (
+                  <li key={line} className="flex items-center gap-2.5 text-[15px] text-ink">
+                    <span className="w-[26px] h-[26px] shrink-0 rounded-full bg-jet text-accent flex items-center justify-center dark:ring-1 dark:ring-inset dark:ring-line">
+                      <Check className="w-3.5 h-3.5" strokeWidth={3} />
+                    </span>
+                    {line}
+                  </li>
+                ))}
+                {miss && (
+                  <li className="flex items-center gap-2.5 text-[15px] text-muted">
+                    <span aria-hidden="true" className="w-[26px] h-[26px] shrink-0 rounded-full ring-[1.5px] ring-inset ring-faint" />
+                    {miss}
+                  </li>
+                )}
+              </ul>
+            </section>
+          )}
+          <div className="flex flex-wrap gap-1.5">
+            <Tag><Target className="w-3.5 h-3.5" strokeWidth={2} />{t.goalFa(c.goal)}</Tag>
+            <Tag><Flame className="w-3.5 h-3.5" strokeWidth={2} />{n(c.streak)} {t.streakDays}</Tag>
+          </div>
+          <section className="flex flex-col gap-2" aria-label={t.habits}>
+            <Label as="h3" className="m-0">{t.habits}</Label>
+            <div className="flex flex-wrap gap-1.5">
+              {c.habits.map((h) => <Tag key={h}>{HABIT_LABEL[h][isRtl ? 1 : 0]}</Tag>)}
+            </div>
+          </section>
+          <section className="flex flex-col gap-2" aria-label={t.lookingFor}>
+            <Label as="h3" className="m-0">{t.lookingFor}</Label>
+            <div className="flex flex-wrap gap-1.5">
+              {c.lookingFor.map((w) => <Tag key={w}>{WANT_LABEL[w][isRtl ? 1 : 0]}</Tag>)}
+            </div>
+          </section>
+        </div>
+      </article>
+    </motion.div>
   );
 }
 
-const Chip = ({ children, tone }) => (
-  <span className="px-2.5 py-1 rounded-full text-[12px] font-medium" style={{ background: tone ? `${tone}22` : TG.card, color: tone || "inherit" }}>
-    {children}
-  </span>
-);
-
-const reasonLabel = (key, t) => {
-  if (key.startsWith("habit:")) return `${t.habits}: ${t[key.slice(6)] || key.slice(6)}`;
-  if (key.startsWith("want:")) return WANT_LABEL[key.slice(5)]?.[t.botName === "Teammate Bot" ? 0 : 1] || key;
-  return t[key] || key;
-};
-
 /**
  * One candidate at a time: who they are (alias only), how well they fit and
- * why, then Pass or Team up. A match flips the card into a celebration.
+ * why, then Pass or Team up. A match turns the card into a celebration.
  */
 export default function BuddyDiscoverScreen({ ranked, me, isRtl, t, onLike, onPass, onOpenPrefs, onOpenChat, onClose }) {
   const [result, setResult] = useState(null); // { candidate, chatId } after a match
   const top = ranked[0];
-  const fa = isRtl;
+  const n = (v) => num(v, isRtl);
+  const Back = isRtl ? ArrowRight : ArrowLeft;
 
   const like = () => {
     const outcome = onLike(top.candidate, top.score);
@@ -53,194 +135,156 @@ export default function BuddyDiscoverScreen({ ranked, me, isRtl, t, onLike, onPa
 
   return (
     <motion.div initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} transition={{ type: "spring", stiffness: 380, damping: 40 }}
-      className="fixed inset-0 z-[70] flex flex-col text-white md:max-w-lg md:mx-auto" style={{ background: TG.bg }} dir={isRtl ? "rtl" : "ltr"}>
-      <div className="flex items-center justify-between px-3 h-12 shrink-0" style={{ background: TG.surface }}>
-        <button type="button" onClick={onClose} aria-label={t.close} className="w-10 h-10 rounded-full flex items-center justify-center text-white"><X className="w-5 h-5" /></button>
-        <span className="text-[17px] font-semibold">{t.discoverTitle}</span>
-        <button type="button" onClick={onOpenPrefs} aria-label={t.prefsTitle} className="w-10 h-10 rounded-full flex items-center justify-center" style={{ color: TG.accent }}><Settings2 className="w-5 h-5" /></button>
-      </div>
+      className="ui fixed inset-0 z-[70] flex flex-col md:max-w-lg md:mx-auto" dir={isRtl ? "rtl" : "ltr"}>
+      <div className="flex-1 overflow-y-auto scrollbar-hide px-5 pt-[max(env(safe-area-inset-top),20px)] pb-4 flex flex-col gap-3.5">
+        <div className="flex items-center justify-between gap-3 pt-3">
+          <IconButton label={t.close} tone="card" onClick={onClose}><Back className="w-5 h-5" strokeWidth={2} /></IconButton>
+          <Label>{isRtl ? `${n(ranked.length)} نفر در صف` : `${ranked.length} left to see`}</Label>
+          <IconButton label={t.prefsTitle} tone="card" onClick={onOpenPrefs}><SlidersHorizontal className="w-5 h-5" strokeWidth={2} /></IconButton>
+        </div>
 
-      <div className="flex-1 overflow-y-auto scrollbar-hide px-4 py-4">
+        <h1 className="m-0 mt-1 font-display font-extrabold text-[36px] leading-none tracking-[-0.04em] text-ink">{t.discoverTitle}</h1>
+        <p className="m-0 -mt-1 text-[15px] leading-[1.45] text-muted">
+          {isRtl ? "بر اساس هدف، برنامه و عادت‌هایت. اسم‌ها تا وقتی هر دو نخواهید پنهان می‌مانند." : "Matched on your goal, schedule and habits. Names stay hidden until you both reveal."}
+        </p>
+
         <AnimatePresence mode="wait">
           {result ? (
-            <motion.div key="match" initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-center pt-10 space-y-4">
-              <div className="mx-auto w-40 h-40 rounded-full flex items-center justify-center text-7xl" style={{ background: `linear-gradient(135deg, ${result.candidate.color}, #3390ec)` }}>🎉</div>
-              <h2 className="text-3xl font-bold text-white">{t.itsMatch}</h2>
-              <p className="text-[15px]" style={{ color: TG.muted }}>{t.matchSub(aliasOf(result.candidate, fa))}</p>
-              <p className="text-[13px]" style={{ color: TG.muted }}>{result.score}% {t.compatible}</p>
-              <div className="flex gap-2 pt-2">
-                <button type="button" onClick={() => setResult(null)} className="flex-1 h-12 rounded-full text-[15px] font-semibold text-white" style={{ background: TG.card }}>{t.keepBrowsing}</button>
-                <button type="button" onClick={() => onOpenChat(result.chatId)} className="flex-1 h-12 rounded-full text-[15px] font-semibold text-white on-accent" style={{ background: TG.accentDeep }}>{t.openChat}</button>
+            <motion.div key="match" initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="flex flex-col gap-3 pt-2">
+              <Card tone="hero" className="flex flex-col items-center text-center gap-3 !py-8">
+                <div aria-hidden="true" className="flex">
+                  <span className="rounded-full ring-4 ring-hero"><Avatar user={findUser(ME)} size={72} showStatus={false} /></span>
+                  <span className="-ms-3 w-[72px] h-[72px] rounded-full bg-accent text-on-accent flex items-center justify-center ring-4 ring-hero">
+                    <VenetianMask className="w-9 h-9" strokeWidth={1.8} />
+                  </span>
+                </div>
+                <Label className="!text-hero-muted">{n(result.score)}% {t.compatible}</Label>
+                <h2 className="m-0 font-display font-extrabold text-[40px] leading-[0.95] tracking-[-0.04em]">{t.itsMatch}</h2>
+                <p className="m-0 text-sm leading-relaxed text-hero-muted max-w-[280px]">{t.matchSub(aliasOf(result.candidate, isRtl))}</p>
+              </Card>
+              <div className="flex gap-2">
+                <Button tone="card" className="flex-1" onClick={() => setResult(null)}>{t.keepBrowsing}</Button>
+                <Button tone="ink" className="flex-1" onClick={() => onOpenChat(result.chatId)}>{t.openChat}</Button>
               </div>
             </motion.div>
           ) : !top ? (
-            <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center pt-16 space-y-4">
-              <span className="text-6xl block">🔭</span>
-              <p className="text-[15px]" style={{ color: TG.muted }}>{t.noOne}</p>
-              <button type="button" onClick={onOpenPrefs} className="h-11 px-5 rounded-full text-[15px] font-semibold text-white on-accent" style={{ background: TG.accentDeep }}>{t.widen}</button>
+            <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+              <Card>
+                <Empty icon={<Radar className="w-6 h-6" strokeWidth={2} />} title={t.noOne}
+                  action={<Button tone="ink" onClick={onOpenPrefs}>{t.widen}</Button>} />
+              </Card>
             </motion.div>
           ) : (
-            <motion.div key={top.candidate.id} initial={{ opacity: 0, x: isRtl ? -40 : 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: isRtl ? 40 : -40 }} transition={{ duration: 0.18 }}
-              className="rounded-3xl overflow-hidden" style={{ background: TG.card, boxShadow: "0 10px 30px rgba(0,0,0,.08)" }}>
-              <div className="relative h-52 flex items-center justify-center on-accent" style={{ background: `linear-gradient(160deg, ${top.candidate.color}cc, ${top.candidate.color}66)` }}>
-                <span className="text-[96px] leading-none drop-shadow-xl">🎭</span>
-                <div className="absolute top-3 end-3"><ScoreRing score={top.score} /></div>
-                <div className="absolute bottom-3 start-4">
-                  <span className="block text-[24px] font-bold text-white">{aliasOf(top.candidate, fa)}</span>
-                  <span className="flex items-center gap-1 text-[13px] text-white/85"><MapPin className="w-3.5 h-3.5" /> {fa ? top.candidate.cityFa : top.candidate.city} · {top.candidate.age}</span>
-                </div>
-              </div>
-              <div className="p-4 space-y-3">
-                <p className="text-[15px] leading-snug text-white">{fa ? top.candidate.bioFa : top.candidate.bio}</p>
-                <div className="flex flex-wrap gap-1.5">
-                  <Chip tone={TG.accent}>🎯 {t.goalFa(top.candidate.goal)}</Chip>
-                  <Chip>🏋️ {t[top.candidate.level]}</Chip>
-                  <Chip>📅 {top.candidate.days} {t.daysWeek}</Chip>
-                  <Chip>🕒 {t[top.candidate.time === "any" ? "anyTime" : top.candidate.time]}</Chip>
-                  <Chip>🔥 {top.candidate.streak} {t.streakDays}</Chip>
-                </div>
-                <div>
-                  <span className="block text-[12px] font-medium mb-1.5" style={{ color: TG.muted }}>{t.habits}</span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {top.candidate.habits.map((h) => <Chip key={h}>{HABIT_LABEL[h][fa ? 1 : 0]}</Chip>)}
-                  </div>
-                </div>
-                <div>
-                  <span className="block text-[12px] font-medium mb-1.5" style={{ color: TG.muted }}>{t.lookingFor}</span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {top.candidate.lookingFor.map((w) => <Chip key={w}>{WANT_LABEL[w][fa ? 1 : 0]}</Chip>)}
-                  </div>
-                </div>
-                {top.reasons.length > 0 && (
-                  <div className="rounded-2xl p-3" style={{ background: "rgba(52,199,89,.1)" }}>
-                    <span className="block text-[12px] font-semibold mb-1.5" style={{ color: "#1f9d4d" }}>{t.whyMatch}</span>
-                    <div className="flex flex-wrap gap-1.5">
-                      {top.reasons.slice(0, 6).map((r) => (
-                        <span key={r} className="flex items-center gap-1 text-[12px] font-medium" style={{ color: "#1f9d4d" }}><Check className="w-3.5 h-3.5" /> {reasonLabel(r, t)}</span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </motion.div>
+            <CandidateCard key={top.candidate.id} entry={top} me={me} isRtl={isRtl} t={t} />
           )}
         </AnimatePresence>
-        <p className="text-center text-[11px] mt-4" style={{ color: TG.muted }}>{t.safety}</p>
+        <p className="m-0 text-center text-xs leading-relaxed text-muted px-4">{t.safety}</p>
       </div>
 
       {top && !result && (
-        <div className="shrink-0 flex items-center justify-center gap-5 pb-8 pt-2">
-          <button type="button" onClick={() => onPass(top.candidate)} aria-label={t.pass}
-            className="w-16 h-16 rounded-full flex items-center justify-center active:scale-95 transition-transform" style={{ background: TG.card, color: TG.muted, boxShadow: "0 4px 14px rgba(0,0,0,.08)" }}>
-            <X className="w-7 h-7" />
-          </button>
-          <button type="button" onClick={like} aria-label={t.like}
-            className="h-16 px-7 rounded-full flex items-center gap-2 text-white text-[16px] font-semibold active:scale-95 transition-transform on-accent"
-            style={{ background: "linear-gradient(135deg,#34c759,#2fa6ff)", boxShadow: "0 6px 18px rgba(47,166,255,.35)" }}>
-            <Heart className="w-6 h-6" fill="currentColor" /> {t.like}
-          </button>
+        <div className="shrink-0 flex items-center gap-3 px-5 pt-2 pb-[max(env(safe-area-inset-bottom),20px)]">
+          <IconButton label={t.pass} tone="card" size={64} onClick={() => onPass(top.candidate)}>
+            <X className="w-6 h-6" strokeWidth={2.2} />
+          </IconButton>
+          <Button tone="accent" size="lg" className="flex-1 !h-16 text-[17px] font-bold" onClick={like} aria-label={t.like}
+            icon={<Users className="w-[22px] h-[22px]" strokeWidth={2} />}>
+            {t.like}
+          </Button>
         </div>
       )}
     </motion.div>
   );
 }
 
-const Seg = ({ options, value, onChange, label }) => (
-  <div className="flex flex-wrap gap-1.5">
-    {options.map((o) => {
-      const active = Array.isArray(value) ? value.includes(o.id) : value === o.id;
-      return (
-        <button key={o.id} type="button" onClick={() => onChange(o.id)} aria-pressed={active}
-          className="px-3 h-9 rounded-full text-[13px] font-medium transition-colors"
-          style={{ background: active ? TG.accentDeep : TG.card, color: active ? "#fff" : "inherit" }}>
-          {label(o)}
-        </button>
-      );
-    })}
-  </div>
-);
-
 /** What the athlete is after, when they train, and who they want to see. */
 export function BuddyPrefsSheet({ prefs, isRtl, t, onSave, onClose }) {
   const [p, setP] = useState(prefs);
-  const fa = isRtl;
   const toggleWant = (id) => setP((s) => ({ ...s, lookingFor: s.lookingFor.includes(id) ? s.lookingFor.filter((x) => x !== id) : [...s.lookingFor, id] }));
+  const genderLabel = (id) => t[id === "any" ? "genderAny" : id === "male" ? "genderMale" : "genderFemale"];
   return (
-    <Sheet title={t.prefsTitle} isRtl={isRtl} t={t} onClose={onClose}
+    <Sheet title={t.prefsTitle} isRtl={isRtl} onClose={onClose} closeLabel={t.close}
       footer={
         <>
-          <button type="button" onClick={onClose} className="flex-1 h-12 rounded-2xl bg-white/5 border border-white/10 text-neutral-300 font-black text-sm">{t.cancel}</button>
-          <button type="button" onClick={() => onSave(p)} disabled={!p.lookingFor.length}
-            className="flex-1 h-12 rounded-2xl text-white font-black text-sm disabled:opacity-40 on-accent" style={{ background: TG.accentDeep }}>{t.save}</button>
+          <Button tone="card" className="flex-1" onClick={onClose}>{t.cancel}</Button>
+          <Button tone="ink" className="flex-1" onClick={() => onSave(p)} disabled={!p.lookingFor.length}>{t.save}</Button>
         </>
       }>
-      <div className="p-4 space-y-5">
-        <div>
-          <span className="block text-[12px] font-semibold mb-2" style={{ color: TG.muted }}>{t.prefLooking}</span>
-          <Seg options={LOOKING_FOR.map((id) => ({ id }))} value={p.lookingFor} onChange={toggleWant} label={(o) => WANT_LABEL[o.id][fa ? 1 : 0]} />
+      <section className="flex flex-col gap-2.5">
+        <Label as="h3" className="m-0">{t.prefLooking}</Label>
+        <div className="flex flex-wrap gap-1.5">
+          {LOOKING_FOR.map((id) => {
+            const on = p.lookingFor.includes(id);
+            return (
+              <Chip key={id} active={on} onClick={() => toggleWant(id)}>
+                {on && <Check className="w-3.5 h-3.5" strokeWidth={2.6} />}{WANT_LABEL[id][isRtl ? 1 : 0]}
+              </Chip>
+            );
+          })}
         </div>
-        <div>
-          <span className="block text-[12px] font-semibold mb-2" style={{ color: TG.muted }}>{t.prefTime}</span>
-          <Seg options={TIMES.map((id) => ({ id }))} value={p.time} onChange={(time) => setP((s) => ({ ...s, time }))} label={(o) => t[o.id === "any" ? "anyTime" : o.id]} />
-        </div>
-        <div>
-          <span className="block text-[12px] font-semibold mb-2" style={{ color: TG.muted }}>{t.prefGender}</span>
-          <Seg options={GENDERS.map((id) => ({ id }))} value={p.showGender} onChange={(showGender) => setP((s) => ({ ...s, showGender }))}
-            label={(o) => t[o.id === "any" ? "genderAny" : o.id === "male" ? "genderMale" : "genderFemale"]} />
-        </div>
-        <p className="text-[11px]" style={{ color: TG.muted }}>{t.safety}</p>
-      </div>
+      </section>
+      <section className="flex flex-col gap-2.5">
+        <Label as="h3" className="m-0">{t.prefTime}</Label>
+        <Segmented value={p.time} onChange={(time) => setP((s) => ({ ...s, time }))}
+          options={TIMES.map((id) => ({ id, label: timeLabel(id, t) }))} />
+      </section>
+      <section className="flex flex-col gap-2.5">
+        <Label as="h3" className="m-0">{t.prefGender}</Label>
+        <Segmented value={p.showGender} onChange={(showGender) => setP((s) => ({ ...s, showGender }))}
+          options={GENDERS.map((id) => ({ id, label: genderLabel(id) }))} />
+      </section>
+      <p className="m-0 text-xs leading-relaxed text-muted">{t.safety}</p>
     </Sheet>
   );
 }
 
-/** Who joins the crew. Teammates only — the people you already matched with. */
+/** Who joins the crew. Teammates only: the people you already matched with. */
 export function CrewSheet({ matches, isRtl, t, onCreate, onClose }) {
   const [name, setName] = useState("");
   const [picked, setPicked] = useState(matches.slice(0, 3).map((m) => m.buddyId));
   const toggle = (id) => setPicked((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
   const label = (m) => (m.revealed ? (isRtl ? m.nameFa : m.name) : (isRtl ? m.aliasFa : m.alias));
+  const n = (v) => num(v, isRtl);
+  const faces = [ME, ...picked].slice(0, 6);
   return (
-    <Sheet title={t.crewTitle} isRtl={isRtl} t={t} onClose={onClose}
+    <Sheet title={t.crewTitle} isRtl={isRtl} onClose={onClose} closeLabel={t.close}
       footer={
         <>
-          <button type="button" onClick={onClose} className="flex-1 h-12 rounded-2xl bg-white/5 border border-white/10 text-neutral-300 font-black text-sm">{t.cancel}</button>
-          <button type="button" disabled={!picked.length} onClick={() => onCreate({ name: name.trim() || t.crewLabel, memberIds: picked })}
-            className="flex-1 h-12 rounded-2xl text-white font-black text-sm disabled:opacity-40 on-accent" style={{ background: TG.accentDeep }}>{t.create}</button>
+          <Button tone="card" className="flex-1" onClick={onClose}>{t.cancel}</Button>
+          <Button tone="ink" className="flex-1" disabled={!picked.length} onClick={() => onCreate({ name: name.trim() || t.crewLabel, memberIds: picked })}>{t.create}</Button>
         </>
       }>
-      <div className="p-4 space-y-4">
-        <label className="block">
-          <span className="block text-[12px] font-semibold mb-1.5" style={{ color: TG.muted }}>{t.crewName}</span>
-          <span className="flex items-center gap-2 h-11 px-3 rounded-2xl" style={{ background: TG.card }}>
-            <Users className="w-4 h-4 shrink-0" style={{ color: TG.muted }} />
-            <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t.crewNamePh} aria-label={t.crewName}
-              className="flex-1 min-w-0 bg-transparent text-[15px] text-white placeholder:text-neutral-500 focus:outline-none" />
-          </span>
-        </label>
-        <div>
-          <span className="block text-[12px] font-semibold mb-1.5" style={{ color: TG.muted }}>{t.crewPick}</span>
-          <div className="rounded-2xl overflow-hidden divide-y divide-white/[0.04]" style={{ background: TG.card }}>
-            {matches.map((m) => {
-              const on = picked.includes(m.buddyId);
-              return (
-                <button key={m.buddyId} type="button" onClick={() => toggle(m.buddyId)} role="checkbox" aria-checked={on} aria-label={label(m)}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 text-start">
-                  <Avatar user={findUser(m.buddyId)} size={40} showStatus={false} />
-                  <span className="flex-1 min-w-0">
-                    <span className="block text-[15px] font-semibold text-white truncate">{label(m)}</span>
-                    <span className="block text-[12px]" style={{ color: TG.muted }}>{m.score}% {t.compatible}</span>
-                  </span>
-                  <span className={`w-6 h-6 rounded-full flex items-center justify-center border-2 ${on ? "on-accent" : ""}`}
-                    style={{ background: on ? TG.accentDeep : "transparent", borderColor: on ? TG.accentDeep : TG.muted }}>
-                    {on && <Check className="w-3.5 h-3.5 text-white stroke-[3]" />}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+      {/* A preview of the crew: its faces, its name, how many of you. */}
+      <div className="flex flex-col gap-2">
+        <div aria-hidden="true" className="flex">
+          {faces.map((id, i) => (
+            <span key={id} className={cx("rounded-full ring-[3px] ring-canvas", i > 0 && "-ms-2")}>
+              <Avatar user={findUser(id)} size={38} showStatus={false} />
+            </span>
+          ))}
         </div>
+        <span className="font-display font-extrabold text-[26px] leading-tight tracking-[-0.03em] text-ink truncate">{name.trim() || t.crewNamePh}</span>
+        <span className="text-sm text-muted">{t.crewLabel}{sepOf(isRtl)}{isRtl ? n(t.membersPicked(picked.length + 1)) : t.membersPicked(picked.length + 1)}</span>
       </div>
+      <Field label={t.crewName} aria-label={t.crewName} placeholder={t.crewNamePh} value={name} onChange={(e) => setName(e.target.value)}
+        prefix={<Users className="w-[18px] h-[18px] text-muted" strokeWidth={2} />} />
+      <Label as="h3" className="m-0 mt-1">{t.crewPick}</Label>
+      <List>
+        {matches.map((m) => {
+          const on = picked.includes(m.buddyId);
+          return (
+            // The whole row toggles; the round check is the control for keyboards and screen readers.
+            <li key={m.buddyId} onClick={() => toggle(m.buddyId)}
+              className="list-none min-h-[60px] flex items-center gap-3 ps-4 pe-4 py-2 cursor-pointer active:bg-sunk transition-colors">
+              <RoundCheck checked={on} label={label(m)} onToggle={(e) => { e.stopPropagation(); toggle(m.buddyId); }} />
+              <Avatar user={findUser(m.buddyId)} size={40} showStatus={false} />
+              <span className="flex-1 min-w-0 flex flex-col gap-0.5">
+                <span className="text-[15px] font-semibold text-ink truncate">{label(m)}</span>
+                <span className="text-[13px] text-muted">{n(m.score)}% {t.compatible}</span>
+              </span>
+            </li>
+          );
+        })}
+      </List>
     </Sheet>
   );
 }
@@ -255,51 +299,62 @@ export function ChallengeSheet({ isRtl, t, onStart, onClose }) {
   const valid = kind === "streak" || (Number.isFinite(value) && value > 0);
   const label = { volume: t.kindVolume, sessions: t.kindSessions, streak: t.kindStreak };
   const sub = { volume: t.kindVolumeSub, sessions: t.kindSessionsSub, streak: t.kindStreakSub };
+  const unit = { volume: t.volumeKg, sessions: t.sessionsLabel, streak: isRtl ? "روز" : "days" };
+  const figure = (v) => num(Number(v).toLocaleString("en-US"), isRtl);
+  const shown = kind === "streak" ? figure(7) : valid ? figure(value) : "—";
   return (
-    <Sheet title={t.challengeTitle} isRtl={isRtl} t={t} onClose={onClose}
+    <Sheet title={t.challengeTitle} isRtl={isRtl} onClose={onClose} closeLabel={t.close}
       footer={
         <>
-          <button type="button" onClick={onClose} className="flex-1 h-12 rounded-2xl bg-white/5 border border-white/10 text-neutral-300 font-black text-sm">{t.cancel}</button>
-          <button type="button" disabled={!valid} onClick={() => onStart({ kind, target: kind === "streak" ? null : value })}
-            className="flex-1 h-12 rounded-2xl text-white font-black text-sm disabled:opacity-40 on-accent" style={{ background: TG.accentDeep }}>{t.startChallenge}</button>
+          <Button tone="card" className="flex-1" onClick={onClose}>{t.cancel}</Button>
+          <Button tone="ink" className="flex-1" disabled={!valid} onClick={() => onStart({ kind, target: kind === "streak" ? null : value })}>{t.startChallenge}</Button>
         </>
       }>
-      <div className="p-4 space-y-5">
-        <div>
-          <span className="block text-[12px] font-semibold mb-2" style={{ color: TG.muted }}>{t.challengeKind}</span>
-          <div className="rounded-2xl overflow-hidden divide-y divide-white/[0.04]" style={{ background: TG.card }}>
-            {CHALLENGE_KINDS.map((k) => (
-              <button key={k} type="button" onClick={() => { setKind(k); setCustom(""); setTarget((CHALLENGE_PRESETS[k] || [null])[1] ?? null); }}
-                role="radio" aria-checked={kind === k} className="w-full flex items-center gap-3 px-4 py-3 text-start">
-                <span className="flex-1 min-w-0">
-                  <span className="block text-[15px] font-semibold text-white">{label[k]}</span>
-                  <span className="block text-[12px]" style={{ color: TG.muted }}>{sub[k]}</span>
-                </span>
-                <span className="w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0" style={{ borderColor: kind === k ? TG.accentDeep : TG.muted }}>
-                  {kind === k && <span className="w-2.5 h-2.5 rounded-full" style={{ background: TG.accentDeep }} />}
-                </span>
-              </button>
-            ))}
-          </div>
+      {/* What the crew will see: the goal, and the number to beat. */}
+      <Card tone="hero" className="flex flex-col gap-2.5" aria-live="polite">
+        <Label className="!text-hero-muted">{t.challengeTitle}</Label>
+        <h3 className="m-0 font-display font-extrabold text-[24px] leading-[1.05] tracking-[-0.03em]">{label[kind]}</h3>
+        <div className="flex items-baseline gap-1.5">
+          <span className="font-display font-extrabold text-[34px] leading-none tracking-[-0.04em] text-accent">{shown}</span>
+          <span className="text-sm text-hero-muted">{unit[kind]}</span>
         </div>
-        {kind !== "streak" && (
-          <div>
-            <span className="block text-[12px] font-semibold mb-2" style={{ color: TG.muted }}>{t.challengeTarget}</span>
-            <div className="flex flex-wrap gap-1.5">
-              {presets.map((p) => (
-                <button key={p} type="button" onClick={() => { setTarget(p); setCustom(""); }} aria-pressed={!custom && target === p}
-                  className="px-3 h-9 rounded-full text-[13px] font-medium tabular-nums" dir="ltr"
-                  style={{ background: !custom && target === p ? TG.accentDeep : TG.card, color: !custom && target === p ? "#fff" : "inherit" }}>
-                  {p.toLocaleString()}
-                </button>
-              ))}
-              <input value={custom} onChange={(e) => setCustom(e.target.value.replace(/[^0-9]/g, ""))} inputMode="numeric" placeholder={t.customTarget} aria-label={t.customTarget}
-                className="w-24 h-9 px-3 rounded-full text-[13px] font-medium text-white placeholder:text-neutral-500 focus:outline-none tabular-nums" dir="ltr"
-                style={{ background: TG.card }} />
-            </div>
+        <span className="text-[13px] text-hero-muted">{sub[kind]}</span>
+      </Card>
+
+      <Label as="h3" className="m-0 mt-1">{t.challengeKind}</Label>
+      <List role="radiogroup" aria-label={t.challengeKind}>
+        {CHALLENGE_KINDS.map((k) => (
+          <li key={k} className="list-none">
+            <button type="button" role="radio" aria-checked={kind === k}
+              onClick={() => { setKind(k); setCustom(""); setTarget((CHALLENGE_PRESETS[k] || [null])[1] ?? null); }}
+              className="w-full min-h-[60px] flex items-center gap-3 px-4 py-2.5 text-start bg-transparent border-0 cursor-pointer active:bg-sunk transition-colors">
+              <span className="flex-1 min-w-0 flex flex-col gap-0.5">
+                <span className="text-[15px] font-semibold text-ink">{label[k]}</span>
+                <span className="text-[13px] leading-snug text-muted">{sub[k]}</span>
+              </span>
+              <RadioMark on={kind === k} />
+            </button>
+          </li>
+        ))}
+      </List>
+
+      {kind !== "streak" && (
+        <>
+          <Label as="h3" className="m-0 mt-1">{t.challengeTarget}</Label>
+          <div className="flex flex-wrap gap-1.5">
+            {presets.map((p) => (
+              <Chip key={p} active={!custom && target === p} onClick={() => { setTarget(p); setCustom(""); }} className="tabular-nums">
+                {figure(p)}
+              </Chip>
+            ))}
+            <input value={custom} onChange={(e) => setCustom(e.target.value.replace(/[^0-9]/g, ""))} inputMode="numeric"
+              placeholder={t.customTarget} aria-label={t.customTarget} dir="ltr"
+              className={cx("w-28 h-9 px-4 rounded-full text-sm font-medium tabular-nums border-0 outline-none focus-visible:outline-none placeholder:text-muted/70",
+                "focus:ring-2 focus:ring-inset focus:ring-ink transition-shadow",
+                custom ? "bg-inv text-on-inv placeholder:text-on-inv/60" : "bg-card text-ink")} />
           </div>
-        )}
-      </div>
+        </>
+      )}
     </Sheet>
   );
 }
@@ -309,28 +364,25 @@ export function ReportSheet({ name, isRtl, t, onSend, onClose }) {
   const [reason, setReason] = useState(null);
   const reasons = [["spam", t.reportSpam], ["harass", t.reportHarass], ["fake", t.reportFake], ["other", t.reportOther]];
   return (
-    <Sheet title={`${t.reportTitle} · ${name}`} isRtl={isRtl} t={t} onClose={onClose}
+    <Sheet title={`${t.reportTitle} ${name}`} isRtl={isRtl} onClose={onClose} closeLabel={t.close}
       footer={
         <>
-          <button type="button" onClick={onClose} className="flex-1 h-12 rounded-2xl bg-white/5 border border-white/10 text-neutral-300 font-black text-sm">{t.cancel}</button>
-          <button type="button" disabled={!reason} onClick={() => onSend(reason)}
-            className="flex-1 h-12 rounded-2xl bg-rose-500 text-white font-black text-sm disabled:opacity-40">{t.report}</button>
+          <Button tone="card" className="flex-1" onClick={onClose}>{t.cancel}</Button>
+          <Button tone="ink" className="flex-1 !bg-alert !text-hero-fg dark:!text-jet" disabled={!reason} onClick={() => onSend(reason)}>{t.report}</Button>
         </>
       }>
-      <div className="p-4 space-y-3">
-        <span className="block text-[12px] font-semibold" style={{ color: TG.muted }}>{t.reportWhy}</span>
-        <div className="rounded-2xl overflow-hidden divide-y divide-white/[0.04]" style={{ background: TG.card }}>
-          {reasons.map(([id, label]) => (
-            <button key={id} type="button" onClick={() => setReason(id)} role="radio" aria-checked={reason === id}
-              className="w-full flex items-center justify-between gap-3 px-4 py-3 text-start">
-              <span className="text-[15px] font-medium text-white">{label}</span>
-              <span className="w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0" style={{ borderColor: reason === id ? "#f43f5e" : TG.muted }}>
-                {reason === id && <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />}
-              </span>
+      <Label as="h3" className="m-0">{t.reportWhy}</Label>
+      <List role="radiogroup" aria-label={t.reportWhy}>
+        {reasons.map(([id, text]) => (
+          <li key={id} className="list-none">
+            <button type="button" onClick={() => setReason(id)} role="radio" aria-checked={reason === id}
+              className="w-full min-h-[56px] flex items-center justify-between gap-3 px-4 py-2.5 text-start bg-transparent border-0 cursor-pointer active:bg-sunk transition-colors">
+              <span className="text-[15px] font-medium text-ink">{text}</span>
+              <RadioMark on={reason === id} alert />
             </button>
-          ))}
-        </div>
-      </div>
+          </li>
+        ))}
+      </List>
     </Sheet>
   );
 }

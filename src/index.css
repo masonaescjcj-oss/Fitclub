@@ -156,32 +156,38 @@
   border-color: rgba(0, 0, 0, 0.08);
 }
 
-/* Telegram-style chat wallpaper: dark ground with a faint fitness doodle tile. */
+/* The conversation wallpaper: the paper ground with a faint fitness doodle
+   drawn in the line colour, so it follows light and night. The tile is a
+   mask over a line-coloured layer; a data-URI SVG can't read CSS variables.
+   The --tg-name-* tones colour member names beside grape and ochre. */
 .tg-wallpaper {
-  background-color: #0e1621;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150'%3E%3Cg fill='none' stroke='%23ffffff' stroke-opacity='0.045' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='32' cy='34' r='11'/%3E%3Cpath d='M88 28h34M94 20v16M116 20v16'/%3E%3Cpath d='M28 100v22M22 106h12M22 116h12'/%3E%3Ccircle cx='108' cy='112' r='7'/%3E%3Cpath d='M64 64l10 10M74 64l-10 10'/%3E%3C/g%3E%3C/svg%3E");
+  position: relative;
+  isolation: isolate;
+  background-color: rgb(var(--ui-bg));
+  --tg-name-pine: 28 120 88;
+  --tg-name-sea: 30 94 158;
+  --tg-name-berry: 168 52 118;
 }
-[data-theme="light"] .tg-wallpaper {
-  background-color: #86aee6;
-  background-image:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150'%3E%3Cg fill='none' stroke='%23ffffff' stroke-opacity='0.22' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='32' cy='34' r='11'/%3E%3Cpath d='M88 28h34M94 20v16M116 20v16'/%3E%3Cpath d='M28 100v22M22 106h12M22 116h12'/%3E%3Ccircle cx='108' cy='112' r='7'/%3E%3Cpath d='M64 64l10 10M74 64l-10 10'/%3E%3C/g%3E%3C/svg%3E"),
-    linear-gradient(180deg, #7db6ee 0%, #8a93da 55%, #a48bd2 100%);
-}
-
-/* Bubble tails, on the last bubble of a run. The tail follows the writing direction. */
-.tg-bubble { position: relative; }
-.tg-tail::after {
+.tg-wallpaper::before {
   content: "";
   position: absolute;
-  bottom: 0;
-  width: 10px;
-  height: 12px;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.75;
+  background-color: rgb(var(--ui-line));
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180' viewBox='0 0 180 180'%3E%3Cg fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M22 34h30M27 26v16M47 26v16M21 30v8M53 30v8'/%3E%3Cpath d='M124 30c0-7 14-7 14 0'/%3E%3Ccircle cx='131' cy='44' r='11'/%3E%3Cpath d='M40 128c-7-5-13-10-13-16a6 6 0 0 1 13-3a6 6 0 0 1 13 3c0 6-6 11-13 16z'/%3E%3Ccircle cx='134' cy='134' r='11'/%3E%3Cpath d='M134 134v-6M130 118h8M134 118v5'/%3E%3Cpath d='M88 70c5 7 8 11 8 15a8 8 0 0 1-16 0c0-4 3-8 8-15z'/%3E%3Cpath d='M82 146l-7 11h6l-3 9 9-12h-6l3-8z'/%3E%3Cpath d='M98 22v8M94 26h8M162 88v6M159 91h6M16 76v6M13 79h6'/%3E%3Ccircle cx='66' cy='104' r='3'/%3E%3C/g%3E%3C/svg%3E") 0 0 / 180px 180px repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180' viewBox='0 0 180 180'%3E%3Cg fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M22 34h30M27 26v16M47 26v16M21 30v8M53 30v8'/%3E%3Cpath d='M124 30c0-7 14-7 14 0'/%3E%3Ccircle cx='131' cy='44' r='11'/%3E%3Cpath d='M40 128c-7-5-13-10-13-16a6 6 0 0 1 13-3a6 6 0 0 1 13 3c0 6-6 11-13 16z'/%3E%3Ccircle cx='134' cy='134' r='11'/%3E%3Cpath d='M134 134v-6M130 118h8M134 118v5'/%3E%3Cpath d='M88 70c5 7 8 11 8 15a8 8 0 0 1-16 0c0-4 3-8 8-15z'/%3E%3Cpath d='M82 146l-7 11h6l-3 9 9-12h-6l3-8z'/%3E%3Cpath d='M98 22v8M94 26h8M162 88v6M159 91h6M16 76v6M13 79h6'/%3E%3Ccircle cx='66' cy='104' r='3'/%3E%3C/g%3E%3C/svg%3E") 0 0 / 180px 180px repeat;
 }
-.tg-tail.tg-in::after { inset-inline-start: -6px; background: var(--tg-in-bubble); clip-path: polygon(100% 0, 0 100%, 100% 100%); }
-.tg-tail.tg-out::after { inset-inline-end: -6px; background: var(--tg-out-bubble); clip-path: polygon(0 0, 100% 100%, 0 100%); }
-[dir="rtl"] .tg-tail.tg-in::after { clip-path: polygon(0 0, 100% 100%, 0 100%); }
-[dir="rtl"] .tg-tail.tg-out::after { clip-path: polygon(100% 0, 0 100%, 100% 100%); }
+[data-theme="dark"] .tg-wallpaper {
+  --tg-name-pine: 110 204 160;
+  --tg-name-sea: 128 178 238;
+  --tg-name-berry: 236 140 198;
+}
 
-/* A message the athlete jumped to (from a reply quote, a mention badge or a notification) glows for a moment. */
-@keyframes tg-flash { 0% { background: rgba(51, 144, 236, 0.28); } 100% { background: transparent; } }
-.tg-flash { animation: tg-flash 1.6s ease-out 1; border-radius: 12px; }
+/* Bubbles have no drawn tail any more: the 6 px corner on the tail side
+   (rounded-es/ee in MessageBubble) carries the shape in both directions. */
+
+/* A message the athlete jumped to (from a reply quote, the pinned bar, a mention badge or a notification) glows for a moment. */
+@keyframes tg-flash { 0% { background: rgb(var(--ui-accent) / 0.45); } 100% { background: rgb(var(--ui-accent) / 0); } }
+.tg-flash { animation: tg-flash 1.6s ease-out 1; border-radius: 16px; }

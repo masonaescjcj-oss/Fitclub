@@ -1,46 +1,52 @@
 import React, { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowUp, Clock, Image, Mic, Paperclip, Smile, Sticker, VolumeX, X } from "lucide-react";
-import { TG } from "../../lib/chat/extras";
+import {
+  ArrowUp, BarChart3, Clock, CornerUpLeft, Image, Megaphone, Mic, Paperclip, Pencil, Smile, Sticker, VolumeX, X,
+} from "lucide-react";
 import { applyMention, mentionCandidates, mentionQuery } from "../../lib/chat/mentions";
-import { Avatar, senderColor, senderName } from "./ChatBits";
+import { Avatar, senderName } from "./ChatBits";
+import { senderTone } from "./MessageBubble";
+import { IconButton, IconWell, cx } from "../ui/kit";
 
 const EMOJI = ["😀","😁","😂","🤣","😊","😍","😘","😎","🤔","😴","🙄","😮","😢","😤","🥵","🤝","🙏","👍","👎","👏","💪","🔥","⚡","🏆","🥇","🎯","💯","❤️","🩶","✅","🏋️","🏃","🚴","🧘","🥗","🍗","💧","😮‍💨"];
 const STICKERS = ["🏋️","🥇","🔥","💪","🧘","🏃","🚴","🥗","😤","🎯","🏆","⚡","🦾","🥵","🫡","🙌"];
 
+// Attachments, each on one of the kit's icon-well tones.
 const ATTACHMENTS = [
-  { id: "photo", icon: Image, label: "photo", tint: "#e0567d" },
-  { id: "file", icon: Paperclip, label: "file", tint: "#38bdf8" },
-  { id: "voice", icon: Mic, label: "voiceMessage", tint: "#f59e0b" },
-  { id: "poll", icon: () => <span className="text-base leading-none">📊</span>, label: "poll", tint: "#10b981" },
+  { id: "photo", icon: Image, label: "photo", tone: "sand" },
+  { id: "file", icon: Paperclip, label: "file", tone: "mist" },
+  { id: "voice", icon: Mic, label: "voiceMessage", tone: "sage" },
+  { id: "poll", icon: BarChart3, label: "poll", tone: "inv" },
 ];
 
 /** The bar above the input while replying to or editing a message. */
-function ContextStrip({ mode, message, isRtl, t, onCancel }) {
+function ContextStrip({ mode, message, chat, isRtl, t, onCancel }) {
   if (!message) return null;
+  const edit = mode === "edit";
+  const tone = edit ? undefined : senderTone(message.senderId, chat);
+  const Icon = edit ? Pencil : CornerUpLeft;
   return (
-    <div className="flex items-center gap-2 px-3 py-2 mb-1.5 rounded-2xl backdrop-blur-xl" style={{ background: TG.glass, boxShadow: "0 1px 6px rgba(0,0,0,.08)" }}>
-      <span className="w-0.5 h-8 rounded-full shrink-0"
-        style={{ background: mode === "edit" ? "#f59e0b" : senderColor(message.senderId) }} />
-      <span className="flex-1 min-w-0">
-        <span className="block text-[12px] font-semibold"
-          style={{ color: mode === "edit" ? "#f59e0b" : senderColor(message.senderId) }}>
-          {mode === "edit" ? t.editingMessage : senderName(message.senderId, isRtl)}
+    <div className="flex items-center gap-3 ps-3.5 pe-1.5 py-1.5 rounded-3xl bg-card">
+      <Icon className="w-[18px] h-[18px] shrink-0 text-muted" strokeWidth={2} />
+      <span aria-hidden="true" className={cx("w-[3px] h-8 rounded-full shrink-0", edit && "bg-inv")} style={tone ? { background: tone } : undefined} />
+      <span className="flex-1 min-w-0 flex flex-col">
+        <span className="text-[13px] font-bold truncate" style={tone ? { color: tone } : undefined}>
+          {edit ? t.editingMessage : senderName(message.senderId, isRtl)}
         </span>
-        <span className="block text-[13px] text-neutral-400 truncate">{message.text || t.photo}</span>
+        <span className="text-[13px] text-muted truncate">{message.text || t.photo}</span>
       </span>
-      <button type="button" onClick={onCancel} aria-label={t.cancel}
-        className="w-7 h-7 rounded-lg flex items-center justify-center text-neutral-500 hover:text-white shrink-0">
-        <X className="w-4 h-4" />
-      </button>
+      <IconButton label={t.cancel} tone="soft" size={36} onClick={onCancel}>
+        <X className="w-4 h-4" strokeWidth={2.2} />
+      </IconButton>
     </div>
   );
 }
 
 /**
- * The iOS composer: paperclip, a rounded field with emoji and sticker
- * toggles inside, and a round blue send button. Holding the send button
- * offers silent and scheduled sending, as the real client does.
+ * The composer: a round attach button beside a white pill that holds the
+ * field, the sticker and emoji toggles, and the send button (voice when the
+ * field is empty). Holding send offers silent and scheduled sending, as the
+ * real client does.
  */
 export default function Composer({
   chat, draft, replyTo, editing, isRtl, t, members = [],
@@ -67,6 +73,8 @@ export default function Composer({
   }, [editing, replyTo]);
 
   const canSend = draft.trim().length > 0;
+  const isChannel = chat.type === "channel";
+  const placeholder = isChannel ? t.broadcast : t.message;
 
   const submit = (silent = false) => {
     if (!canSend) return;
@@ -83,60 +91,62 @@ export default function Composer({
   const startHold = () => { holdTimer.current = setTimeout(() => setSendMenu(true), 450); };
   const endHold = () => { clearTimeout(holdTimer.current); holdTimer.current = null; };
 
+  const toggle = (id) => setPanel(panel === id ? null : id);
+  const inPill = "w-10 h-12 flex items-center justify-center shrink-0 bg-transparent border-0 cursor-pointer transition-colors";
+
   return (
-    <div className="sticky bottom-0 z-20 px-2 pt-1" style={{ paddingBottom: "max(8px, env(safe-area-inset-bottom))" }}>
+    <div className="flex flex-col gap-2">
       <ContextStrip
         mode={editing ? "edit" : "reply"}
         message={editing || replyTo}
+        chat={chat}
         isRtl={isRtl} t={t}
         onCancel={onCancelContext}
       />
 
       <AnimatePresence>
         {suggestions.length > 0 && (
-          <motion.div key="mentions" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 6 }}
-            className="rounded-2xl mb-1.5 backdrop-blur-xl overflow-hidden divide-y" role="listbox" aria-label="@"
-            style={{ background: TG.glass, boxShadow: "0 1px 6px rgba(0,0,0,.08)", borderColor: TG.sep }}>
+          <motion.ul key="mentions" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 6 }}
+            className="m-0 p-0 py-1 list-none rounded-3xl bg-card shadow-lift divide-y divide-hair max-h-64 overflow-y-auto scrollbar-hide"
+            role="listbox" aria-label="@">
             {suggestions.map((u) => (
-              <button key={u.id} type="button" role="option" aria-selected="false" onMouseDown={(e) => e.preventDefault()} onClick={() => pickMention(u)}
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-start active:bg-black/[0.04]">
-                <Avatar user={u} size={32} showStatus={false} />
-                <span className="flex-1 min-w-0 text-[15px] font-medium text-white truncate">{isRtl ? u.nameFa || u.name : u.name}</span>
-                <span className="text-[13px] shrink-0" style={{ color: TG.muted }} dir="ltr">@{u.username}</span>
-              </button>
+              <li key={u.id} className="list-none">
+                <button type="button" role="option" aria-selected="false" onMouseDown={(e) => e.preventDefault()} onClick={() => pickMention(u)}
+                  className="w-full min-h-[52px] flex items-center gap-3 px-4 py-1.5 text-start bg-transparent border-0 cursor-pointer active:bg-sunk">
+                  <Avatar user={u} size={32} showStatus={false} />
+                  <span className="flex-1 min-w-0 text-[15px] font-semibold text-ink truncate">{isRtl ? u.nameFa || u.name : u.name}</span>
+                  <span className="text-[13px] text-muted shrink-0" dir="ltr">@{u.username}</span>
+                </button>
+              </li>
             ))}
-          </motion.div>
+          </motion.ul>
         )}
         {panel && (
-          <motion.div
+          <motion.div key={panel}
             initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}
-            className="overflow-hidden rounded-2xl mb-1.5 backdrop-blur-xl" style={{ background: TG.glass, boxShadow: "0 1px 6px rgba(0,0,0,.08)" }}
+            className="overflow-hidden rounded-3xl bg-card"
           >
             {panel === "attach" ? (
-              <div className="grid grid-cols-4 gap-2 p-4">
+              <div className="grid grid-cols-4 gap-2 px-3 py-4">
                 {ATTACHMENTS.map((a) => {
                   const Icon = a.icon;
                   return (
                     <button key={a.id} type="button"
                       onClick={() => { onAttach(a.id); setPanel(null); }}
-                      className="flex flex-col items-center gap-1.5">
-                      <span className="w-12 h-12 rounded-2xl flex items-center justify-center"
-                        style={{ background: `${a.tint}22`, border: `1px solid ${a.tint}55`, color: a.tint }}>
-                        <Icon className="w-5 h-5" />
-                      </span>
-                      <span className="text-[11px] font-medium text-neutral-400">{t[a.label]}</span>
+                      className="flex flex-col items-center gap-2 bg-transparent border-0 cursor-pointer active:scale-95 transition-transform">
+                      <IconWell tone={a.tone} size={52}><Icon className="w-[22px] h-[22px]" strokeWidth={2} /></IconWell>
+                      <span className="text-[12px] font-medium text-muted">{t[a.label]}</span>
                     </button>
                   );
                 })}
               </div>
             ) : (
-              <div className="flex flex-wrap gap-1 p-3 max-h-40 overflow-y-auto scrollbar-hide">
+              <div className="flex flex-wrap gap-1 p-3 max-h-44 overflow-y-auto scrollbar-hide">
                 {(panel === "emoji" ? EMOJI : STICKERS).map((e) => (
-                  <button key={e} type="button"
+                  <button key={e} type="button" aria-label={e}
                     onClick={() => (panel === "emoji" ? insert(e) : onSend({ kind: "sticker", media: { emoji: e } }))}
-                    className={`rounded-lg hover:bg-white/10 flex items-center justify-center ${
-                      panel === "emoji" ? "w-9 h-9 text-xl" : "w-14 h-14 text-4xl"
-                    }`}>
+                    className={cx("rounded-2xl flex items-center justify-center bg-transparent border-0 cursor-pointer active:bg-sunk hover:bg-sunk",
+                      panel === "emoji" ? "w-10 h-10 text-[22px]" : "w-14 h-14 text-4xl")}>
                     {e}
                   </button>
                 ))}
@@ -146,14 +156,14 @@ export default function Composer({
         )}
       </AnimatePresence>
 
-      <div className="flex items-end gap-2 relative">
-        <div className="flex-1 flex items-end rounded-[24px] min-h-[46px] ps-1 pe-1 min-w-0 backdrop-blur-xl"
-          style={{ background: TG.glass, boxShadow: "0 2px 12px rgba(0,0,0,.1)" }}>
-          <button type="button" onClick={() => setPanel(panel === "attach" ? null : "attach")}
-            aria-label={t.attach} className="w-10 h-[46px] flex items-center justify-center shrink-0"
-            style={{ color: panel === "attach" ? TG.accent : TG.muted }}>
-            <Paperclip className="w-[22px] h-[22px]" />
-          </button>
+      <div className="relative flex items-end gap-2">
+        <IconButton label={t.attach} size={48} aria-expanded={panel === "attach"} onClick={() => toggle("attach")}
+          tone={panel === "attach" ? "inv" : "card"}>
+          <Paperclip className="w-[22px] h-[22px]" strokeWidth={2} />
+        </IconButton>
+
+        <div className="flex-1 min-w-0 min-h-[48px] flex items-end rounded-[24px] bg-card ps-4 pe-1 focus-within:ring-2 focus-within:ring-inset focus-within:ring-ink/80">
+          {isChannel && <Megaphone aria-hidden="true" className="w-[18px] h-[18px] shrink-0 self-center me-2 text-muted" strokeWidth={2} />}
           <textarea
             ref={inputRef}
             rows={1}
@@ -168,54 +178,55 @@ export default function Composer({
               }
               if (e.key === "Tab" && suggestions.length) { e.preventDefault(); pickMention(suggestions[0]); }
             }}
-            placeholder={chat.type === "channel" ? t.broadcast : t.message}
-            aria-label={chat.type === "channel" ? t.broadcast : t.message}
-            className="flex-1 min-w-0 bg-transparent py-3 text-[16px] leading-[22px] text-white placeholder:text-neutral-500 resize-none focus:outline-none max-h-28"
+            placeholder={placeholder}
+            aria-label={placeholder}
+            dir="auto"
+            className="flex-1 min-w-0 border-0 bg-transparent py-[13px] text-[16px] leading-[22px] text-ink placeholder:text-muted resize-none outline-none focus-visible:outline-none max-h-28"
           />
-          <button type="button" onClick={() => setPanel(panel === "stickers" ? null : "stickers")}
-            aria-label={t.stickers} className="w-9 h-[46px] flex items-center justify-center shrink-0"
-            style={{ color: panel === "stickers" ? TG.accent : TG.muted }}>
-            <Sticker className="w-[22px] h-[22px]" />
+          <button type="button" onClick={() => toggle("stickers")} aria-label={t.stickers} aria-pressed={panel === "stickers"}
+            className={cx(inPill, panel === "stickers" ? "text-ink" : "text-muted")}>
+            <Sticker className="w-[22px] h-[22px]" strokeWidth={2} />
           </button>
-          <button type="button" onClick={() => setPanel(panel === "emoji" ? null : "emoji")}
-            aria-label={t.emoji} className="w-9 h-[46px] flex items-center justify-center shrink-0"
-            style={{ color: panel === "emoji" ? TG.accent : TG.muted }}>
-            <Smile className="w-[22px] h-[22px]" />
+          <button type="button" onClick={() => toggle("emoji")} aria-label={t.emoji} aria-pressed={panel === "emoji"}
+            className={cx(inPill, panel === "emoji" ? "text-ink" : "text-muted")}>
+            <Smile className="w-[22px] h-[22px]" strokeWidth={2} />
           </button>
-        </div>
 
-        {canSend ? (
-          <button type="button" onClick={() => submit()} aria-label={t.send}
-            onPointerDown={startHold} onPointerUp={endHold} onPointerLeave={endHold}
-            onContextMenu={(e) => { e.preventDefault(); setSendMenu(true); }}
-            className="w-[46px] h-[46px] rounded-full flex items-center justify-center text-white active:scale-95 transition-transform shrink-0 on-accent"
-            style={{ background: TG.accentDeep, boxShadow: "0 2px 12px rgba(0,122,255,.35)" }}>
-            <ArrowUp className="w-6 h-6 stroke-[2.5]" />
-          </button>
-        ) : (
-          <button type="button" onClick={() => onAttach("voice")} aria-label={t.voiceMessage}
-            className="w-[46px] h-[46px] rounded-full flex items-center justify-center shrink-0 backdrop-blur-xl"
-            style={{ color: TG.muted, background: TG.glass, boxShadow: "0 2px 12px rgba(0,0,0,.1)" }}>
-            <Mic className="w-[22px] h-[22px]" />
-          </button>
-        )}
+          {canSend ? (
+            <button type="button" onClick={() => submit()} aria-label={t.send}
+              onPointerDown={startHold} onPointerUp={endHold} onPointerLeave={endHold}
+              onContextMenu={(e) => { e.preventDefault(); setSendMenu(true); }}
+              className="w-10 h-10 my-1 rounded-full flex items-center justify-center shrink-0 bg-accent text-on-accent border-0 cursor-pointer active:scale-95 transition-transform">
+              <ArrowUp className="w-5 h-5" strokeWidth={2.6} />
+            </button>
+          ) : (
+            <button type="button" onClick={() => onAttach("voice")} aria-label={t.voiceMessage}
+              className="w-10 h-10 my-1 rounded-full flex items-center justify-center shrink-0 bg-jet text-accent border-0 cursor-pointer active:scale-95 transition-transform dark:ring-1 dark:ring-inset dark:ring-line">
+              <Mic className="w-5 h-5" strokeWidth={2} />
+            </button>
+          )}
+        </div>
 
         <AnimatePresence>
           {sendMenu && canSend && (
             <>
-              <button type="button" aria-label={t.close} onClick={() => setSendMenu(false)} className="fixed inset-0 z-10 cursor-default" />
-              <motion.div initial={{ opacity: 0, y: 6, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 6, scale: 0.96 }}
-                className="absolute bottom-14 end-0 z-20 min-w-[200px] rounded-2xl overflow-hidden backdrop-blur-xl divide-y"
-                style={{ background: TG.glass, boxShadow: "0 12px 32px rgba(0,0,0,.18)", borderColor: TG.sep }}>
-                <button type="button" onClick={() => submit(true)}
-                  className="w-full flex items-center justify-between gap-3 px-4 py-3 text-[15px] text-white text-start">
-                  {t.sendSilently} <VolumeX className="w-5 h-5 text-neutral-500" />
-                </button>
-                <button type="button" onClick={() => { setSendMenu(false); onOpenSchedule(); }}
-                  className="w-full flex items-center justify-between gap-3 px-4 py-3 text-[15px] text-white text-start">
-                  {t.schedule} <Clock className="w-5 h-5 text-neutral-500" />
-                </button>
-              </motion.div>
+              <button key="scrim" type="button" aria-label={t.close} onClick={() => setSendMenu(false)}
+                className="fixed inset-0 z-10 cursor-default bg-transparent border-0" />
+              <motion.ul key="menu" initial={{ opacity: 0, y: 6, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 6, scale: 0.96 }}
+                className="absolute bottom-full mb-2 end-0 z-20 m-0 p-0 py-1 list-none min-w-[230px] rounded-3xl bg-card shadow-sheet divide-y divide-hair overflow-hidden">
+                <li className="list-none">
+                  <button type="button" onClick={() => submit(true)}
+                    className="w-full h-12 flex items-center justify-between gap-3 px-4 text-[15px] font-medium text-ink text-start bg-transparent border-0 cursor-pointer active:bg-sunk">
+                    {t.sendSilently} <VolumeX className="w-5 h-5 text-muted" strokeWidth={2} />
+                  </button>
+                </li>
+                <li className="list-none">
+                  <button type="button" onClick={() => { setSendMenu(false); onOpenSchedule(); }}
+                    className="w-full h-12 flex items-center justify-between gap-3 px-4 text-[15px] font-medium text-ink text-start bg-transparent border-0 cursor-pointer active:bg-sunk">
+                    {t.schedule} <Clock className="w-5 h-5 text-muted" strokeWidth={2} />
+                  </button>
+                </li>
+              </motion.ul>
             </>
           )}
         </AnimatePresence>

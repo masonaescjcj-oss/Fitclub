@@ -1,10 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, Check, MessageCircle, Settings, UserCircle2, X } from "lucide-react";
+import { Check, X } from "lucide-react";
 import { useChatT } from "../../lib/chat/chatI18n";
 import { useChatStore } from "../../lib/chat/chatContext";
 import { STORIES, findUser } from "../../lib/chat/chatStore";
-import { TG } from "../../lib/chat/extras";
 import { ME, makeInviteLink, relativeTime } from "../../lib/chat/chatModel";
 import { resolveJoin } from "../../lib/chat/search";
 import { localized } from "../../lib/checklistModel";
@@ -26,108 +25,115 @@ import {
 import { useNutritionStore } from "../../lib/nutrition/nutritionContext";
 import { useTrainingStore } from "../../lib/training/trainingContext";
 import { useChecklistStore } from "../../lib/checklistContext";
-import { Avatar } from "../../components/chat/ChatBits";
+import { Avatar, toneOf } from "../../components/chat/ChatBits";
 import { ChatActionsSheet } from "../../components/chat/ChatSheets";
 import { loadSession } from "../../lib/session";
+import BottomNavBar from "../../components/BottomNavBar";
+import { Segmented, cx, num } from "../../components/ui/kit";
 
-/** Screens that show the messenger's own tab bar; the rest are pushed on top. */
+/** Screens that show the app's tab bar and the section switch; the rest are pushed on top. */
 const ROOT_SCREENS = ["list", "contacts", "settings"];
 
 /**
- * The floating pill the iOS client uses: Contacts · Chats · Settings, plus a
- * detached Back button beside it that leaves the messenger for the rest of
- * FitClub — the app's own tab bar is hidden while the messenger is open.
+ * Full-screen story viewer: one friend's story, auto-advancing through the
+ * rail. The story sits on its author's avatar tone; tap the far side to go
+ * on, the near side to go back.
  */
-function TabBar({ screen, unread, isRtl, t, onGo, onExit }) {
-  const tabs = [
-    { id: "contacts", icon: UserCircle2, label: t.contactsTab },
-    { id: "list", icon: MessageCircle, label: t.chats },
-    { id: "settings", icon: Settings, label: t.settingsTab },
-  ];
-  const shadow = `0 8px 28px rgba(0,0,0,.14), 0 0 0 0.5px ${TG.sep}`;
-  return (
-    <div className="fixed inset-x-0 z-40 flex justify-center items-center gap-2.5 pointer-events-none"
-      style={{ bottom: "max(14px, env(safe-area-inset-bottom))" }}>
-      <div className="pointer-events-auto flex items-center gap-1 p-1.5 rounded-full backdrop-blur-2xl"
-        style={{ background: TG.pill, boxShadow: shadow }}>
-        {tabs.map((tab) => {
-          const active = screen === tab.id;
-          const Icon = tab.icon;
-          return (
-            <button key={tab.id} type="button" onClick={() => onGo(tab.id)} aria-label={tab.label} aria-current={active ? "page" : undefined}
-              className="relative flex flex-col items-center justify-center w-[80px] h-[54px] rounded-full transition-colors"
-              style={{ background: active ? TG.pillActive : "transparent", color: active ? TG.accent : TG.muted }}>
-              <Icon className="w-[26px] h-[26px]" fill={active ? "currentColor" : "none"} fillOpacity={active ? 0.2 : 0} />
-              <span className="text-[10px] font-semibold mt-0.5">{tab.label}</span>
-              {tab.id === "list" && unread > 0 && !active && (
-                <span className="absolute top-1.5 end-6 min-w-[18px] h-[18px] px-1 rounded-full text-[11px] font-bold text-white flex items-center justify-center on-accent"
-                  style={{ background: TG.accentDeep }}>
-                  {unread}
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
-      <button type="button" onClick={onExit} aria-label={t.backToApp}
-        className="pointer-events-auto flex flex-col items-center justify-center w-[66px] h-[66px] rounded-full backdrop-blur-2xl active:scale-95 transition-transform"
-        style={{ background: TG.pill, boxShadow: shadow, color: TG.muted }}>
-        <ArrowLeft className={`w-[24px] h-[24px] ${isRtl ? "rotate-180" : ""}`} />
-        <span className="text-[10px] font-semibold mt-0.5">{t.backToApp}</span>
-      </button>
-    </div>
-  );
-}
-
-/** Full-screen story viewer: one friend's story, auto-advancing through the rail. */
 function StoryViewer({ stories, index, isRtl, t, onIndex, onClose }) {
   const story = stories[index];
   const user = findUser(story.userId);
+  const tone = toneOf(user.name);
+  const dark = tone === "bg-jet";
   useEffect(() => {
     const id = setTimeout(() => (index + 1 < stories.length ? onIndex(index + 1) : onClose()), 5000);
     return () => clearTimeout(id);
   }, [index, stories.length, onIndex, onClose]);
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
 
+  const next = () => { if (index + 1 < stories.length) onIndex(index + 1); else onClose(); };
+  const prev = () => { if (index > 0) onIndex(index - 1); };
   const tap = (e) => {
-    const x = e.nativeEvent.offsetX / e.currentTarget.clientWidth;
+    const box = e.currentTarget.getBoundingClientRect();
+    const x = (e.clientX - box.left) / box.width;
     const forward = isRtl ? x < 0.35 : x > 0.65;
     const back = isRtl ? x > 0.65 : x < 0.35;
-    if (forward) { if (index + 1 < stories.length) onIndex(index + 1); else onClose(); }
-    else if (back && index > 0) onIndex(index - 1);
+    if (forward) next();
+    else if (back) prev();
   };
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[95] flex items-center justify-center bg-black on-accent">
-      <div className="relative w-full h-full md:max-w-lg md:h-[92dvh] md:rounded-3xl overflow-hidden text-white" style={{ background: story.bg }} onClick={tap}>
-        <div className="absolute top-3 inset-x-3 flex gap-1 z-10">
+      role="dialog" aria-modal="true" aria-label={`${t.storyOf}: ${isRtl ? user.nameFa || user.name : user.name}`}
+      dir={isRtl ? "rtl" : "ltr"} className="ui fixed inset-0 z-[95] flex items-center justify-center !bg-hero">
+      <div onClick={tap}
+        className={cx("relative w-full h-full md:max-w-lg md:h-[92dvh] md:rounded-4xl overflow-hidden select-none", tone,
+          dark ? "text-hero-fg" : "text-on-accent")}>
+        <div className="absolute top-[max(env(safe-area-inset-top),12px)] inset-x-4 flex gap-1 z-10">
           {stories.map((s, i) => (
-            <span key={s.id} className="flex-1 h-[3px] rounded-full bg-white/30 overflow-hidden">
-              {i === index && <motion.span key={story.id} className="block h-full bg-white" initial={{ width: 0 }} animate={{ width: "100%" }} transition={{ duration: 5, ease: "linear" }} />}
-              {i < index && <span className="block h-full bg-white" />}
+            <span key={s.id} className={cx("flex-1 h-[3px] rounded-full overflow-hidden", dark ? "bg-hero-fg/25" : "bg-jet/20")}>
+              {i === index && <motion.span key={story.id} className={cx("block h-full", dark ? "bg-hero-fg" : "bg-jet")}
+                initial={{ width: 0 }} animate={{ width: "100%" }} transition={{ duration: 5, ease: "linear" }} />}
+              {i < index && <span className={cx("block h-full", dark ? "bg-hero-fg" : "bg-jet")} />}
             </span>
           ))}
         </div>
-        <div className="absolute top-7 inset-x-3 flex items-center gap-2.5 z-10">
-          <Avatar user={user} size={36} showStatus={false} ring="transparent" />
+        <div className="absolute top-[calc(max(env(safe-area-inset-top),12px)+14px)] inset-x-4 flex items-center gap-3 z-10">
+          {/* The avatar wears the story's own tone, so a ring lifts it off the page. */}
+          <span className={cx("rounded-full ring-2", dark ? "ring-hero-fg/70" : "ring-jet/70")}>
+            <Avatar user={user} size={40} showStatus={false} />
+          </span>
           <span className="flex-1 min-w-0">
-            <span className="block text-[15px] font-semibold text-white truncate">{isRtl ? user.nameFa || user.name : user.name}</span>
-            <span className="block text-[12px] text-white/70">{relativeTime(story.at, t)}</span>
+            <span className="block text-[15px] font-semibold truncate">{isRtl ? user.nameFa || user.name : user.name}</span>
+            <span className="block text-[12px] opacity-70">{num(relativeTime(story.at, t), isRtl)}</span>
           </span>
           <button type="button" onClick={(e) => { e.stopPropagation(); onClose(); }} aria-label={t.close}
-            className="w-9 h-9 rounded-full bg-black/25 flex items-center justify-center text-white"><X className="w-5 h-5" /></button>
+            className={cx("w-11 h-11 rounded-full border-0 flex items-center justify-center cursor-pointer active:scale-95 transition-transform",
+              dark ? "bg-hero-2 text-hero-fg" : "bg-jet/10 text-on-accent")}>
+            <X className="w-5 h-5" strokeWidth={2} />
+          </button>
         </div>
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 px-8 text-center pointer-events-none">
-          <span className="text-[112px] leading-none drop-shadow-2xl">{story.emoji}</span>
-          <p className="text-2xl font-bold text-white leading-snug">{isRtl ? story.captionFa : story.captionEn}</p>
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-7 px-8 text-center pointer-events-none">
+          <span className={cx("w-44 h-44 rounded-full flex items-center justify-center", dark ? "bg-hero-2" : "bg-card/45")}>
+            <span className="text-[96px] leading-none">{story.emoji}</span>
+          </span>
+          <p className="m-0 font-display font-extrabold text-[30px] leading-[1.1] tracking-[-0.03em] max-w-[320px]">
+            {isRtl ? story.captionFa : story.captionEn}
+          </p>
         </div>
+        {/* Tap zones double as buttons for keyboards and screen readers. */}
+        <button type="button" aria-label={t.storyPrev} onClick={(e) => { e.stopPropagation(); prev(); }}
+          className="absolute bottom-0 start-0 w-1/3 h-3/4 border-0 bg-transparent p-0 opacity-0 cursor-pointer" />
+        <button type="button" aria-label={t.storyNext} onClick={(e) => { e.stopPropagation(); next(); }}
+          className="absolute bottom-0 end-0 w-1/3 h-3/4 border-0 bg-transparent p-0 opacity-0 cursor-pointer" />
       </div>
     </motion.div>
   );
 }
 
-/** The messenger: chat list plus the Telegram-style shell around it. */
-export default function CommunityPage({ isRtl, onExit, joinCode = null, onJoinHandled, openTarget = null, onOpenHandled }) {
+/** A short line above the tab bar, ink on paper (paper on ink at night). */
+function Flash({ children }) {
+  return (
+    <div className="fixed bottom-28 inset-x-0 flex justify-center z-[96] pointer-events-none px-6">
+      <motion.span initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }}
+        role="status" className="font-ui max-w-md min-h-10 px-4 py-2.5 rounded-3xl bg-inv text-on-inv text-sm font-semibold text-center leading-snug shadow-bar">
+        {children}
+      </motion.span>
+    </div>
+  );
+}
+
+/**
+ * The messenger: chat list plus the Telegram-style shell around it. The
+ * three root screens (chats, contacts, settings) switch with a segmented
+ * control under their header and sit above the app's own tab bar; a
+ * conversation or a pushed screen covers both. `onExit` is still accepted
+ * for callers that pass no `onTab`; the tab bar is the way out now.
+ */
+export default function CommunityPage({ isRtl, onExit, onTab, joinCode = null, onJoinHandled, openTarget = null, onOpenHandled }) {
   const chatT = useChatT(isRtl);
   const buddyT = useBuddyT(isRtl);
   const t = useMemo(() => ({ ...chatT, ...buddyT }), [chatT, buddyT]);
@@ -374,17 +380,52 @@ export default function CommunityPage({ isRtl, onExit, joinCode = null, onJoinHa
     store.closeChat();
   };
 
+  // Chats · Contacts · Settings: one switch, rendered by each root screen under its header.
+  const unread = store.unreadTotal;
+  const sections = (
+    <nav aria-label={t.sectionsLabel}>
+      <Segmented line value={store.screen} onChange={(id) => store.setScreen(id)}
+        options={[
+          {
+            id: "list",
+            label: (
+              <span className="inline-flex items-center justify-center gap-1.5">
+                <span>{t.chats}</span>
+                {unread > 0 && (
+                  <>
+                    <span aria-hidden="true"
+                      className="min-w-[18px] h-[18px] px-1 rounded-full bg-inv text-on-inv text-[11px] font-bold inline-flex items-center justify-center">
+                      {num(unread > 99 ? "99+" : unread, isRtl)}
+                    </span>
+                    <span className="sr-only">{t.unreadChats(num(unread, isRtl))}</span>
+                  </>
+                )}
+              </span>
+            ),
+          },
+          { id: "contacts", label: t.contactsTab },
+          { id: "settings", label: t.settingsTab },
+        ]} />
+    </nav>
+  );
+
+  // The app's tab bar: another tab leaves the messenger; Club itself goes back to the chat list.
+  const goTab = (tab) => {
+    if (tab === "club") { store.setScreen("list"); return; }
+    if (onTab) onTab(tab); else onExit?.();
+  };
+
   const screenView = () => {
     switch (store.screen) {
       case "contacts":
-        return <ContactsScreen store={store} isRtl={isRtl} t={t}
+        return <ContactsScreen store={store} isRtl={isRtl} t={t} sections={sections}
           onBack={() => store.setScreen("list")} onGoCalls={() => store.setScreen("calls")}
           onNewGroup={startGroup} onNewChannel={startChannel} />;
       case "calls":
         return <CallsScreen isRtl={isRtl} t={t}
           onBack={() => store.setScreen("list")} onToast={setToast} />;
       case "settings":
-        return <SettingsScreen store={store} name={name} isRtl={isRtl} t={t}
+        return <SettingsScreen store={store} name={name} isRtl={isRtl} t={t} sections={sections}
           onBack={() => store.setScreen("list")}
           onGoProfile={() => store.setScreen("profile")}
           onToast={setToast} onToggleLanguage={toggleLanguage} />;
@@ -395,7 +436,7 @@ export default function CommunityPage({ isRtl, onExit, joinCode = null, onJoinHa
           onToast={setToast}
           onOpenChannel={() => { store.openChat("news"); store.setScreen("list"); }} />;
       default:
-        return <ChatList store={store} isRtl={isRtl} t={t}
+        return <ChatList store={store} isRtl={isRtl} t={t} sections={sections}
           onOpen={store.openChat}
           onOpenAt={openAt}
           onMenu={setMenuChat}
@@ -409,7 +450,7 @@ export default function CommunityPage({ isRtl, onExit, joinCode = null, onJoinHa
   };
 
   return (
-    <div className="w-full" dir={isRtl ? "rtl" : "ltr"}>
+    <div className="ui w-full min-h-[100dvh]" dir={isRtl ? "rtl" : "ltr"}>
       <AnimatePresence mode="wait">
         <motion.div key={open ? `chat-${open.id}` : store.screen}
           initial={{ opacity: 0, x: isRtl ? -16 : 16 }}
@@ -430,7 +471,7 @@ export default function CommunityPage({ isRtl, onExit, joinCode = null, onJoinHa
       </AnimatePresence>
 
       {!open && ROOT_SCREENS.includes(store.screen) && (
-        <TabBar screen={store.screen} unread={store.unreadTotal} isRtl={isRtl} t={t} onGo={(s) => store.setScreen(s)} onExit={onExit} />
+        <BottomNavBar activeTab="club" setActiveTab={goTab} isRtl={isRtl} clubDot={false} />
       )}
 
       <AnimatePresence>
@@ -608,13 +649,9 @@ export default function CommunityPage({ isRtl, onExit, joinCode = null, onJoinHa
         )}
       </AnimatePresence>
 
-      {toast && (
-        <div className="fixed bottom-24 inset-x-0 flex justify-center z-[80] pointer-events-none">
-          <span className="px-4 py-2 rounded-full bg-neutral-900/90 backdrop-blur text-xs font-bold text-white max-w-[85%] text-center">
-            {toast}
-          </span>
-        </div>
-      )}
+      <AnimatePresence>
+        {toast && <Flash key={toast}>{toast}</Flash>}
+      </AnimatePresence>
     </div>
   );
 }

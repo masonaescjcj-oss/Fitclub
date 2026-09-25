@@ -1,24 +1,30 @@
 import React, { useState } from "react";
 import { AnimatePresence } from "framer-motion";
-import { Settings, Share2, Smile, Sparkles } from "lucide-react";
-import { GIFTS, TG } from "../../lib/chat/extras";
-import { Sheet } from "./ChatSheets";
-import { ActionRow, Card, ChatPreviewCard, Hero, InfoRow, SectionHeader } from "./ProfileBits";
+import { Check as CheckIcon, Pin, Settings, Share2, Smile, Sparkles } from "lucide-react";
+import { GIFTS } from "../../lib/chat/extras";
+import { Button, Card as KitCard, Field, Screen, Segmented, Sheet, cx, num } from "../ui/kit";
+import { Avatar } from "./ChatBits";
+import { ActionRow, Card, ChatPreviewCard, CopyGlyph, GiftTile, Hero, InfoRow, SectionHeader, StatusIcon } from "./ProfileBits";
 import { LINK_HOST, lastMessage, previewOf, relativeTime, validateUsername } from "../../lib/chat/chatModel";
 
 const AVATARS = ["🏋️", "💪", "🧗", "🏃", "🚴", "🧘", "🥇", "🦾", "😎", "🐺"];
 const STATUSES = ["⭐", "🏆", "🔥", "💪", "⚡", "🥇", "🧊", "🌙", "❤️", "🫡"];
 
-function EmojiPickSheet({ title, options, isRtl, t, onPick, onClose }) {
+/** A grid of choices: the avatar picks are the user's own emoji, statuses draw as icons. */
+function EmojiPickSheet({ title, options, current, asIcon = false, isRtl, t, onPick, onClose }) {
   return (
-    <Sheet title={title} isRtl={isRtl} t={t} onClose={onClose}>
-      <div className="p-4 flex flex-wrap gap-2">
-        {options.map((e) => (
-          <button key={e} type="button" onClick={() => onPick(e)}
-            className="w-12 h-12 rounded-2xl bg-white/[0.06] hover:bg-white/15 text-2xl flex items-center justify-center active:scale-90 transition-all">
-            {e}
-          </button>
-        ))}
+    <Sheet title={title} isRtl={isRtl} closeLabel={t.close} onClose={onClose}>
+      <div className="grid grid-cols-5 gap-2">
+        {options.map((e) => {
+          const on = e === current;
+          return (
+            <button key={e} type="button" onClick={() => onPick(e)} aria-pressed={on} aria-label={e}
+              className={cx("aspect-square rounded-[20px] flex items-center justify-center border-0 cursor-pointer transition-transform active:scale-95",
+                on ? "bg-jet text-accent dark:ring-1 dark:ring-inset dark:ring-line" : "bg-card text-ink")}>
+              {asIcon ? <StatusIcon status={e} className="w-6 h-6" /> : <span className="text-[26px] leading-none">{e}</span>}
+            </button>
+          );
+        })}
       </div>
     </Sheet>
   );
@@ -34,43 +40,39 @@ function EditInfoSheet({ me, name, taken, isRtl, t, onSave, onClose }) {
   const slug = username.trim().replace(/^@/, "").toLowerCase();
   const others = taken.filter((u) => u.toLowerCase() !== (me.username || "").toLowerCase());
   const error = validateUsername(slug, [], null) || (others.map((u) => u.toLowerCase()).includes(slug) ? "taken" : null);
-  const field = "w-full h-11 px-3 rounded-2xl text-sm font-bold text-white placeholder:text-neutral-500 focus:outline-none";
   return (
-    <Sheet title={t.editInfo} isRtl={isRtl} t={t} onClose={onClose}
+    <Sheet title={t.editInfo} isRtl={isRtl} closeLabel={t.close} onClose={onClose}
       footer={
         <>
-          <button type="button" onClick={onClose}
-            className="flex-1 h-12 rounded-2xl bg-white/5 border border-white/10 text-neutral-300 font-black text-sm">{t.cancel}</button>
-          <button type="button" disabled={!!error || !displayName.trim()} onClick={() => onSave({ name: displayName.trim(), bio: bio.trim(), username: slug })}
-            className="flex-1 h-12 rounded-2xl text-white font-black text-sm on-accent disabled:opacity-40" style={{ background: TG.accentDeep }}>{t.save}</button>
+          <Button tone="card" className="flex-1" onClick={onClose}>{t.cancel}</Button>
+          <Button tone="ink" className="flex-1" disabled={!!error || !displayName.trim()}
+            onClick={() => onSave({ name: displayName.trim(), bio: bio.trim(), username: slug })}>{t.save}</Button>
         </>
       }>
-      <div className="p-4 space-y-4">
-        <label className="block">
-          <span className="block text-[10px] font-black text-neutral-500 uppercase tracking-wider mb-1.5">{t.nameLabel}</span>
-          <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} className={field} style={{ background: TG.card }} aria-label={t.nameLabel} />
+      <Field label={t.nameLabel} aria-label={t.nameLabel} value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
+      <Field label={t.bio} aria-label={t.bio} value={bio} onChange={(e) => setBio(e.target.value)} />
+      <div className="flex flex-col gap-2">
+        <span className="text-[13px] font-medium text-muted">{t.usernameLabel}</span>
+        <label dir="ltr" className={cx("h-[52px] rounded-2xl bg-card flex items-center gap-1 px-4 transition-shadow",
+          error ? "ring-2 ring-inset ring-alert" : "focus-within:ring-2 focus-within:ring-inset focus-within:ring-ink")}>
+          <span className="font-semibold text-muted shrink-0">@</span>
+          <input value={username} onChange={(e) => setUsername(e.target.value.replace(/\s+/g, ""))} aria-label={t.usernameLabel}
+            autoCapitalize="none" spellCheck={false} maxLength={32}
+            className="flex-1 min-w-0 h-full border-0 bg-transparent text-base font-semibold text-ink outline-none focus-visible:outline-none" />
         </label>
-        <label className="block">
-          <span className="block text-[10px] font-black text-neutral-500 uppercase tracking-wider mb-1.5">{t.bio}</span>
-          <input value={bio} onChange={(e) => setBio(e.target.value)} className={field} style={{ background: TG.card }} aria-label={t.bio} />
-        </label>
-        <div>
-          <span className="block text-[10px] font-black text-neutral-500 uppercase tracking-wider mb-1.5">{t.usernameLabel}</span>
-          <div className="flex items-center h-11 px-3 rounded-2xl" style={{ background: TG.card }} dir="ltr">
-            <span className="text-sm font-bold text-neutral-500">@</span>
-            <input value={username} onChange={(e) => setUsername(e.target.value.replace(/\s+/g, ""))} aria-label={t.usernameLabel}
-              autoCapitalize="none" spellCheck={false} maxLength={32}
-              className="flex-1 min-w-0 bg-transparent text-sm font-bold text-white focus:outline-none" />
-          </div>
-          <p className="mt-1 px-1 text-[12px]" style={{ color: error ? "#ef4444" : "#1f9d4d" }}>{error ? t[USERNAME_ERROR[error]] : t.usernameFree}</p>
-          <p className="mt-1 px-1 text-[12px]" style={{ color: TG.muted }}>{t.usernameHint} <span dir="ltr">{LINK_HOST}/{slug || "…"}</span></p>
-        </div>
+        <span className={cx("inline-flex items-center gap-1.5 text-[13px]", error ? "text-alert" : "font-semibold text-ink")} aria-live="polite">
+          {!error && <CheckIcon className="w-4 h-4 shrink-0" strokeWidth={2.6} />}
+          {error ? t[USERNAME_ERROR[error]] : t.usernameFree}
+        </span>
+        <span className="text-[13px] leading-snug text-muted">
+          {t.usernameHint} <span dir="ltr" className="font-semibold text-ink">{LINK_HOST}/{slug || "…"}</span>
+        </span>
       </div>
     </Sheet>
   );
 }
 
-/** My own profile, laid out like the iOS client: hero, round actions, cards. */
+/** My own profile, laid out like the iOS client: avatar and name, round actions, cards. */
 export default function ProfileScreen({ store, name, isRtl, t, onBack, onGoSettings, onOpenChannel, onToast }) {
   const me = store.me;
   const [tab, setTab] = useState("gifts");
@@ -78,7 +80,7 @@ export default function ProfileScreen({ store, name, isRtl, t, onBack, onGoSetti
 
   const age = Math.floor((Date.now() - new Date(`${me.birthday}T00:00:00`)) / (365.25 * 86400000));
   const birthdayLabel = new Date(`${me.birthday}T00:00:00`)
-    .toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+    .toLocaleDateString(isRtl ? "fa-IR" : undefined, { day: "numeric", month: "short", year: "numeric" });
 
   const channel = store.chats.find((c) => c.id === "news");
   const last = channel ? lastMessage(store.messages, channel.id) : null;
@@ -100,19 +102,32 @@ export default function ProfileScreen({ store, name, isRtl, t, onBack, onGoSetti
     { id: "settings", icon: Settings, label: t.settingsTab, onClick: onGoSettings },
   ];
 
+  // The status sits on the avatar's corner, as the PRO pill does on the app's profile.
+  const avatar = (
+    <span className="relative">
+      <Avatar user={{ ...me, id: "me", name: shownName, online: false, emojiStatus: null }} size={104} showStatus={false} />
+      <button type="button" onClick={() => setSheet("status")} aria-label={t.emojiStatus}
+        className="absolute -end-1 bottom-0.5 w-9 h-9 rounded-full bg-jet text-accent flex items-center justify-center border-0 cursor-pointer ring-[3px] ring-canvas">
+        <StatusIcon status={me.emojiStatus} className="w-[18px] h-[18px]" />
+      </button>
+    </span>
+  );
+
   return (
-    <div className="w-full min-h-[100dvh] text-white pb-12" style={{ background: TG.bg }}>
-      <Hero color="#844783" emoji={me.avatar} name={shownName} subtitle={`@${me.username}`} isRtl={isRtl} t={t} onBack={onBack}
-        badges={<button type="button" onClick={() => setSheet("status")} aria-label={t.emojiStatus} className="text-[22px] leading-none">{me.emojiStatus}</button>}
-        editLabel={t.edit} onEdit={() => setSheet("edit")} />
+    <Screen isRtl={isRtl}>
+      <Hero avatar={avatar} name={shownName} isRtl={isRtl} t={t} onBack={onBack}
+        subtitle={<span dir="ltr">@{me.username}</span>}
+        editLabel={t.edit} onEdit={() => setSheet("edit")}>
+        {me.bio && <p dir="auto" className="m-0 mt-2 max-w-[300px] text-[15px] leading-snug text-ink">{me.bio}</p>}
+      </Hero>
       <ActionRow actions={actions} />
 
       {channel && (
         <>
-          <SectionHeader label={t.channelLabel} trailing={`${channel.subscribers.toLocaleString()} ${t.subscribers}`} />
+          <SectionHeader label={t.channelLabel} trailing={`${channel.subscribers.toLocaleString(isRtl ? "fa-IR" : "en-US")} ${t.subscribers}`} />
           <Card>
             <ChatPreviewCard chat={channel} title={isRtl ? channel.titleFa || channel.title : channel.title}
-              preview={last ? previewOf(last, isRtl, t) : ""} time={last ? relativeTime(last.at, t) : ""} onClick={onOpenChannel} />
+              preview={last ? previewOf(last, isRtl, t) : ""} time={last ? num(relativeTime(last.at, t), isRtl) : ""} onClick={onOpenChannel} />
           </Card>
         </>
       )}
@@ -120,50 +135,38 @@ export default function ProfileScreen({ store, name, isRtl, t, onBack, onGoSetti
       <SectionHeader label={t.infoLabel} />
       <Card>
         <InfoRow label={t.mobile} value={me.phone} dir="ltr" link />
-        <button type="button" onClick={copyId} className="w-full text-start">
-          <InfoRow label={`${t.usernameLabel} · ${t.copyId}`} value={`@${me.username}`} dir="ltr" link />
-        </button>
-        <InfoRow label={t.birthday} value={`${birthdayLabel} (${age} ${t.yearsOld})`} />
-        <InfoRow label={t.bio} value={me.bio} />
+        <InfoRow label={t.usernameLabel} value={`@${me.username}`} dir="ltr" link onClick={copyId}
+          action={<CopyGlyph />} actionLabel={t.copyId} />
+        <InfoRow label={t.birthday} value={`${birthdayLabel} (${num(age, isRtl)} ${t.yearsOld})`} />
+        <InfoRow label={t.bio} value={me.bio} dir="auto" />
       </Card>
 
       {/* Gifts / Posts */}
-      <Card className="mt-4">
-        <div className="flex border-b" style={{ borderColor: TG.sep }}>
-          {[["gifts", `${t.giftsTab} 🎂🏆`], ["posts", t.postsTab]].map(([id, label]) => (
-            <button key={id} type="button" onClick={() => setTab(id)}
-              className={`flex-1 py-3 text-[14px] font-semibold transition-colors relative ${tab === id ? "text-white" : "text-neutral-500"}`}>
-              {label}
-              {tab === id && (
-                <span className="absolute bottom-0 left-1/4 right-1/4 h-0.5 rounded-t-full" style={{ background: TG.accentDeep }} />
-              )}
-            </button>
-          ))}
-        </div>
+      <KitCard className="flex flex-col gap-3 mt-2">
+        <Segmented onCard value={tab} onChange={setTab}
+          options={[{ id: "gifts", label: t.giftsTab }, { id: "posts", label: t.postsTab }]} />
         {tab === "gifts" ? (
-          <div className="grid grid-cols-3 gap-2 p-3">
-            {GIFTS.map((g) => (
-              <div key={g.id} className="rounded-2xl p-3 flex flex-col items-center gap-1.5 relative on-accent" style={{ background: g.bg }}>
-                <span className="absolute top-1.5 start-1.5 text-[10px]">📌</span>
-                <span className="text-3xl">{g.emoji}</span>
-                <span className="text-[9px] font-black text-white/90 text-center leading-tight">{isRtl ? g.nameFa : g.nameEn}</span>
-              </div>
+          <div className="grid grid-cols-3 gap-2">
+            {GIFTS.map((g, i) => (
+              <GiftTile key={g.id} gift={g} index={i} isRtl={isRtl}>
+                <Pin aria-hidden="true" className="absolute top-2.5 start-2.5 w-3 h-3 text-muted" strokeWidth={2.2} />
+              </GiftTile>
             ))}
           </div>
         ) : (
-          <p className="py-10 text-center text-xs font-bold text-neutral-600">{t.noPosts}</p>
+          <p className="m-0 py-8 text-center text-sm text-muted">{t.noPosts}</p>
         )}
-      </Card>
+      </KitCard>
 
       <AnimatePresence>
         {sheet === "photo" && (
-          <EmojiPickSheet title={t.pickEmoji} options={AVATARS} isRtl={isRtl} t={t}
+          <EmojiPickSheet title={t.pickEmoji} options={AVATARS} current={me.avatar} isRtl={isRtl} t={t}
             onPick={(e) => { store.updateMe({ avatar: e }); setSheet(null); }} onClose={() => setSheet(null)} />
         )}
       </AnimatePresence>
       <AnimatePresence>
         {sheet === "status" && (
-          <EmojiPickSheet title={t.pickStatus} options={STATUSES} isRtl={isRtl} t={t}
+          <EmojiPickSheet title={t.pickStatus} options={STATUSES} current={me.emojiStatus} asIcon isRtl={isRtl} t={t}
             onPick={(e) => { store.updateMe({ emojiStatus: e }); setSheet(null); }} onClose={() => setSheet(null)} />
         )}
       </AnimatePresence>
@@ -173,6 +176,6 @@ export default function ProfileScreen({ store, name, isRtl, t, onBack, onGoSetti
             onSave={(patch) => { store.updateMe(patch); setSheet(null); onToast?.(t.chatInfoSaved); }} onClose={() => setSheet(null)} />
         )}
       </AnimatePresence>
-    </div>
+    </Screen>
   );
 }

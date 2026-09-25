@@ -1,169 +1,168 @@
 import React, { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {
-  ArrowLeft, ArrowRight, Camera, Check, Copy, QrCode, RefreshCw, Search, ShieldCheck, UserMinus, X,
+  ArrowLeft, ArrowRight, Check, Copy, QrCode, RefreshCw, Search, ShieldCheck, UserMinus, X,
 } from "lucide-react";
 import { ME, LINK_HOST, chatLink, relativeTime, validateUsername } from "../../lib/chat/chatModel";
 import { PEOPLE, findUser } from "../../lib/chat/chatStore";
-import { TG } from "../../lib/chat/extras";
+import {
+  Button, Check as RoundCheck, CtaButton, Field, IconButton, IconWell, Label, List, Row, Sheet, cx, num,
+} from "../ui/kit";
 import { Avatar, NameBadges } from "./ChatBits";
-import { Sheet } from "./ChatSheets";
 import { appLinkFor } from "../../lib/chat/search";
 
 /*
  * Making and running groups and channels, laid out like the Android client:
  * details (picture, name, description) → type (public link / private invite
- * link) → people, each a full screen pushed over the last with a round
- * confirm button in the corner.
+ * link) → people, each a full screen pushed over the last with the step's
+ * action pinned at the bottom.
  */
 
+// Kept for anything that still reads them; chats are now drawn as an icon on a tone picked from the name.
 export const COVER_EMOJI = ["📣", "👥", "🏋️", "🔥", "💪", "🏃", "🧘", "🥗", "🏆", "⚡", "🎯", "🚴", "🥊", "🏊", "📋", "🍎"];
 export const COVER_COLORS = ["#3390ec", "#e0567d", "#f59e0b", "#10b981", "#8b5cf6", "#38bdf8", "#844783", "#ef4444"];
 
-/** The frame every step shares: a bar with back + title, the content, one round action button. */
+/**
+ * The frame every step shares: a round back button and the title, the
+ * content, and the step's action pinned under it. Moving on is the arrow
+ * CTA; finishing (a tick) is an ink pill with the tick.
+ */
 export function StepScreen({ title, subtitle, isRtl, t, onBack, children, fab, fabDisabled = false, fabLabel, fabIcon: FabIcon = Check, zIndex = 75 }) {
+  const Back = isRtl ? ArrowRight : ArrowLeft;
+  const moves = FabIcon === ArrowRight;
   return (
     <motion.div initial={{ x: isRtl ? "-100%" : "100%" }} animate={{ x: 0 }} exit={{ x: isRtl ? "-100%" : "100%" }}
       transition={{ type: "spring", stiffness: 380, damping: 40 }}
-      className="fixed inset-0 overflow-y-auto scrollbar-hide text-white md:max-w-lg md:mx-auto"
-      style={{ background: TG.bg, zIndex }} dir={isRtl ? "rtl" : "ltr"}>
-      <div className="sticky top-0 z-10 flex items-center gap-1 h-14 px-2" style={{ background: TG.surface, boxShadow: `0 0.5px 0 ${TG.sep}` }}>
-        <button type="button" onClick={onBack} aria-label={t.close}
-          className="w-10 h-10 rounded-full flex items-center justify-center text-white active:bg-black/[0.06]">
-          <ArrowLeft className={`w-6 h-6 ${isRtl ? "rotate-180" : ""}`} />
-        </button>
-        <span className="flex-1 min-w-0 ps-1">
-          <span className="block text-[19px] font-semibold text-white truncate leading-tight">{title}</span>
-          {subtitle && <span className="block text-[13px] leading-tight" style={{ color: TG.muted }}>{subtitle}</span>}
+      className="ui fixed inset-0 flex flex-col md:max-w-lg md:mx-auto"
+      style={{ zIndex }} dir={isRtl ? "rtl" : "ltr"}>
+      <div className="shrink-0 flex items-center gap-3 px-5 pt-[max(env(safe-area-inset-top),20px)] pb-3">
+        <IconButton label={t.close} tone="card" onClick={onBack}>
+          <Back className="w-5 h-5" strokeWidth={2} />
+        </IconButton>
+        <span className="flex-1 min-w-0 flex flex-col gap-0.5">
+          <h1 className="m-0 truncate font-display font-extrabold text-[28px] leading-none tracking-[-0.035em] text-ink">{title}</h1>
+          {subtitle && <span className="text-[13px] leading-tight text-muted">{subtitle}</span>}
         </span>
       </div>
 
-      <div className="pb-32">{children}</div>
+      <div className="flex-1 overflow-y-auto scrollbar-hide px-5 pt-2 pb-6 flex flex-col gap-3.5">{children}</div>
 
       {fab && (
-        <button type="button" onClick={fab} disabled={fabDisabled} aria-label={fabLabel}
-          className={`fixed bottom-6 ${isRtl ? "left-5" : "right-5"} w-14 h-14 rounded-full flex items-center justify-center text-white shadow-xl active:scale-95 transition-all on-accent disabled:opacity-40`}
-          style={{ background: TG.accentDeep, boxShadow: "0 8px 24px rgba(51,144,236,.35)" }}>
-          <FabIcon className={`w-6 h-6 ${FabIcon === ArrowRight && isRtl ? "rotate-180" : ""}`} strokeWidth={2.5} />
-        </button>
+        <div className="shrink-0 px-5 pt-3 pb-[max(env(safe-area-inset-bottom),20px)]">
+          {moves ? (
+            <CtaButton isRtl={isRtl} onClick={fab} disabled={fabDisabled} aria-label={fabLabel}>{fabLabel}</CtaButton>
+          ) : (
+            <Button tone="ink" size="lg" block onClick={fab} disabled={fabDisabled} aria-label={fabLabel}
+              icon={<FabIcon className="w-5 h-5" strokeWidth={2.4} />}>
+              {fabLabel}
+            </Button>
+          )}
+        </div>
       )}
     </motion.div>
   );
 }
 
-/** The big round picture with a camera badge; a tap opens emoji and colour swatches under it. */
-function CoverPicker({ emoji, color, t, onChange }) {
-  const [open, setOpen] = useState(false);
+/** A multi-line field that matches the kit Field: label, soft well, ink focus ring. */
+function TextArea({ label, value, onChange, maxLength, rows = 3 }) {
   return (
-    <div className="px-4 pt-5">
-      <div className="flex items-center gap-4">
-        <button type="button" onClick={() => setOpen((v) => !v)} aria-label={t.pickCoverEmoji}
-          className="relative w-[72px] h-[72px] rounded-full flex items-center justify-center shrink-0 on-accent"
-          style={{ background: color }}>
-          <span className="text-[34px] leading-none">{emoji}</span>
-          <span className="absolute -bottom-0.5 -end-0.5 w-7 h-7 rounded-full flex items-center justify-center border-2"
-            style={{ background: TG.accentDeep, borderColor: TG.bg }}>
-            <Camera className="w-3.5 h-3.5 text-white" />
-          </span>
-        </button>
-        <span className="text-[13px] leading-snug" style={{ color: TG.muted }}>{t.pickCoverEmoji}</span>
-      </div>
-      {open && (
-        <div className="mt-3 p-3 rounded-2xl space-y-2.5" style={{ background: TG.card }}>
-          <div className="flex flex-wrap gap-1.5">
-            {COVER_EMOJI.map((e) => (
-              <button key={e} type="button" onClick={() => onChange({ emoji: e })}
-                className={`w-10 h-10 rounded-xl text-xl flex items-center justify-center ${emoji === e ? "ring-2" : ""}`}
-                style={{ background: TG.surface, ...(emoji === e ? { boxShadow: `0 0 0 2px ${TG.accent}` } : {}) }}>{e}</button>
-            ))}
-          </div>
-          <div className="flex gap-2">
-            {COVER_COLORS.map((c) => (
-              <button key={c} type="button" onClick={() => onChange({ color: c })} aria-label={c}
-                className="w-7 h-7 rounded-full" style={{ background: c, boxShadow: color === c ? `0 0 0 2px ${TG.bg}, 0 0 0 4px ${c}` : "none" }} />
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-/** Android's underlined field with a small floating label. */
-function Field({ label, value, onChange, multiline = false, autoFocus = false, maxLength = 128 }) {
-  const Tag = multiline ? "textarea" : "input";
-  return (
-    <label className="block">
-      <span className="block text-[12px] font-medium mb-0.5" style={{ color: TG.accent }}>{label}</span>
-      <Tag value={value} onChange={(e) => onChange(e.target.value)} placeholder={label} aria-label={label} autoFocus={autoFocus}
-        maxLength={maxLength} rows={multiline ? 2 : undefined}
-        className="w-full bg-transparent py-1.5 text-[17px] text-white placeholder:text-neutral-500 focus:outline-none resize-none border-b-2"
-        style={{ borderColor: TG.accent }} />
+    <label className="flex flex-col gap-2">
+      <span className="text-[13px] font-medium text-muted">{label}</span>
+      <textarea value={value} onChange={(e) => onChange(e.target.value)} aria-label={label} maxLength={maxLength} rows={rows}
+        className="w-full rounded-2xl bg-card px-4 py-3.5 text-base leading-snug text-ink border-0 outline-none focus-visible:outline-none resize-none placeholder:text-muted/70 focus:ring-2 focus:ring-inset focus:ring-ink transition-shadow" />
     </label>
   );
 }
 
 /**
- * Step one for a channel, step two for a group: picture, name and an optional
- * description. `nextIcon` says whether the corner button moves on or finishes.
+ * Step one for a channel, step two for a group: the picture (drawn from the
+ * name), the name and an optional description. `nextIcon` says whether the
+ * action moves on or finishes.
  */
 export function ChatDetailsScreen({ kind, initial = {}, title, isRtl, t, onBack, onNext, nextIcon = ArrowRight, nextLabel }) {
   const [name, setName] = useState(initial.title || "");
   const [description, setDescription] = useState(initial.description || "");
-  const [emoji, setEmoji] = useState(initial.emoji || (kind === "channel" ? "📣" : "👥"));
-  const [color, setColor] = useState(initial.color || (kind === "channel" ? "#f59e0b" : "#2fa6ff"));
+  // The stored picture values ride along unchanged; the avatar itself is an icon on the name's tone.
+  const emoji = initial.emoji || (kind === "channel" ? "📣" : "👥");
+  const color = initial.color || (kind === "channel" ? "#f59e0b" : "#2fa6ff");
   const isChannel = kind === "channel";
+  const preview = { id: initial.id || `new-${kind}`, type: kind, crew: initial.crew, title: name.trim() || title, titleFa: name.trim() || title };
   return (
     <StepScreen title={title} isRtl={isRtl} t={t} onBack={onBack}
       fab={() => onNext({ title: name.trim(), description: description.trim(), emoji, color })}
       fabDisabled={!name.trim()} fabIcon={nextIcon} fabLabel={nextLabel || t.next}>
-      <CoverPicker emoji={emoji} color={color} t={t} onChange={(p) => { if (p.emoji) setEmoji(p.emoji); if (p.color) setColor(p.color); }} />
-      <div className="px-4 pt-6 space-y-6">
-        <Field label={isChannel ? t.channelName : t.groupName} value={name} onChange={setName} autoFocus maxLength={64} />
-        <Field label={t.descriptionOptional} value={description} onChange={setDescription} multiline maxLength={255} />
-        <p className="text-[13px] leading-snug -mt-2" style={{ color: TG.muted }}>{isChannel ? t.descriptionHint : t.groupDescriptionHint}</p>
+      <div className="flex flex-col items-center gap-3 pt-2 pb-1">
+        <Avatar chat={preview} size={96} />
+        <span className="text-[13px] text-muted text-center max-w-[260px]">
+          {isRtl ? "تصویر از روی نام ساخته می‌شود." : "The picture is drawn from the name."}
+        </span>
       </div>
+      <Field label={isChannel ? t.channelName : t.groupName} aria-label={isChannel ? t.channelName : t.groupName}
+        value={name} onChange={(e) => setName(e.target.value)} autoFocus maxLength={64} />
+      <TextArea label={t.descriptionOptional} value={description} onChange={setDescription} maxLength={255} />
+      <p className="m-0 -mt-1 px-1 text-[13px] leading-snug text-muted">{isChannel ? t.descriptionHint : t.groupDescriptionHint}</p>
     </StepScreen>
+  );
+}
+
+/** The radio mark: ink with an accent dot when chosen, a faint ring when not. `alert` tints it for reports. */
+export function RadioMark({ on, alert = false }) {
+  return (
+    <span aria-hidden="true" className={cx("w-[26px] h-[26px] rounded-full flex items-center justify-center shrink-0 transition-colors",
+      on ? (alert ? "bg-alert" : "bg-jet dark:bg-accent") : "ring-2 ring-inset ring-faint")}>
+      {on && <span className={cx("w-2.5 h-2.5 rounded-full", alert ? "bg-card" : "bg-accent dark:bg-jet")} />}
+    </span>
   );
 }
 
 function RadioRow({ on, title, sub, onClick }) {
   return (
-    <button type="button" onClick={onClick} role="radio" aria-checked={on} aria-label={title}
-      className="w-full flex items-start gap-4 px-4 py-3 text-start active:bg-black/[0.04]">
-      <span className="mt-1 w-[22px] h-[22px] rounded-full border-2 flex items-center justify-center shrink-0"
-        style={{ borderColor: on ? TG.accent : TG.muted }}>
-        {on && <span className="w-[11px] h-[11px] rounded-full" style={{ background: TG.accent }} />}
-      </span>
-      <span className="flex-1 min-w-0">
-        <span className="block text-[16px] text-white">{title}</span>
-        <span className="block text-[13px] leading-snug mt-0.5" style={{ color: TG.muted }}>{sub}</span>
-      </span>
-    </button>
+    <li className="list-none">
+      <button type="button" onClick={onClick} role="radio" aria-checked={on} aria-label={title}
+        className="w-full min-h-[64px] flex items-start gap-3.5 px-4 py-3 text-start bg-transparent border-0 cursor-pointer active:bg-sunk transition-colors">
+        <span className="mt-0.5"><RadioMark on={on} /></span>
+        <span className="flex-1 min-w-0 flex flex-col gap-0.5">
+          <span className="text-[15px] font-semibold text-ink">{title}</span>
+          <span className="text-[13px] leading-snug text-muted">{sub}</span>
+        </span>
+      </button>
+    </li>
   );
 }
 
-/** The private invite link with copy, QR and revoke — the card Telegram shows under a private chat's type. */
-export function InviteLinkCard({ link, t, onCopy, onRevoke, onQr }) {
+/**
+ * The private invite link with copy, QR and revoke: the card Telegram shows
+ * under a private chat's type, drawn as the ink link card the info screen
+ * uses. It carries no outer margin; the screen places it.
+ */
+export function InviteLinkCard({ link, t, onCopy, onRevoke, onQr, label, hint, isRtl, className = "" }) {
+  const text = String(link || "");
+  const cut = text.lastIndexOf("/");
+  const host = cut >= 0 ? text.slice(0, cut + 1) : "";
+  const slug = cut >= 0 ? text.slice(cut + 1) : text;
   return (
-    <div className="mx-4 rounded-2xl overflow-hidden" style={{ background: TG.card }}>
-      <div className="flex items-center gap-3 px-4 py-3">
-        <span className="flex-1 min-w-0 text-[16px] font-medium truncate" style={{ color: TG.accent }} dir="ltr">{link}</span>
-        <button type="button" onClick={onQr} aria-label="QR" className="w-9 h-9 rounded-full flex items-center justify-center" style={{ color: TG.muted }}>
-          <QrCode className="w-5 h-5" />
-        </button>
-      </div>
-      <div className="flex divide-x divide-white/[0.06] border-t border-white/[0.06]">
-        <button type="button" onClick={onCopy} className="flex-1 flex items-center justify-center gap-2 h-11 text-[14px] font-semibold" style={{ color: TG.accent }}>
-          <Copy className="w-4 h-4" /> {t.copyLink}
-        </button>
+    <section aria-label={label || t.inviteLink} className={cx("ui-hero rounded-3xl bg-hero text-hero-fg p-4 flex flex-col gap-3", className)}>
+      <Label className="!text-hero-muted">{label || t.inviteLink}</Label>
+      <span className="font-display font-bold text-[22px] leading-tight tracking-[-0.02em] break-all">
+        <span dir="ltr">{host}<span className="text-accent">{slug}</span></span>
+      </span>
+      <div className="flex gap-2">
+        <Button tone="accent" className="flex-1 !h-11 text-sm font-bold" onClick={onCopy} icon={<Copy className="w-4 h-4" strokeWidth={2.2} />}>
+          {t.copyLink}
+        </Button>
+        {onQr && (
+          <IconButton label={isRtl ? "کد QR" : "QR code"} tone="hero" onClick={onQr}>
+            <QrCode className="w-5 h-5" strokeWidth={2} />
+          </IconButton>
+        )}
         {onRevoke && (
-          <button type="button" onClick={onRevoke} className="flex-1 flex items-center justify-center gap-2 h-11 text-[14px] font-semibold" style={{ color: TG.accent }}>
-            <RefreshCw className="w-4 h-4" /> {t.revokeLink}
-          </button>
+          <IconButton label={t.revokeLink} tone="hero" onClick={onRevoke}>
+            <RefreshCw className="w-5 h-5" strokeWidth={2} />
+          </IconButton>
         )}
       </div>
-    </div>
+      {hint && <span className="text-[13px] leading-snug text-hero-muted">{hint}</span>}
+    </section>
   );
 }
 
@@ -171,7 +170,7 @@ const LINK_ERROR = { short: "linkShort", long: "linkLong", chars: "linkChars", s
 
 /**
  * Public or private, and the link that goes with it. Used both while creating
- * (the corner button moves on) and later from the info screen (it saves).
+ * (the action moves on) and later from the info screen (it saves).
  */
 export function ChatTypeScreen({ kind, draft, chats, selfId = null, isRtl, t, onBack, onDone, onToast, onRevoke, nextIcon = ArrowRight, nextLabel }) {
   const [isPublic, setIsPublic] = useState(!!draft.isPublic);
@@ -180,38 +179,39 @@ export function ChatTypeScreen({ kind, draft, chats, selfId = null, isRtl, t, on
   const slug = username.trim().toLowerCase();
   const error = isPublic ? validateUsername(slug, chats, selfId) : null;
   const copy = () => { navigator.clipboard?.writeText(appLinkFor({ ...draft, isPublic: false }) || chatLink({ ...draft, isPublic: false })).catch(() => {}); onToast(t.chatLinkCopied); };
+  const dir = isRtl ? "rtl" : "ltr";
   return (
     <StepScreen title={isChannel ? t.channelSettings : t.groupSettings} isRtl={isRtl} t={t} onBack={onBack}
       fab={() => onDone({ isPublic, username: isPublic ? slug : "" })} fabDisabled={!!error} fabIcon={nextIcon} fabLabel={nextLabel || t.next}>
-      <span className="block px-4 pt-4 pb-1 text-[14px] font-semibold" style={{ color: TG.accent }}>{isChannel ? t.channelType : t.groupType}</span>
-      <div className="divide-y divide-white/[0.05]">
+      <Label as="h2" className="m-0 px-1">{isChannel ? t.channelType : t.groupType}</Label>
+      <List role="radiogroup" aria-label={isChannel ? t.channelType : t.groupType}>
         <RadioRow on={isPublic} onClick={() => setIsPublic(true)}
           title={isChannel ? t.publicChannel : t.publicGroup} sub={isChannel ? t.publicChannelSub : t.publicGroupSub} />
         <RadioRow on={!isPublic} onClick={() => setIsPublic(false)}
           title={isChannel ? t.privateChannel : t.privateGroup} sub={isChannel ? t.privateChannelSub : t.privateGroupSub} />
-      </div>
-      <div className="h-2 my-2" style={{ background: TG.surface }} />
+      </List>
 
       {isPublic ? (
-        <div className="px-4 pt-2">
-          <span className="block text-[14px] font-semibold mb-2" style={{ color: TG.accent }}>{t.linkLabel}</span>
-          <div className="flex items-center border-b-2 pb-1.5" style={{ borderColor: error && slug ? "#ef4444" : TG.accent }} dir="ltr">
-            <span className="text-[17px] text-neutral-500 shrink-0">{LINK_HOST}/</span>
-            <input value={username} onChange={(e) => setUsername(e.target.value.replace(/\s+/g, ""))} aria-label={t.linkLabel}
+        <>
+          <Label as="h2" className="m-0 mt-2 px-1">{t.linkLabel}</Label>
+          {/* The link reads left to right in both languages; its message follows the page. */}
+          <div dir="ltr">
+            <Field value={username} onChange={(e) => setUsername(e.target.value.replace(/\s+/g, ""))} aria-label={t.linkLabel}
+              prefix={<span className="text-muted font-medium">{LINK_HOST}/</span>}
               autoCapitalize="none" autoCorrect="off" spellCheck={false} maxLength={32}
-              className="flex-1 min-w-0 bg-transparent text-[17px] text-white focus:outline-none" />
+              error={error && slug ? <span dir={dir} className="block text-start">{t[LINK_ERROR[error]]}</span> : null}
+              hint={<span dir={dir} className={cx("flex items-center gap-1.5", !error && "text-ink font-medium")}>
+                {!error && <Check className="w-3.5 h-3.5 shrink-0" strokeWidth={2.6} />}
+                {error ? t.linkRules : t.linkFree}
+              </span>} />
           </div>
-          <p className="text-[13px] leading-snug mt-3" style={{ color: error ? (slug ? "#ef4444" : TG.muted) : "#1f9d4d" }}>
-            {error ? (slug ? t[LINK_ERROR[error]] : t.linkRules) : t.linkFree}
-          </p>
-          <p className="text-[13px] leading-snug mt-3" style={{ color: TG.muted }}>{t.linkHint}</p>
-        </div>
+          <p className="m-0 px-1 text-[13px] leading-snug text-muted">{t.linkHint}</p>
+        </>
       ) : (
-        <div className="pt-2">
-          <span className="block px-4 text-[14px] font-semibold mb-2" style={{ color: TG.accent }}>{t.inviteLink}</span>
-          <InviteLinkCard link={draft.inviteLink} t={t} onCopy={copy} onQr={() => onToast(t.qrSoon)} onRevoke={onRevoke} />
-          <p className="px-4 text-[13px] leading-snug mt-3" style={{ color: TG.muted }}>{t.inviteLinkHint}</p>
-        </div>
+        <>
+          <InviteLinkCard link={draft.inviteLink} t={t} isRtl={isRtl} className="mt-2" hint={t.inviteLinkHint}
+            onCopy={copy} onQr={() => onToast(t.qrSoon)} onRevoke={onRevoke} />
+        </>
       )}
     </StepScreen>
   );
@@ -225,7 +225,7 @@ export function addablePeople(store) {
 
 /**
  * The people picker: a search field, chips for whoever is ticked, and the
- * contact list with round checkboxes. `exclude` hides people already in.
+ * contact list with round checks. `exclude` hides people already in.
  */
 export function MemberPickerScreen({ store, title, placeholder, exclude = [], initial = [], isRtl, t, onBack, onDone, allowEmpty = true, doneIcon = ArrowRight, doneLabel, zIndex }) {
   const [query, setQuery] = useState("");
@@ -242,65 +242,52 @@ export function MemberPickerScreen({ store, title, placeholder, exclude = [], in
   }, [store, query, exclude]);
   const toggle = (id) => setPicked((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
   const nameOf = (u) => (isRtl ? u.nameFa || u.name : u.name);
-  const subOf = (u) => (u.online ? t.online : u.lastSeen ? `${t.lastSeen} ${relativeTime(u.lastSeen, t)}` : t.lastSeenRecently);
+  const subOf = (u) => (u.online ? t.online : u.lastSeen ? `${t.lastSeen} ${num(relativeTime(u.lastSeen, t), isRtl)}` : t.lastSeenRecently);
+  const count = t.membersPicked(picked.length);
 
   return (
-    <StepScreen title={title} subtitle={t.membersPicked(picked.length)} isRtl={isRtl} t={t} onBack={onBack} zIndex={zIndex}
+    <StepScreen title={title} subtitle={isRtl ? num(count, true) : count} isRtl={isRtl} t={t} onBack={onBack} zIndex={zIndex}
       fab={() => onDone(picked)} fabDisabled={!allowEmpty && !picked.length} fabIcon={doneIcon} fabLabel={doneLabel || t.next}>
-      <div className="px-4 pt-3 pb-2" style={{ background: TG.surface }}>
-        {picked.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 pb-2">
-            {picked.map((id) => {
-              const u = findUser(id);
-              return (
-                <button key={id} type="button" onClick={() => toggle(id)} aria-label={`${t.removeFromChat} ${nameOf(u)}`}
-                  className="flex items-center gap-1.5 ps-1 pe-2.5 h-8 rounded-full" style={{ background: TG.card }}>
-                  <Avatar user={u} size={24} showStatus={false} />
-                  <span className="text-[13px] font-medium text-white">{nameOf(u)}</span>
-                  <X className="w-3.5 h-3.5" style={{ color: TG.muted }} />
-                </button>
-              );
-            })}
-          </div>
-        )}
-        <div className="flex items-center gap-2 h-10">
-          <Search className="w-5 h-5 shrink-0" style={{ color: TG.muted }} />
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={placeholder} aria-label={placeholder}
-            className="flex-1 min-w-0 bg-transparent text-[16px] text-white placeholder:text-neutral-500 focus:outline-none" />
-        </div>
-      </div>
+      <Field type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={placeholder} aria-label={placeholder}
+        prefix={<Search className="w-[18px] h-[18px] text-muted" strokeWidth={2} />} />
 
-      <div className="mt-2" style={{ background: TG.surface }}>
-        {people.length === 0 && <p className="px-4 py-10 text-center text-[14px]" style={{ color: TG.muted }}>{t.noContactsMatch}</p>}
+      {picked.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {picked.map((id) => {
+            const u = findUser(id);
+            return (
+              <button key={id} type="button" onClick={() => toggle(id)} aria-label={`${t.removeFromChat} ${nameOf(u)}`}
+                className="h-9 ps-1 pe-3 rounded-full bg-inv text-on-inv inline-flex items-center gap-1.5 border-0 cursor-pointer active:scale-[0.98] transition-transform">
+                <Avatar user={u} size={28} showStatus={false} />
+                <span className="text-[13px] font-semibold max-w-[140px] truncate">{nameOf(u)}</span>
+                <X className="w-3.5 h-3.5 opacity-70" strokeWidth={2.4} />
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      <List>
+        {people.length === 0 && <li className="list-none px-4 py-10 text-center text-sm text-muted">{t.noContactsMatch}</li>}
         {people.map((u) => {
           const on = picked.includes(u.id);
           return (
-            <button key={u.id} type="button" onClick={() => toggle(u.id)} role="checkbox" aria-checked={on} aria-label={nameOf(u)}
-              className="w-full flex items-center gap-3 px-4 py-2 text-start active:bg-black/[0.04]">
-              <span className="relative shrink-0">
-                <Avatar user={u} size={50} ring={TG.surface} />
-                {on && (
-                  <span className="absolute -bottom-0.5 -end-0.5 w-5 h-5 rounded-full flex items-center justify-center border-2 on-accent"
-                    style={{ background: "#34c759", borderColor: TG.surface }}>
-                    <Check className="w-3 h-3 text-white stroke-[3]" />
-                  </span>
-                )}
-              </span>
-              <span className="flex-1 min-w-0">
-                <span className="flex items-center gap-1.5">
-                  <span className="text-[16px] font-medium text-white truncate">{nameOf(u)}</span>
+            // The whole row toggles; the round check is the control for keyboards and screen readers.
+            <li key={u.id} onClick={() => toggle(u.id)}
+              className="list-none min-h-[64px] flex items-center gap-3 ps-4 pe-4 py-2 cursor-pointer active:bg-sunk transition-colors">
+              <RoundCheck checked={on} label={nameOf(u)} onToggle={(e) => { e.stopPropagation(); toggle(u.id); }} />
+              <Avatar user={u} size={44} />
+              <span className="flex-1 min-w-0 flex flex-col gap-0.5">
+                <span className="flex items-center gap-1.5 min-w-0">
+                  <span className="text-[15px] font-semibold text-ink truncate">{nameOf(u)}</span>
                   <NameBadges verified={u.verified} premium={u.premium} size={14} />
                 </span>
-                <span className="block text-[13px]" style={{ color: u.online ? TG.accent : TG.muted }}>{subOf(u)}</span>
+                <span className={cx("text-[13px] truncate", u.online ? "text-ink font-medium" : "text-muted")}>{subOf(u)}</span>
               </span>
-              <span className="w-[22px] h-[22px] rounded-full border-2 flex items-center justify-center shrink-0 on-accent"
-                style={{ background: on ? TG.accentDeep : "transparent", borderColor: on ? TG.accentDeep : TG.muted }}>
-                {on && <Check className="w-3.5 h-3.5 text-white stroke-[3]" />}
-              </span>
-            </button>
+            </li>
           );
         })}
-      </div>
+      </List>
     </StepScreen>
   );
 }
@@ -310,17 +297,13 @@ export function MemberActionsSheet({ user, chat, isRtl, t, onToggleAdmin, onRemo
   const isAdmin = chat.admins.includes(user.id);
   const name = isRtl ? user.nameFa || user.name : user.name;
   return (
-    <Sheet title={name} isRtl={isRtl} t={t} onClose={onClose}>
-      <div className="py-1">
-        <button type="button" onClick={onToggleAdmin} className="w-full flex items-center gap-3 px-4 py-3 text-start">
-          <ShieldCheck className="w-5 h-5 shrink-0" style={{ color: TG.accent }} />
-          <span className="text-[16px] font-medium text-white">{isAdmin ? t.dismissAdmin : t.makeAdmin}</span>
-        </button>
-        <button type="button" onClick={onRemove} className="w-full flex items-center gap-3 px-4 py-3 text-start">
-          <UserMinus className="w-5 h-5 shrink-0 text-rose-500" />
-          <span className="text-[16px] font-medium text-rose-500">{t.removeFromChat}</span>
-        </button>
-      </div>
+    <Sheet title={name} isRtl={isRtl} onClose={onClose} closeLabel={t.close}>
+      <List>
+        <Row onClick={onToggleAdmin} isRtl={isRtl} title={isAdmin ? t.dismissAdmin : t.makeAdmin}
+          icon={<IconWell size={40} tone="sunk"><ShieldCheck className="w-[18px] h-[18px]" strokeWidth={2} /></IconWell>} />
+        <Row onClick={onRemove} isRtl={isRtl} danger title={t.removeFromChat}
+          icon={<IconWell size={40} tone="alert"><UserMinus className="w-[18px] h-[18px]" strokeWidth={2} /></IconWell>} />
+      </List>
     </Sheet>
   );
 }
