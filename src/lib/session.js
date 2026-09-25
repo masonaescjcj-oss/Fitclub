@@ -1,18 +1,20 @@
 // Keeps the athlete signed in between visits, so onboarding is a one-time cost.
 
+import { backendOn } from "./backend/supabase";
+
 const KEY = "fitclub.session.v1";
 
-const EMPTY = { signedIn: false, onboarded: false, email: null, name: null, username: null };
+const EMPTY = { signedIn: false, onboarded: false, email: null, name: null, username: null, userId: null, avatarUrl: null };
 
 /**
- * A first-time visitor starts already signed in, so opening the app lands on
- * the app itself rather than the welcome screen.
- *
- * Flip this to false once real accounts exist and signing up is the way in.
- * Signing out still works: it writes an explicitly signed-out session instead
- * of wiping the key, so this default can't quietly log the athlete back in.
+ * In demo mode (no Supabase configured) a first-time visitor starts already
+ * signed in, so opening the app lands on the app itself. With real accounts
+ * signing up is the way in, and this local copy only mirrors the Supabase
+ * session (src/lib/backend/account.js). Signing out writes an explicitly
+ * signed-out session instead of wiping the key, so the demo default can't
+ * quietly log the athlete back in.
  */
-export const START_SIGNED_IN = true;
+export const START_SIGNED_IN = !backendOn;
 
 const DEMO = {
   ...EMPTY,

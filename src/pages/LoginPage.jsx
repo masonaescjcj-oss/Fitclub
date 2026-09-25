@@ -1,4 +1,7 @@
 import React, { useState } from "react";
+import { backendOn } from "../lib/backend/supabase";
+import { landingFor, providers, signIn, signInWithProvider } from "../lib/backend/account";
+import { authMessage } from "../lib/backend/authMessages";
 import { Lock, Mail } from "lucide-react";
 import { CtaButton, Field } from "../components/ui/kit";
 import Header, {
@@ -62,11 +65,26 @@ export default function LoginPage({ onNavigate }) {
     setIsLoading(true);
     setError("");
 
+    if (backendOn) {
+      signIn(email.trim(), password).then(({ error: code, profile }) => {
+        setIsLoading(false);
+        if (code === "unconfirmed") onNavigate("otp", email.trim());
+        else if (code) setError(authMessage(code, isRtl));
+        else onNavigate(landingFor(profile), email.trim());
+      });
+      return;
+    }
     setTimeout(() => {
       setIsLoading(false);
       // A returning athlete goes straight to the app, not back through signup.
       onNavigate("main-app", email);
     }, 1000);
+  };
+
+  const social = async (provider) => {
+    if (!backendOn) return;
+    const { error: code } = await signInWithProvider(provider);
+    if (code) setError(authMessage(code, isRtl));
   };
 
   return (
@@ -95,8 +113,13 @@ export default function LoginPage({ onNavigate }) {
 
         <FormError>{error}</FormError>
 
-        <OrDivider label={t.orDivider} />
-        <SocialButtons appleLabel={t.appleBtn} googleLabel={t.googleBtn} />
+        {(!backendOn || providers.length > 0) && (
+          <>
+            <OrDivider label={t.orDivider} />
+            <SocialButtons appleLabel={t.appleBtn} googleLabel={t.googleBtn}
+              providers={backendOn ? providers : undefined} onProvider={social} />
+          </>
+        )}
 
         <p className="m-0 text-center text-[15px] text-muted">
           {t.noAccount} <TextAction onClick={() => onNavigate("signup")}>{t.signUp}</TextAction>

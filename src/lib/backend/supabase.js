@@ -1,0 +1,38 @@
+// The app's single Supabase client.
+//
+// The backend is optional: with REACT_APP_SUPABASE_URL and
+// REACT_APP_SUPABASE_ANON_KEY set at build time (Vercel → Project Settings →
+// Environment Variables, or a local .env), accounts, sync and storage run on
+// Supabase. Without them the app stays in demo mode and keeps everything in
+// this browser, exactly as before.
+//
+// The anon key is meant to ship in the browser; row-level security in
+// supabase/migrations decides what it can reach. Never put the service_role
+// key here.
+
+import { createClient } from "@supabase/supabase-js";
+
+const URL = process.env.REACT_APP_SUPABASE_URL || "";
+const ANON_KEY = process.env.REACT_APP_SUPABASE_ANON_KEY || "";
+
+export const backendOn = Boolean(URL && ANON_KEY);
+
+export const supabase = backendOn
+  ? createClient(URL, ANON_KEY, {
+      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: "pkce" },
+    })
+  : null;
+
+/** The signed-in user's access token, for calls to our own /api functions. */
+export async function getAccessToken() {
+  if (!supabase) return null;
+  const { data } = await supabase.auth.getSession();
+  return data.session?.access_token || null;
+}
+
+/** The signed-in Supabase user, or null. */
+export async function currentUser() {
+  if (!supabase) return null;
+  const { data } = await supabase.auth.getUser();
+  return data.user || null;
+}

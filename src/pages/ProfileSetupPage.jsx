@@ -1,4 +1,7 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
+import { backendOn } from "../lib/backend/supabase";
+import { saveProfile, usernameAvailable } from "../lib/backend/account";
+import { authMessage } from "../lib/backend/authMessages";
 import { AtSign, User, Check, X } from "lucide-react";
 import { Avatar, Card, CtaButton, Field, IconWell } from "../components/ui/kit";
 import Header, { FlowFooter, FlowScreen, FlowTitle, FormError, Spinner } from "../components/Header";
@@ -63,6 +66,8 @@ export default function ProfileSetupPage({ onNavigate }) {
   const t = profileTranslations[language];
 
   const [reason, setReason] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const checkTicket = useRef(0);
 
   // The same rules and the same taken list the messenger uses, so the ID picked
   // here is the one people find you by later.
@@ -79,10 +84,15 @@ export default function ProfileSetupPage({ onNavigate }) {
     }
 
     setIsValidating(true);
-    setTimeout(() => {
-      setIsValidating(false);
-      const problem = validateUsername(cleanVal, [], null)
+    // Only the latest keystroke's answer counts; an older, slower check is dropped.
+    const ticket = ++checkTicket.current;
+    setTimeout(async () => {
+      let problem = validateUsername(cleanVal, [], null)
         || (takenUsernames(loadChat()).some((u) => u.toLowerCase() === cleanVal) ? "taken" : null);
+      // With real accounts the whole directory decides, not just this device.
+      if (!problem && backendOn && !(await usernameAvailable(cleanVal))) problem = "taken";
+      if (ticket !== checkTicket.current) return;
+      setIsValidating(false);
       setReason(problem);
       setUsernameStatus(problem ? "invalid" : "valid");
     }, 400);
@@ -100,6 +110,16 @@ export default function ProfileSetupPage({ onNavigate }) {
       return;
     }
 
+    if (backendOn) {
+      setSaving(true);
+      saveProfile({ name: name.trim(), username: username.trim() }).then(({ error: code }) => {
+        setSaving(false);
+        if (code === "taken") { setReason("taken"); setUsernameStatus("invalid"); setError(t.usernameInvalid); }
+        else if (code) setError(authMessage(code, isRtl));
+        else onNavigate("questionnaire", { name: name.trim(), username: username.trim() });
+      });
+      return;
+    }
     onNavigate("questionnaire", { name: name.trim(), username: username.trim() });
   };
 
@@ -160,7 +180,7 @@ export default function ProfileSetupPage({ onNavigate }) {
         <FormError>{error}</FormError>
 
         <FlowFooter>
-          <CtaButton type="submit" isRtl={isRtl} disabled={!name || !username || usernameStatus !== "valid"}>
+          <CtaButton type="submit" isRtl={isRtl} disabled={!name || !username || usernameStatus !== "valid" || saving} aria-busy={saving}>
             {t.saveBtn}
           </CtaButton>
         </FlowFooter>

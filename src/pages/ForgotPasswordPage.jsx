@@ -2,6 +2,9 @@ import React, { useState } from "react";
 import { Mail, MailCheck } from "lucide-react";
 import { CtaButton, Field, IconWell } from "../components/ui/kit";
 import Header, { FlowFooter, FlowScreen, FlowTitle, FormError, Spinner, TextAction } from "../components/Header";
+import { backendOn } from "../lib/backend/supabase";
+import { requestPasswordReset } from "../lib/backend/account";
+import { authMessage } from "../lib/backend/authMessages";
 
 export default function ForgotPasswordPage({ onNavigate }) {
   const [email, setEmail] = useState("");
@@ -53,6 +56,14 @@ export default function ForgotPasswordPage({ onNavigate }) {
     setIsLoading(true);
     setError("");
 
+    if (backendOn) {
+      requestPasswordReset(email.trim()).then(({ error: code }) => {
+        setIsLoading(false);
+        if (code) setError(authMessage(code, isRtl));
+        else setIsSubmitted(true);
+      });
+      return;
+    }
     setTimeout(() => {
       setIsLoading(false);
       setIsSubmitted(true);

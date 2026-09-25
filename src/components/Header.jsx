@@ -124,17 +124,24 @@ export function OrDivider({ label }) {
 }
 
 /** Apple and Google sign-in buttons. They are placeholders until real auth exists. */
-export function SocialButtons({ appleLabel, googleLabel }) {
+/**
+ * Sign-in providers. `providers` limits which show (default: both);
+ * `onProvider(id)` starts that provider's sign-in.
+ */
+export function SocialButtons({ appleLabel, googleLabel, providers = ["apple", "google"], onProvider }) {
   const cls = "h-[54px] w-full rounded-full bg-card text-ink text-base font-semibold border-0 cursor-pointer inline-flex items-center justify-center gap-2.5 transition-transform active:scale-[0.98]";
   return (
     <div className="flex flex-col gap-2.5">
-      <button type="button" className={cls}>
+      {providers.includes("apple") && (
+      <button type="button" className={cls} onClick={() => onProvider?.("apple")}>
         <svg className="w-[18px] h-[18px] fill-current" viewBox="0 0 170 170" aria-hidden="true">
           <path d="M150.37 130.25c-2.45 5.66-5.35 10.87-8.71 15.66-4.58 6.53-8.33 11.05-11.22 13.56-4.48 4.12-9.28 6.23-14.42 6.35-3.69 0-8.14-1.05-13.32-3.18-5.19-2.12-9.97-3.17-14.34-3.17-4.58 0-9.49 1.05-14.75 3.17-5.26 2.13-9.5 3.24-12.74 3.35-4.34.13-9.14-1.9-14.4-6.09-3.41-2.75-7.3-7.4-11.67-13.96-5.83-8.73-10.45-18.49-13.87-29.28-3.41-10.79-5.12-21.13-5.12-31.02 0-14.82 3.84-27.1 11.52-36.85 7.68-9.74 17.38-14.75 29.1-15.02 4.47 0 9.58 1.18 15.34 3.54 5.76 2.36 9.87 3.54 12.33 3.54 2.12 0 6.13-1.12 12.03-3.35 5.9-2.24 10.86-3.26 14.88-3.07 10.97.54 19.98 4.47 27.02 11.8 7.04 7.32 11.45 16.4 13.23 27.24-9.62 5.79-14.33 13.91-14.13 24.36.2 10.45 4.3 18.9 12.31 25.35 4.54 3.65 9.77 6.27 15.69 7.86-2.24 6.64-5.13 13.25-8.68 19.82zM119.22 31.75c0-7.07 2.54-13.98 7.62-20.73 5.08-6.75 11.66-11.01 19.74-12.78.13 1.1.2 2.05.2 2.85 0 7.3-2.65 14.39-7.95 21.28-5.3 6.89-11.87 11.23-19.71 13.02-.13-1.09-.2-2.14-.2-3.14z" />
         </svg>
         {appleLabel}
       </button>
-      <button type="button" className={cls}>
+      )}
+      {providers.includes("google") && (
+      <button type="button" className={cls} onClick={() => onProvider?.("google")}>
         <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
           <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
           <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
@@ -143,6 +150,7 @@ export function SocialButtons({ appleLabel, googleLabel }) {
         </svg>
         {googleLabel}
       </button>
+      )}
     </div>
   );
 }

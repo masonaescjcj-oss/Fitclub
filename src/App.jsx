@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import WelcomePage from './pages/WelcomePage';
 import LoginPage from './pages/LoginPage';
@@ -10,23 +10,64 @@ import IntroHeroPage from './pages/IntroHeroPage';
 import OnboardingWizard from './pages/OnboardingWizard';
 import AiPlanSummaryPage from './pages/AiPlanSummaryPage';
 import MainAppLayout from './pages/MainAppLayout';
-import { clearSession, initialPage, loadSession, saveSession } from './lib/session';
+import ResetPasswordPage from './pages/ResetPasswordPage';
+import { initialPage, loadSession, saveSession } from './lib/session';
+import { backendOn } from './lib/backend/supabase';
+import { boot, landingFor, onPasswordRecovery, saveProfile, signOut } from './lib/backend/account';
+
+// Pages that only make sense before or during sign-up.
+const AUTH_PAGES = ['welcome', 'login', 'signup', 'forgot-password', 'otp'];
+
+/** The mark on paper while the first sync brings this account's data in. */
+function Splash() {
+  return (
+    <div className="ui min-h-[100dvh] flex flex-col items-center justify-center gap-5" role="status" aria-live="polite">
+      <span className="w-16 h-16 rounded-[20px] bg-accent text-on-accent flex items-center justify-center font-display font-extrabold text-[34px]">F</span>
+      <span className="w-6 h-6 rounded-full border-[3px] border-line border-t-ink animate-spin" aria-hidden="true" />
+      <span className="sr-only">Loading</span>
+    </div>
+  );
+}
 
 export default function App() {
   // A returning athlete lands where they left off instead of signing up again.
   const [currentPage, setCurrentPage] = useState(() => initialPage());
   const [userEmail, setUserEmail] = useState(() => loadSession().email || 'dddddddd@dd.com');
+  // With real accounts the first screen waits for the Supabase session and
+  // the first sync, so the app never flashes another device's stale data.
+  const [booting, setBooting] = useState(backendOn);
+
+  useEffect(() => {
+    if (!backendOn) return undefined;
+    let alive = true;
+    boot().then(({ user, profile }) => {
+      if (!alive) return;
+      if (!user) setCurrentPage((p) => (AUTH_PAGES.includes(p) ? p : 'welcome'));
+      else {
+        if (user.email) setUserEmail(user.email);
+        // Back from Google, or a returning athlete: straight to where they belong.
+        setCurrentPage((p) => (AUTH_PAGES.includes(p) || p === 'main-app' ? landingFor(profile) : p));
+      }
+    }).catch(() => {}).finally(() => { if (alive) setBooting(false); });
+    const stop = onPasswordRecovery(() => setCurrentPage('reset-password'));
+    return () => { alive = false; stop(); };
+  }, []);
 
   /**
    * Every navigation goes through here so the stored session stays in step
    * with where the athlete actually is.
    */
   const navigate = (page) => {
-    if (page === 'welcome') clearSession();
-    else if (page === 'main-app') saveSession({ signedIn: true, onboarded: true });
+    if (page === 'welcome') signOut();
+    else if (page === 'main-app') {
+      saveSession({ signedIn: true, onboarded: true });
+      if (backendOn) saveProfile({ onboarded: true });
+    }
     else if (page === 'profile-setup' || page === 'intro-hero') saveSession({ signedIn: true });
     setCurrentPage(page);
   };
+
+  if (booting && !AUTH_PAGES.includes(currentPage)) return <Splash />;
 
   return (
     <div className="w-full h-full min-h-[100dvh] bg-canvas font-ui antialiased overflow-x-clip">
@@ -93,6 +134,10 @@ export default function App() {
             key="ai-plan-summary"
             onNavigate={(page) => navigate(page === 'onboarding-wizard' ? 'onboarding-questions' : page)}
           />
+        )}
+
+        {currentPage === 'reset-password' && (
+          <ResetPasswordPage key="reset-password" onNavigate={navigate} />
         )}
 
         {currentPage === 'main-app' && (

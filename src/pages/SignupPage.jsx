@@ -1,4 +1,7 @@
 import React, { useState } from "react";
+import { backendOn } from "../lib/backend/supabase";
+import { providers, signInWithProvider, signUp } from "../lib/backend/account";
+import { authMessage } from "../lib/backend/authMessages";
 import { Lock, Mail } from "lucide-react";
 import { CtaButton, Field } from "../components/ui/kit";
 import Header, {
@@ -68,10 +71,24 @@ export default function SignupPage({ onNavigate }) {
     setIsLoading(true);
     setError("");
 
+    if (backendOn) {
+      signUp(email.trim(), password).then(({ error: code }) => {
+        setIsLoading(false);
+        if (code) setError(authMessage(code, isRtl));
+        else onNavigate("otp", email.trim());
+      });
+      return;
+    }
     setTimeout(() => {
       setIsLoading(false);
       onNavigate("otp", email);
     }, 1000);
+  };
+
+  const social = async (provider) => {
+    if (!backendOn) return;
+    const { error: code } = await signInWithProvider(provider);
+    if (code) setError(authMessage(code, isRtl));
   };
 
   return (
@@ -95,8 +112,13 @@ export default function SignupPage({ onNavigate }) {
 
         <FormError>{error}</FormError>
 
-        <OrDivider label={t.orDivider} />
-        <SocialButtons appleLabel={t.appleBtn} googleLabel={t.googleBtn} />
+        {(!backendOn || providers.length > 0) && (
+          <>
+            <OrDivider label={t.orDivider} />
+            <SocialButtons appleLabel={t.appleBtn} googleLabel={t.googleBtn}
+              providers={backendOn ? providers : undefined} onProvider={social} />
+          </>
+        )}
 
         <p className="m-0 text-center text-[15px] text-muted">
           {t.hasAccount} <TextAction onClick={() => onNavigate("login")}>{t.logIn}</TextAction>

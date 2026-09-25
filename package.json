@@ -4,6 +4,7 @@
   "private": true,
   "dependencies": {
     "@anthropic-ai/sdk": "^0.126.0",
+    "@supabase/supabase-js": "^2.117.2",
     "framer-motion": "^10.16.4",
     "lucide-react": "^0.292.0",
     "react": "^18.2.0",
@@ -41,6 +42,7 @@
     ]
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
     "autoprefixer": "^10.4.16",
     "postcss": "^8.4.31",
     "tailwindcss": "^3.3.5"

@@ -2,6 +2,12 @@ import React, { useState, useEffect, useRef } from "react";
 import { Clock } from "lucide-react";
 import { CtaButton, Label, cx, num } from "../components/ui/kit";
 import Header, { FlowFooter, FlowScreen, FlowTitle, FormError, Spinner, TextAction } from "../components/Header";
+import { backendOn } from "../lib/backend/supabase";
+import { landingFor, resendSignup, verifySignup } from "../lib/backend/account";
+import { authMessage } from "../lib/backend/authMessages";
+
+// Supabase emails a 6-digit code; the offline demo keeps its 4-digit mock.
+const LEN = backendOn ? 6 : 4;
 
 // Persian and Arabic keyboards type their own digits; the code is compared in Latin ones.
 const latinDigits = (s) => s
@@ -9,7 +15,7 @@ const latinDigits = (s) => s
   .replace(/[٠-٩]/g, (d) => String("٠١٢٣٤٥٦٧٨٩".indexOf(d)));
 
 export default function OtpPage({ onNavigate, email = "dddddddd@dd.com" }) {
-  const [otp, setOtp] = useState(["", "", "", ""]);
+  const [otp, setOtp] = useState(() => Array(LEN).fill(""));
   const [timer, setTimer] = useState(30);
   const [isVerifying, setIsVerifying] = useState(false);
   const [error, setError] = useState("");
@@ -18,7 +24,8 @@ export default function OtpPage({ onNavigate, email = "dddddddd@dd.com" }) {
   const language = localStorage.getItem("language") || "en";
   const isRtl = language === "fa";
 
-  const inputRefs = [useRef(null), useRef(null), useRef(null), useRef(null)];
+  const boxes = useRef([]);
+  const inputRefs = Array.from({ length: LEN }, (_, i) => ({ get current() { return boxes.current[i] || null; } }));
 
   // Countdown timer
   useEffect(() => {
@@ -29,10 +36,10 @@ export default function OtpPage({ onNavigate, email = "dddddddd@dd.com" }) {
     return () => clearInterval(interval);
   }, [timer]);
 
-  // Auto-submit when all 4 digits are filled
+  // Auto-submit when every digit is filled
   useEffect(() => {
     const fullOtp = otp.join("");
-    if (fullOtp.length === 4) {
+    if (fullOtp.length === LEN) {
       handleVerify(fullOtp);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -46,7 +53,7 @@ export default function OtpPage({ onNavigate, email = "dddddddd@dd.com" }) {
     newOtp[index] = value.slice(-1);
     setOtp(newOtp);
 
-    if (value && index < 3) {
+    if (value && index < LEN - 1) {
       inputRefs[index + 1].current?.focus();
     }
   };
@@ -60,19 +67,28 @@ export default function OtpPage({ onNavigate, email = "dddddddd@dd.com" }) {
   const handlePaste = (e) => {
     e.preventDefault();
     const pastedData = latinDigits(e.clipboardData.getData("text").trim());
-    if (/^\d{4}$/.test(pastedData)) {
+    if (new RegExp(`^\\d{${LEN}}$`).test(pastedData)) {
       const digits = pastedData.split("");
       setOtp(digits);
-      inputRefs[3].current?.focus();
+      inputRefs[LEN - 1].current?.focus();
     }
   };
 
   const handleVerify = (codeToVerify) => {
     const finalCode = codeToVerify || otp.join("");
-    if (finalCode.length !== 4) return;
+    if (finalCode.length !== LEN) return;
 
     setIsVerifying(true);
     setError("");
+
+    if (backendOn) {
+      verifySignup(email, finalCode).then(({ error: code, profile }) => {
+        setIsVerifying(false);
+        if (code) setError(authMessage(code, isRtl));
+        else onNavigate(landingFor(profile) === "profile-setup" ? "onboarding" : landingFor(profile));
+      });
+      return;
+    }
 
     setTimeout(() => {
       setIsVerifying(false);
@@ -113,11 +129,11 @@ export default function OtpPage({ onNavigate, email = "dddddddd@dd.com" }) {
         />
 
         <fieldset className="m-0 mt-5 p-0 border-0 min-w-0 flex gap-2.5" dir="ltr">
-          <legend className="sr-only">{isRtl ? "کد چهار رقمی" : "4-digit code"}</legend>
+          <legend className="sr-only">{isRtl ? `کد ${num(LEN, true)} رقمی` : `${LEN}-digit code`}</legend>
           {otp.map((digit, idx) => (
             <input
               key={idx}
-              ref={inputRefs[idx]}
+              ref={(el) => { boxes.current[idx] = el; }}
               type="text"
               inputMode="numeric"
               autoComplete={idx === 0 ? "one-time-code" : "off"}
@@ -128,8 +144,9 @@ export default function OtpPage({ onNavigate, email = "dddddddd@dd.com" }) {
               onChange={(e) => handleInputChange(idx, e.target.value)}
               onKeyDown={(e) => handleKeyDown(idx, e)}
               onPaste={handlePaste}
+              style={{ height: LEN > 4 ? 60 : 72, fontSize: LEN > 4 ? 26 : 32 }}
               className={cx(
-                "flex-1 min-w-0 h-[72px] rounded-2xl bg-card border-0 p-0 text-center font-display font-bold text-[32px] text-ink caret-ink !outline-none transition-shadow duration-150",
+                "flex-1 min-w-0 rounded-2xl bg-card border-0 p-0 text-center font-display font-bold text-ink caret-ink !outline-none transition-shadow duration-150",
                 error
                   ? "shadow-[inset_0_0_0_2px_rgb(var(--ui-alert))]"
                   : "focus:shadow-[inset_0_0_0_2px_rgb(var(--ui-fg)),0_0_0_4px_rgb(var(--ui-accent))]"
@@ -145,7 +162,10 @@ export default function OtpPage({ onNavigate, email = "dddddddd@dd.com" }) {
               {isRtl ? `ارسال مجدد کد در ${formatTimer(timer)}` : `Resend code in ${formatTimer(timer)}`}
             </span>
           ) : (
-            <TextAction onClick={() => setTimer(30)}>
+            <TextAction onClick={() => {
+              setTimer(30);
+              if (backendOn) resendSignup(email).then(({ error: code }) => { if (code) setError(authMessage(code, isRtl)); });
+            }}>
               {isRtl ? "ارسال مجدد کد تایید" : "Resend Verification Code"}
             </TextAction>
           )}
@@ -154,14 +174,16 @@ export default function OtpPage({ onNavigate, email = "dddddddd@dd.com" }) {
 
         <FormError>{error}</FormError>
 
-        {/* Dev-only helper so the flow can be walked without a real inbox. */}
-        <div className="h-12 px-4 rounded-2xl border border-dashed border-line flex items-center justify-between gap-3" dir="ltr">
-          <Label>Dev mock code</Label>
-          <span className="font-mono text-base font-semibold tracking-[0.3em] text-ink">{devMockCode}</span>
-        </div>
+        {/* Demo-only helper so the flow can be walked without a real inbox. */}
+        {!backendOn && (
+          <div className="h-12 px-4 rounded-2xl border border-dashed border-line flex items-center justify-between gap-3" dir="ltr">
+            <Label>Dev mock code</Label>
+            <span className="font-mono text-base font-semibold tracking-[0.3em] text-ink">{devMockCode}</span>
+          </div>
+        )}
 
         <FlowFooter>
-          <CtaButton type="submit" isRtl={isRtl} disabled={otp.join("").length !== 4 || isVerifying} aria-busy={isVerifying}>
+          <CtaButton type="submit" isRtl={isRtl} disabled={otp.join("").length !== LEN || isVerifying} aria-busy={isVerifying}>
             {isVerifying ? <span className="inline-flex items-center gap-2.5"><Spinner />{continueLabel}</span> : continueLabel}
           </CtaButton>
         </FlowFooter>

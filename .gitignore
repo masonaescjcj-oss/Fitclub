@@ -22,3 +22,7 @@ yarn-error.log*
 
 # messenger server state
 /server/data
+
+# local env and Vercel
+.env
+.vercel
