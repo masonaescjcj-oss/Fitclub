@@ -1,8 +1,10 @@
 // localStorage persistence for checklists.
-// Group lists are shared state in spirit only — until there is a backend,
-// every member's ticks live in this browser.
+// In the demo build a group list's members are stand-ins and every tick lives
+// in this browser. With accounts on, a group list with real people in it is
+// shared through the server (src/hooks/useChecklists.js); the copy kept here
+// is only for opening the app quickly and offline.
 
-import { ME, applyResets, createItem, createList, periodKey, previousPeriodKeys } from "./checklistModel";
+import { ME, applyReset, createItem, createList, periodKey, previousPeriodKeys } from "./checklistModel";
 import { backendOn } from "./backend/supabase";
 
 const KEY = "fitclub.checklists.v1";
@@ -175,7 +177,8 @@ export function loadState() {
     state = seed();
   }
 
-  return { ...state, lists: applyResets(state.lists) };
+  // A shared list rolls over on the server, once for everyone; only local ones roll here.
+  return { ...state, lists: state.lists.map((l) => (l.remote ? l : applyReset(l))) };
 }
 
 export function saveState(state) {

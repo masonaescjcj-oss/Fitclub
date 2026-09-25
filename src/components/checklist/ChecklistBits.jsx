@@ -2,6 +2,7 @@ import React from "react";
 import { Infinity as InfinityIcon, Timer } from "lucide-react";
 import { ME, periodEnd } from "../../lib/checklistModel";
 import { Avatar as KitAvatar, Ring, cx, num } from "../ui/kit";
+import { loadSession } from "../../lib/session";
 
 /**
  * Circular progress meter on the kit's ring: ink on line by default, accent
@@ -23,9 +24,12 @@ export function ProgressRing({ ratio, size = 62, stroke = 6, color = "rgb(var(--
  * `ring` is a ring-colour class that lifts the badge off whatever it overlaps.
  */
 export function Avatar({ member, size = 26, ring = "ring-card", dimmed = false }) {
+  // "You" is the signed-in account: its own name and photo.
+  const self = member.id === ME.id ? loadSession() : null;
+  const name = (self && self.name) || member.name || "?";
   return (
-    <span title={member.name} className={cx("inline-flex shrink-0 rounded-full transition-opacity", dimmed && "opacity-35")}>
-      <KitAvatar name={member.name || "?"} size={size} tone={member.id === ME.id ? "bg-sand" : undefined}
+    <span title={name} className={cx("inline-flex shrink-0 rounded-full transition-opacity", dimmed && "opacity-35")}>
+      <KitAvatar name={name} src={member.photo || self?.avatarUrl || null} size={size} tone={member.id === ME.id ? "bg-sand" : undefined}
         className={ring ? cx("ring-2", ring) : ""} />
     </span>
   );

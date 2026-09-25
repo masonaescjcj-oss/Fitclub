@@ -73,13 +73,16 @@ export default function ChecklistPage({ isRtl, onBack, onGoToStreak }) {
   const editorSheet = editor.list !== undefined && (
     <ListEditorModal key={editor.n} open={editor.open}
       list={editor.list} isRtl={isRtl} t={t}
+      shared={store.shared} people={store.contacts} onSearch={store.searchPeople}
       onSave={(patch) => {
         if (editor.list) store.updateList(editor.list.id, patch);
         else store.addList(patch);
         closeEditor();
       }}
       onDelete={() => {
-        if (window.confirm(t.deleteListConfirm)) {
+        const l = editor.list;
+        const ask = !l.remote ? t.deleteListConfirm : l.ownerId === ME.id ? t.deleteSharedConfirm : t.leaveListConfirm;
+        if (window.confirm(ask)) {
           store.removeList(editor.list.id);
           closeEditor();
         }

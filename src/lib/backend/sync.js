@@ -29,6 +29,14 @@ const TABLE = "fitclub_user_state"; // supabase/migrations/0001
 
 // The coach's own API key is a device secret: it never leaves the browser.
 const TRANSFORMS = {
+  // Shared group lists have a home of their own (migration 0004): the
+  // personal copy carries only this person's own lists.
+  "checklists.v1": {
+    out: (data) => (data && Array.isArray(data.lists) ? { ...data, lists: data.lists.filter((l) => !l.remote) } : data),
+    in: (data, local) => (data && Array.isArray(data.lists)
+      ? { ...data, lists: [...data.lists.filter((l) => !l.remote), ...(local?.lists || []).filter((l) => l.remote)] }
+      : data),
+  },
   "coach.v1": {
     out: (data) => (data && typeof data === "object" ? { ...data, apiKey: "" } : data),
     in: (data, local) => (data && typeof data === "object" ? { ...data, apiKey: local?.apiKey || "" } : data),

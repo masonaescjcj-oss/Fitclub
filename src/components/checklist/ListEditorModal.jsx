@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from "react";
-import { Check as CheckIcon, ChevronDown, Infinity as InfinityIcon, Plus, Repeat, Trash2, X } from "lucide-react";
+import React, { useEffect, useMemo, useState } from "react";
+import { Check as CheckIcon, ChevronDown, Infinity as InfinityIcon, LogOut, Plus, Repeat, Search, Trash2, X } from "lucide-react";
 import { LIST_COLORS, ME, localized } from "../../lib/checklistModel";
 import { FRIEND_POOL } from "../../lib/checklistStore";
 import { Button, Field, IconButton, Label, Segmented, Sheet, cx, num } from "../ui/kit";
@@ -65,9 +65,15 @@ function NumberRow({ label, suffix, value, min, max, onChange }) {
   );
 }
 
-/** Create or edit a list: identity, sharing, and the reset schedule. */
-export default function ListEditorModal({ list, isRtl, t, onSave, onDelete, onClose, open = true }) {
+/**
+ * Create or edit a list: identity, sharing, and the reset schedule.
+ * `shared` (accounts on): members are real people, from `people` (whoever
+ * you chat with) or `onSearch`; otherwise the demo's stand-in friends.
+ */
+export default function ListEditorModal({ list, isRtl, t, onSave, onDelete, onClose, open = true, shared = false, people = [], onSearch }) {
   const isNew = !list;
+  // In a shared list only its owner takes people out, or deletes it; the others leave.
+  const mine = !list?.remote || list.ownerId === ME.id;
   const n = (v) => num(v, isRtl);
   const sep = t.sep || " · ";
   const [draft, setDraft] = useState(() => ({
@@ -83,10 +89,20 @@ export default function ListEditorModal({ list, isRtl, t, onSave, onDelete, onCl
   const set = (patch) => setDraft((d) => ({ ...d, ...patch }));
   const setReset = (patch) => setDraft((d) => ({ ...d, reset: { ...d.reset, ...patch } }));
 
-  const available = useMemo(
-    () => FRIEND_POOL.filter((f) => !draft.members.some((m) => m.id === f.id)),
-    [draft.members]
-  );
+  const [query, setQuery] = useState("");
+  const [found, setFound] = useState(null); // null: not searched yet
+  useEffect(() => {
+    const q = query.trim();
+    if (!shared || !onSearch || q.replace(/^@/, "").length < 2) { setFound(null); return undefined; }
+    let live = true;
+    const timer = setTimeout(() => onSearch(q).then((r) => { if (live) setFound(r); }).catch(() => { if (live) setFound([]); }), 300);
+    return () => { live = false; clearTimeout(timer); };
+  }, [query, shared, onSearch]);
+
+  const available = useMemo(() => {
+    const pool = shared ? (found ?? people) : FRIEND_POOL;
+    return pool.filter((f) => f.id !== ME.id && !draft.members.some((m) => m.id === f.id));
+  }, [draft.members, shared, found, people]);
 
   const toggleFriend = (friend) =>
     set({
@@ -162,11 +178,15 @@ export default function ListEditorModal({ list, isRtl, t, onSave, onDelete, onCl
       </Group>
 
       {/* Personal vs group */}
-      <Group label={t.listType}>
-        <Segmented value={draft.type} onChange={(id) => set({ type: id })}
-          options={[{ id: "personal", label: t.personal }, { id: "group", label: t.group }]} />
-        <p className="m-0 px-1 text-[13px] text-muted">{typeHint}</p>
-      </Group>
+      {list?.remote ? (
+        <p className="m-0 px-1 text-[13px] text-muted">{t.sharedLive}</p>
+      ) : (
+        <Group label={t.listType}>
+          <Segmented value={draft.type} onChange={(id) => set({ type: id })}
+            options={[{ id: "personal", label: t.personal }, { id: "group", label: t.group }]} />
+          <p className="m-0 px-1 text-[13px] text-muted">{typeHint}</p>
+        </Group>
+      )}
 
       {/* Group-only settings */}
       {draft.type === "group" && (
@@ -182,10 +202,15 @@ export default function ListEditorModal({ list, isRtl, t, onSave, onDelete, onCl
               {draft.members.map((m) => (
                 <li key={m.id} className="list-none flex items-center gap-3.5 min-h-[56px] px-4 py-1.5">
                   <Avatar member={m} size={36} ring="" />
-                  <span className="flex-1 min-w-0 text-[15px] font-semibold text-ink truncate">
-                    {m.id === ME.id ? t.you : localized(m, isRtl)}
+                  <span className="flex-1 min-w-0 flex flex-col">
+                    <span className="text-[15px] font-semibold text-ink truncate">{m.id === ME.id ? t.you : localized(m, isRtl)}</span>
+                    {(m.username || list?.ownerId === m.id) && (
+                      <span className="text-[13px] text-muted truncate" dir="auto">
+                        {[list?.ownerId === m.id && t.owner, m.id !== ME.id && m.username && `@${m.username}`].filter(Boolean).join(sep)}
+                      </span>
+                    )}
                   </span>
-                  {m.id !== ME.id && (
+                  {m.id !== ME.id && (mine || !list?.members?.some((x) => x.id === m.id)) && (
                     <IconButton label={`${t.removeMember} ${localized(m, isRtl)}`} tone="soft" size={36} className="-me-1"
                       onClick={() => toggleFriend(m)}>
                       <X className="w-4 h-4" strokeWidth={2} />
@@ -196,7 +221,12 @@ export default function ListEditorModal({ list, isRtl, t, onSave, onDelete, onCl
             </Rows>
           </Group>
 
-          <Group label={t.addFriends}>
+          <Group label={t.addFriends} hint={shared ? t.findPeopleHint : undefined}>
+            {shared && (
+              <Field value={query} aria-label={t.findPeople} inputClass="!outline-none" dir="auto"
+                onChange={(e) => setQuery(e.target.value)} placeholder={t.findPeople}
+                prefix={<Search className="w-4 h-4 text-muted" strokeWidth={2} />} />
+            )}
             {available.length > 0 ? (
               <Rows>
                 {available.map((f) => (
@@ -204,7 +234,10 @@ export default function ListEditorModal({ list, isRtl, t, onSave, onDelete, onCl
                     <button type="button" onClick={() => toggleFriend(f)}
                       className="w-full min-h-[56px] flex items-center gap-3.5 px-4 py-1.5 text-start bg-transparent border-0 cursor-pointer active:bg-sunk transition-colors">
                       <Avatar member={f} size={36} ring="" />
-                      <span className="flex-1 min-w-0 text-[15px] font-semibold text-ink truncate">{localized(f, isRtl)}</span>
+                      <span className="flex-1 min-w-0 flex flex-col">
+                        <span className="text-[15px] font-semibold text-ink truncate">{localized(f, isRtl)}</span>
+                        {f.username && <span className="text-[13px] text-muted truncate" dir="ltr">@{f.username}</span>}
+                      </span>
                       <span className="w-9 h-9 -me-1 rounded-full bg-sunk text-ink flex items-center justify-center">
                         <Plus className="w-4 h-4" strokeWidth={2.4} />
                       </span>
@@ -213,7 +246,9 @@ export default function ListEditorModal({ list, isRtl, t, onSave, onDelete, onCl
                 ))}
               </Rows>
             ) : (
-              <p className="m-0 px-1 text-sm text-muted">{t.noFriendsLeft}</p>
+              <p className="m-0 px-1 text-sm text-muted">
+                {!shared ? t.noFriendsLeft : found ? t.noPeopleFound : people.length ? t.noFriendsLeft : t.noContactsYet}
+              </p>
             )}
           </Group>
         </>
@@ -286,8 +321,8 @@ export default function ListEditorModal({ list, isRtl, t, onSave, onDelete, onCl
 
       {!isNew && (
         <Button tone="danger" size="md" className="self-start -ms-1 px-1" onClick={onDelete}
-          icon={<Trash2 className="w-[18px] h-[18px]" strokeWidth={2} />}>
-          {t.deleteList}
+          icon={mine ? <Trash2 className="w-[18px] h-[18px]" strokeWidth={2} /> : <LogOut className="w-[18px] h-[18px]" strokeWidth={2} />}>
+          {mine ? t.deleteList : t.leaveList}
         </Button>
       )}
     </Sheet>
