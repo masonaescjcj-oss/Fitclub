@@ -330,7 +330,7 @@ export function ImportSheet({ initialCode, isRtl, t, onImportProgram, onApplyMea
       <p className="m-0 text-sm leading-relaxed text-muted">{t.importHint}</p>
       <textarea rows={3} value={input} onChange={(e) => { setInput(e.target.value); check(e.target.value); }}
         placeholder={t.pastePh} dir="ltr" autoFocus={!initialCode} aria-label={t.pastePh}
-        className={cx("w-full rounded-2xl bg-card border-0 p-4 text-[13px] font-mono text-ink resize-none !outline-none placeholder:text-muted/70",
+        className={cx("w-full shrink-0 rounded-2xl bg-card border-0 p-4 text-[13px] font-mono text-ink resize-none !outline-none placeholder:text-muted/70",
           state.status === "error" ? "ring-2 ring-inset ring-alert" : "focus:ring-2 focus:ring-inset focus:ring-ink")} />
 
       {state.status === "error" && (
@@ -357,9 +357,9 @@ export function ImportSheet({ initialCode, isRtl, t, onImportProgram, onApplyMea
               <ul className="m-0 p-0 list-none divide-y divide-hair border-t border-hair">
                 {payload.days.map((d, i) => (
                   <li key={i} className="py-2.5 flex justify-between gap-3 text-[13px]">
-                    <span className="font-semibold text-ink truncate">{t.day} {n(i + 1)}{sep}{d.r ? t.rest : (isRtl && d.tf ? d.tf : d.t)}</span>
+                    <span className="font-semibold text-ink truncate shrink-0 max-w-[60%]">{t.day} {n(i + 1)}{sep}{d.r ? t.rest : (isRtl && d.tf ? d.tf : d.t)}</span>
                     {!d.r && (
-                      <span className="text-muted truncate shrink min-w-0 text-end">
+                      <span className="text-muted truncate min-w-0 text-end">
                         {d.x.map((x) => exerciseName(x[0], isRtl)).slice(0, 2).join(isRtl ? "، " : ", ")}{d.x.length > 2 ? " …" : ""}
                       </span>
                     )}
