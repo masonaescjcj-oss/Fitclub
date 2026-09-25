@@ -11,6 +11,7 @@ import { CoachIcon, FuelIcon, TrainIcon } from "../../components/ui/icons";
 import { useCoachStore } from "../../lib/coach/coachContext";
 import { useCoachT } from "../../lib/coach/coachI18n";
 import { COACH_MODEL, looksLikeKey } from "../../lib/coach/claudeClient";
+import useBackGesture from "../../hooks/useBackGesture";
 
 // Coach: a lilac avatar header, the facts the coach is reading right now,
 // the conversation (coach in lilac, the athlete in ink), and a composer
@@ -20,9 +21,9 @@ const timeOf = (iso, isRtl) =>
   new Date(iso).toLocaleTimeString(isRtl ? "fa-IR" : undefined, { hour: "2-digit", minute: "2-digit" });
 
 // The coach opens full screen, without the tab bar: the composer sits on the
-// bottom inset, and the page starts right under the top one.
+// bottom inset, and the pinned top bar starts right under the top one.
 const DOCK_BOTTOM = "max(env(safe-area-inset-bottom), 12px)";
-const PAGE_TOP = "calc(env(safe-area-inset-top) + 6px)";
+const BAR_TOP = "calc(env(safe-area-inset-top) + 6px)";
 
 /* ──────────────────────────── tiny markdown ──────────────────────────── */
 
@@ -280,6 +281,20 @@ export default function AiCoachPage({ isRtl, onClose }) {
 
   const openSettings = () => { setSettingsRev((r) => r + 1); setSettings(true); };
 
+  // The way out is always the same: the X in the pinned bar, the phone's back
+  // gesture, or Escape. Back closes the settings sheet first when it is open.
+  useBackGesture(Boolean(onClose), () => {
+    if (settings) { setSettings(false); return "stay"; }
+    onClose();
+    return undefined;
+  });
+  useEffect(() => {
+    if (!onClose || settings) return undefined;
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose, settings]);
+
   // The dock changes height as the textarea grows and the chips come and go;
   // the conversation keeps that much room under its last bubble.
   useLayoutEffect(() => {
@@ -371,31 +386,35 @@ export default function AiCoachPage({ isRtl, onClose }) {
   );
 
   return (
-    <Screen isRtl={isRtl} tabbed style={{ paddingTop: PAGE_TOP, ...(dockH ? { paddingBottom: dockH + 24 } : {}) }}>
-      {/* Full screen, the way a native sheet closes: one round X, top centre. */}
-      {onClose && (
-        <div className="flex justify-center">
-          <button type="button" onClick={onClose} aria-label={t.close} title={t.close}
-            className="w-10 h-10 rounded-full bg-card text-ink flex items-center justify-center border-0 p-0 cursor-pointer transition-transform active:scale-95">
-            <X className="w-5 h-5" strokeWidth={2.2} />
-          </button>
+    <Screen isRtl={isRtl} tabbed style={{ paddingTop: 0, ...(dockH ? { paddingBottom: dockH + 24 } : {}) }}>
+      {/* The pinned bar, the way a native full-screen view keeps its way out
+          in sight: close where back lives, the coach in the middle, settings
+          at the far end. The conversation fades out under it. */}
+      <header className="sticky top-0 z-30 -mx-5 px-5 pb-2 bg-canvas" style={{ paddingTop: BAR_TOP }}>
+        <div className="h-12 grid grid-cols-[auto_1fr_auto] items-center gap-3">
+          {onClose ? (
+            <IconButton label={t.close} tone="card" onClick={onClose}>
+              <X className="w-5 h-5" strokeWidth={2.2} />
+            </IconButton>
+          ) : <span className="w-11" aria-hidden="true" />}
+          <div className="min-w-0 justify-self-center flex items-center gap-2.5">
+            <span className="w-9 h-9 shrink-0 rounded-full bg-coach text-on-accent flex items-center justify-center ring-[3px] ring-coach/35">
+              <CoachIcon size={18} />
+            </span>
+            <div className="min-w-0 flex flex-col gap-0.5">
+              <h1 className="m-0 font-display font-extrabold text-[19px] leading-none tracking-[-0.03em] text-ink truncate">{t.title}</h1>
+              <button type="button" onClick={openSettings}
+                className="self-start max-w-full inline-flex items-center gap-1.5 p-0 bg-transparent border-0 cursor-pointer text-[12px] leading-tight text-muted text-start">
+                <span aria-hidden="true" className={cx("w-1.5 h-1.5 rounded-full shrink-0", coach.live ? "bg-coach ring-1 ring-inset ring-ink/15" : "bg-faint")} />
+                <span className="truncate">{coach.live ? t.liveSub : t.demo}</span>
+              </button>
+            </div>
+          </div>
+          <IconButton label={t.settings} onClick={openSettings}>
+            <SlidersHorizontal className="w-5 h-5" strokeWidth={2} />
+          </IconButton>
         </div>
-      )}
-      <header className="flex items-center gap-3">
-        <span className="w-[50px] h-[50px] shrink-0 rounded-full bg-coach text-on-accent flex items-center justify-center ring-4 ring-coach/35">
-          <CoachIcon size={24} />
-        </span>
-        <div className="flex-1 min-w-0 flex flex-col gap-[3px]">
-          <h1 className="m-0 font-display font-extrabold text-[28px] leading-none tracking-[-0.035em] text-ink truncate">{t.title}</h1>
-          <button type="button" onClick={openSettings}
-            className="self-start max-w-full min-h-[22px] inline-flex items-center gap-1.5 p-0 bg-transparent border-0 cursor-pointer text-[13px] text-muted text-start">
-            <span aria-hidden="true" className={cx("w-2 h-2 rounded-full shrink-0", coach.live ? "bg-coach ring-1 ring-inset ring-ink/15" : "bg-faint")} />
-            <span className="truncate">{coach.live ? t.liveSub : t.demo}</span>
-          </button>
-        </div>
-        <IconButton label={t.settings} onClick={openSettings}>
-          <SlidersHorizontal className="w-5 h-5" strokeWidth={2} />
-        </IconButton>
+        <span aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-full h-5 bg-gradient-to-b from-canvas to-canvas/0" />
       </header>
 
       <ContextTiles snapshot={coach.snapshot} isRtl={isRtl} t={t} onAsk={ask} />
