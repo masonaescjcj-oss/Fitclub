@@ -153,6 +153,8 @@ const en = {
   dueTomorrow: "Due tomorrow",
   dueOn: "Due",
   overdueLong: "Overdue",
+  noListsBody: "Make a list for your habits, goals or gear.",
+  hiddenBySearch: (count, n) => `${n(count)} more don't match the search`,
 };
 
 const fa = {
@@ -303,6 +305,8 @@ const fa = {
   dueTomorrow: "موعد فردا",
   dueOn: "موعد",
   overdueLong: "موعد گذشته",
+  noListsBody: "یک چک‌لیست برای عادت‌ها، هدف‌ها یا وسایلت بساز.",
+  hiddenBySearch: (count, n) => `${n(count)} کار دیگر با این جست‌وجو جور نیست`,
 };
 
 export const checklistText = { en, fa };

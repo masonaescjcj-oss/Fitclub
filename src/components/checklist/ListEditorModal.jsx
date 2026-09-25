@@ -121,7 +121,7 @@ export default function ListEditorModal({ list, isRtl, t, onSave, onDelete, onCl
       )}>
       {/* Name */}
       <Group label={t.listName}>
-        <Field value={draft.name} autoFocus={isNew} aria-label={t.listName}
+        <Field value={draft.name} autoFocus={isNew} aria-label={t.listName} inputClass="!outline-none"
           onChange={(e) => set({ name: e.target.value })}
           onKeyDown={(e) => e.key === "Enter" && submit()}
           placeholder={t.listNamePlaceholder}

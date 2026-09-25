@@ -58,7 +58,7 @@ const en = {
   allSetsDone: "All sets done", completeSet: (i) => `Complete set ${i}`, now: "Now", left: (v) => `${v} left`,
   restFor: (v) => `${v} s rest`, minimise: "Minimise", increase: "Increase", decrease: "Decrease",
   completedTitle: "Workout complete", prFrom: (v) => `up from ${v}`, days: "Days", recoveryDay: "Recovery day",
-  noActiveTitle: "No active program", browsePrograms: "Browse programs", muscle: "Muscle",
+  noActiveTitle: "No active program", browsePrograms: "Browse programs", muscle: "Muscle", more: "More",
 };
 
 const fa = {
@@ -121,7 +121,7 @@ const fa = {
   allSetsDone: "همه‌ی ست‌ها انجام شد", completeSet: (i) => `ثبت ست ${i}`, now: "الان", left: (v) => `${v} مانده`,
   restFor: (v) => `${v} ثانیه استراحت`, minimise: "کوچک کردن", increase: "افزایش", decrease: "کاهش",
   completedTitle: "تمرین کامل شد", prFrom: (v) => `قبلی ${v}`, days: "روزها", recoveryDay: "روز ریکاوری",
-  noActiveTitle: "برنامه‌ی فعالی نیست", browsePrograms: "دیدن برنامه‌ها", muscle: "عضله",
+  noActiveTitle: "برنامه‌ی فعالی نیست", browsePrograms: "دیدن برنامه‌ها", muscle: "عضله", more: "بیشتر",
 };
 
 export const useTrainingT = (isRtl) => (isRtl ? fa : en);

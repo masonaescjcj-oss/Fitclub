@@ -96,7 +96,7 @@ export default function ChecklistPage({ isRtl, onBack, onGoToStreak }) {
           <h1 className="m-0 font-display font-extrabold text-[38px] leading-[0.95] tracking-[-0.04em] text-ink">{t.title}</h1>
         </div>
         <Card className="mt-2">
-          <Empty icon={<LayoutList className="w-6 h-6" strokeWidth={2} />} title={t.emptyTitle} body={t.groupDesc}
+          <Empty icon={<LayoutList className="w-6 h-6" strokeWidth={2} />} title={t.emptyTitle} body={t.noListsBody}
             action={<Button tone="ink" onClick={() => openEditor(null)} icon={<Plus className="w-4 h-4 text-accent dark:text-on-inv" strokeWidth={2.4} />}>{t.newList}</Button>} />
         </Card>
         {editorSheet}
@@ -299,7 +299,7 @@ export default function ChecklistPage({ isRtl, onBack, onGoToStreak }) {
         )}
 
         {hidden > 0 && query && (
-          <p className="m-0 py-3 border-t border-hair text-[13px] text-muted">+{n(hidden)}</p>
+          <p className="m-0 py-3 border-t border-hair text-[13px] text-muted">{t.hiddenBySearch(hidden, n)}</p>
         )}
       </section>
 

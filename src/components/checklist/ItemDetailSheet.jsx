@@ -87,7 +87,7 @@ export default function ItemDetailSheet({ item, list, isRtl, t, onSave, onDelete
         <Label>{t.due}</Label>
         <div className="flex items-end gap-2">
           <Field type="date" value={draft.due} onChange={(e) => set({ due: e.target.value })}
-            aria-label={t.due} className="flex-1" />
+            aria-label={t.due} className="flex-1" inputClass="!outline-none" />
           {draft.due && (
             <Button tone="card" size="md" className="h-[52px]" onClick={() => set({ due: "" })}>{t.clear}</Button>
           )}

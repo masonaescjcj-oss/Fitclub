@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import {
-  Copy, Download, Dumbbell, History, Moon, Pencil, Play, Plus, Search, Share2, Trash2, TrendingDown, TrendingUp, Trophy,
+  Copy, Download, Dumbbell, History, Moon, MoreHorizontal, Pencil, Play, Plus, Search, Share2, Trash2, TrendingDown, TrendingUp, Trophy,
 } from "lucide-react";
 import ExerciseGraphic from "../../components/ExerciseGraphic";
 import ActiveWorkoutModal from "../../components/modals/ActiveWorkoutModal";
@@ -114,6 +114,7 @@ export default function WorkoutPage({ isRtl, onOpen }) {
   const [share, setShare] = useState(null);           // program to share
   const [importing, setImporting] = useState(false);
   const [trendFor, setTrendFor] = useState(null);     // exercise id
+  const [menuFor, setMenuFor] = useState(null);       // program whose actions are open
   const [toast, setToast] = useState("");
 
   const author = { name: loadSession().name || "Isaac", role: store.coachMode ? "coach" : "user" };
@@ -198,21 +199,14 @@ export default function WorkoutPage({ isRtl, onOpen }) {
                         </div>
                       </div>
                       {p.description && <p className="m-0 text-sm leading-relaxed text-muted">{p.description}</p>}
-                      <div className="flex flex-wrap gap-2">
+                      <div className="flex items-center gap-2">
                         {!isActive && (
-                          <Button tone="ink" size="sm" icon={<Play className="w-3.5 h-3.5" strokeWidth={2.2} />}
-                            onClick={() => { store.setActiveProgram(p.id); setSegment("plan"); }}>{t.setActive}</Button>
+                          <Button tone="ink" size="sm" onClick={() => { store.setActiveProgram(p.id); setSegment("plan"); }}>{t.setActive}</Button>
                         )}
-                        {p.source !== "builtin" && (
-                          <Button tone="soft" size="sm" icon={<Pencil className="w-3.5 h-3.5" strokeWidth={2} />} onClick={() => setBuilder(p)}>{t.editProgram}</Button>
-                        )}
-                        <Button tone="soft" size="sm" icon={<Copy className="w-3.5 h-3.5" strokeWidth={2} />}
-                          onClick={() => { store.duplicateProgram(p.id, `${t.copyOf} ${p.name}`, author); flash(t.copied); }}>{t.duplicate}</Button>
                         <Button tone="soft" size="sm" icon={<Share2 className="w-3.5 h-3.5" strokeWidth={2} />} onClick={() => setShare(p)}>{t.share}</Button>
-                        {p.source !== "builtin" && (
-                          <Button tone="danger" size="sm" icon={<Trash2 className="w-3.5 h-3.5" strokeWidth={2} />}
-                            onClick={() => { if (window.confirm(t.deleteProgramConfirm)) store.removeProgram(p.id); }}>{t.delete}</Button>
-                        )}
+                        <IconButton label={t.more} tone="soft" size={40} className="ms-auto" onClick={() => setMenuFor(p)}>
+                          <MoreHorizontal className="w-5 h-5" strokeWidth={2} />
+                        </IconButton>
                       </div>
                     </Card>
                   );
@@ -256,6 +250,30 @@ export default function WorkoutPage({ isRtl, onOpen }) {
             onImportProgram={(compactP) => { const p = store.importProgram(compactP); store.setActiveProgram(p.id); setImporting(false); setSegment("plan"); flash(t.importedOk); }}
             onApplyMeal={(meal) => { applyMealPlan(nutrition, meal); setImporting(false); flash(t.appliedOk); }}
             onClose={() => setImporting(false)} />
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {menuFor && (
+          <Sheet title={programName(menuFor)} isRtl={isRtl} t={t} onClose={() => setMenuFor(null)}>
+            <List>
+              {menuFor.source !== "builtin" && (
+                <Row isRtl={isRtl} chevron title={t.editProgram}
+                  icon={<IconWell size={36}><Pencil className="w-4 h-4" strokeWidth={2} /></IconWell>}
+                  onClick={() => { setBuilder(menuFor); setMenuFor(null); }} />
+              )}
+              <Row isRtl={isRtl} title={t.duplicate}
+                icon={<IconWell size={36}><Copy className="w-4 h-4" strokeWidth={2} /></IconWell>}
+                onClick={() => { store.duplicateProgram(menuFor.id, `${t.copyOf} ${menuFor.name}`, author); setMenuFor(null); flash(t.copied); }} />
+              <Row isRtl={isRtl} chevron title={t.shareProgram}
+                icon={<IconWell size={36}><Share2 className="w-4 h-4" strokeWidth={2} /></IconWell>}
+                onClick={() => { setShare(menuFor); setMenuFor(null); }} />
+              {menuFor.source !== "builtin" && (
+                <Row isRtl={isRtl} danger title={t.deleteProgram}
+                  icon={<IconWell size={36} tone="alert"><Trash2 className="w-4 h-4" strokeWidth={2} /></IconWell>}
+                  onClick={() => { if (window.confirm(t.deleteProgramConfirm)) { store.removeProgram(menuFor.id); setMenuFor(null); } }} />
+              )}
+            </List>
+          </Sheet>
         )}
       </AnimatePresence>
       <AnimatePresence>
@@ -434,7 +452,8 @@ function PlanView({ t, n, sep, isRtl, store, plan, programName, onStart, onShare
           <div className="flex-1 min-w-0 flex flex-col gap-1">
             <Label className="!text-hero-muted">{lift.kind === "pr" ? t.latestPr : t.heaviestLift}{sep}{agoLabel(lift.at, isRtl)}</Label>
             <span className="font-display font-extrabold text-2xl leading-tight tracking-[-0.03em] break-words">
-              {exerciseName(lift.exerciseId, isRtl)} {n(lift.weight)} {t.kg}{lift.reps ? ` × ${n(lift.reps)}` : ""}
+              {exerciseName(lift.exerciseId, isRtl)}{" "}
+              <span className="whitespace-nowrap">{n(lift.weight)} {t.kg}{lift.reps ? ` × ${n(lift.reps)}` : ""}</span>
             </span>
             <span className="text-[13px] text-hero-muted">{t.beatIt}</span>
           </div>

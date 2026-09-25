@@ -413,7 +413,7 @@ export const Field = React.forwardRef(function Field({ label, hint, error, prefi
         error ? "ring-2 ring-inset ring-alert" : "focus-within:ring-2 focus-within:ring-inset focus-within:ring-ink")}>
         {prefix && <span className="font-semibold text-ink shrink-0">{prefix}</span>}
         <input ref={ref} {...rest}
-          className={cx("flex-1 min-w-0 h-full border-0 bg-transparent text-base text-ink outline-none placeholder:text-muted/70", inputClass)} />
+          className={cx("flex-1 min-w-0 h-full border-0 bg-transparent text-base text-ink outline-none focus-visible:outline-none placeholder:text-muted/70", inputClass)} />
         {suffix && <span className="shrink-0 text-muted">{suffix}</span>}
       </span>
       {(error || hint) && <span className={cx("text-[13px]", error ? "text-alert" : "text-muted")}>{error || hint}</span>}
