@@ -2,13 +2,14 @@
  *
  * - Navigations: network first, falling back to the cached app shell, so a
  *   new release shows up as soon as there is a connection.
- * - Built assets (/static/…, hashed names) and icons: cache first; a hashed
- *   file never changes, so a cached copy is always right.
+ * - Built assets (/static/…, hashed names), icons and exercise media: cache
+ *   first; those files never change under the same name.
+ * - The exercise catalog: stale-while-revalidate.
  * - Google Fonts: stale-while-revalidate, so type still renders offline.
  * - Everything else (the messenger server, the coach API) goes straight to
  *   the network and is never cached.
  */
-const VERSION = "fitclub-v1";
+const VERSION = "fitclub-v2";
 const SHELL = ["/", "/index.html", "/manifest.json", "/icons/icon-192.png", "/icons/icon-512.png"];
 
 self.addEventListener("install", (event) => {
@@ -59,6 +60,17 @@ self.addEventListener("fetch", (event) => {
   }
 
   if (url.origin === self.location.origin && (url.pathname.startsWith("/static/") || url.pathname.startsWith("/icons/"))) {
+    event.respondWith(cacheFirst(request));
+    return;
+  }
+
+  // The exercise library: the catalog refreshes in the background, and a GIF
+  // once seen stays available offline.
+  if (url.origin === self.location.origin && url.pathname === "/exercises/catalog.json") {
+    event.respondWith(staleWhileRevalidate(request));
+    return;
+  }
+  if (url.origin === self.location.origin && url.pathname.startsWith("/exercises/")) {
     event.respondWith(cacheFirst(request));
     return;
   }
