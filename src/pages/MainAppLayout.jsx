@@ -82,9 +82,10 @@ function MainAppShell({ onNavigate }) {
   useEffect(() => { if (joinCode) { clearJoinFromLocation(); setSubPage(null); setActiveTab("club"); } }, [joinCode]);
   useEffect(() => { if (!flash) return undefined; const id = setTimeout(() => setFlash(""), 1800); return () => clearTimeout(id); }, [flash]);
 
-  // The messenger keeps its Telegram look and draws its own navigation,
-  // header and tab bar alike, so FitClub's tab bar steps aside on the whole
-  // Club tab; its Back button is the way out.
+  // The messenger keeps its Telegram layout in the app's colours. It draws
+  // the app's tab bar itself on its root screens (chats, contacts,
+  // settings) and hides it inside a conversation, so the shell's bar steps
+  // aside on the whole Club tab.
   const immersive = activeTab === "club" && !subPage;
   const alerts = chat.unreadMentionTotal + chat.notifications.filter((n) => n.unread && n.kind === "system").length;
 
@@ -144,7 +145,7 @@ function MainAppShell({ onNavigate }) {
               {activeTab === "train" && <WorkoutPage isRtl={isRtl} onOpen={handleSubNavigate} />}
               {activeTab === "fuel" && <DietPage isRtl={isRtl} onGoToRecipe={() => setSubPage("recipeExplore")} onGoToGuide={() => setSubPage("dietGuide")} />}
               {activeTab === "coach" && <AiCoachPage isRtl={isRtl} />}
-              {activeTab === "club" && <CommunityPage isRtl={isRtl} onExit={() => setActiveTab("today")} joinCode={joinCode} onJoinHandled={() => setJoinCode(null)}
+              {activeTab === "club" && <CommunityPage isRtl={isRtl} onExit={() => setActiveTab("today")} onTab={setActiveTab} joinCode={joinCode} onJoinHandled={() => setJoinCode(null)}
                 openTarget={openTarget} onOpenHandled={() => setOpenTarget(null)} />}
             </>
           )}
