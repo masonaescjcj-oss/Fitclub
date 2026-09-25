@@ -4,7 +4,7 @@ import {
   ArrowLeft, ArrowRight, Check, Copy, QrCode, RefreshCw, Search, ShieldCheck, UserMinus, X,
 } from "lucide-react";
 import { ME, LINK_HOST, chatLink, relativeTime, validateUsername } from "../../lib/chat/chatModel";
-import { PEOPLE, findUser } from "../../lib/chat/chatStore";
+import { PEOPLE_SHOWN, findUser } from "../../lib/chat/chatStore";
 import {
   Button, Check as RoundCheck, CtaButton, Field, IconButton, IconWell, Label, List, Row, Sheet, cx, num,
 } from "../ui/kit";
@@ -220,7 +220,7 @@ export function ChatTypeScreen({ kind, draft, chats, selfId = null, isRtl, t, on
 /** Everyone the athlete could add: contacts, people they added by hand, and teammates who showed their name. */
 export function addablePeople(store) {
   const revealed = (store.buddy?.matches || []).filter((m) => m.revealed).map((m) => findUser(m.buddyId));
-  return [...PEOPLE, ...store.customUsers, ...(store.remoteUsers || []), ...revealed].filter((u) => !(store.blocked || []).includes(u.id));
+  return [...PEOPLE_SHOWN, ...store.customUsers, ...(store.remoteUsers || []), ...revealed].filter((u) => !(store.blocked || []).includes(u.id));
 }
 
 /**

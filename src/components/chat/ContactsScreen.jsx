@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import { Check, Megaphone, Search, UserPlus, Users } from "lucide-react";
-import { PEOPLE } from "../../lib/chat/chatStore";
+import { DEMO_WORLD, PEOPLE_SHOWN } from "../../lib/chat/chatStore";
 import { timeOf, validateUsername } from "../../lib/chat/chatModel";
 import { Button, Field, IconButton, IconWell, Label, List, Row, Screen, Sheet, cx, num } from "../ui/kit";
 import { Avatar, NameBadges } from "./ChatBits";
@@ -58,14 +58,58 @@ export function ContactSheet({ store, initial = null, isRtl, t, onSave, onClose 
   );
 }
 
+/**
+ * With accounts, a contact is a real FitClub member: found by the
+ * @username they chose, then straight into a chat with them.
+ */
+export function FindPersonSheet({ store, isRtl, t, onFound, onClose }) {
+  const [username, setUsername] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [missing, setMissing] = useState(false);
+  const slug = username.trim().replace(/^@/, "").toLowerCase();
+  const find = async () => {
+    if (!slug) return;
+    setBusy(true);
+    setMissing(false);
+    const hit = await store.resolveRemote(`@${slug}`).catch(() => ({}));
+    setBusy(false);
+    if (hit.user) onFound(hit.user); else setMissing(true);
+  };
+  return (
+    <Sheet title={t.findPersonTitle} isRtl={isRtl} onClose={onClose} closeLabel={t.close}
+      footer={
+        <>
+          <Button tone="card" className="flex-1" onClick={onClose}>{t.cancel}</Button>
+          <Button tone="ink" className="flex-1" disabled={!slug || busy} aria-busy={busy} onClick={find}>{t.findPersonGo}</Button>
+        </>
+      }>
+      <div dir="ltr">
+        <Field autoFocus value={username} onChange={(e) => { setUsername(e.target.value.replace(/\s+/g, "")); setMissing(false); }}
+          onKeyDown={(e) => { if (e.key === "Enter") find(); }}
+          label={<span dir={dirOf(isRtl)} className="block text-start">{t.contactUsername}</span>} aria-label={t.contactUsername}
+          prefix={<span className="text-muted">@</span>} inputClass="-ms-2" autoCapitalize="none" spellCheck={false} maxLength={32}
+          error={missing ? <span dir={dirOf(isRtl)} className="block text-start">{t.findPersonNone}</span> : null}
+          hint={<span dir={dirOf(isRtl)} className="block text-start">{t.findPersonHint}</span>} />
+      </div>
+    </Sheet>
+  );
+}
+
+/** Shares the app itself: the native share sheet where there is one, the clipboard otherwise. */
+function shareApp(t, onDone) {
+  const url = window.location.origin;
+  if (navigator.share) { navigator.share({ title: "FitClub", text: t.inviteText, url }).catch(() => {}); return; }
+  navigator.clipboard?.writeText(`${t.inviteText}: ${url}`).then(() => onDone?.(t.chatLinkCopied)).catch(() => {});
+}
+
 /** Contact directory, sorted the way Telegram sorts it: online first, then last seen. */
-export default function ContactsScreen({ store, isRtl, t, onNewGroup, onNewChannel }) {
+export default function ContactsScreen({ store, isRtl, t, onNewGroup, onNewChannel, onToast }) {
   const [query, setQuery] = useState("");
   const [adding, setAdding] = useState(false);
 
   const contacts = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return [...PEOPLE, ...store.customUsers, ...(store.remoteUsers || [])]
+    return [...PEOPLE_SHOWN, ...store.customUsers, ...(store.remoteUsers || [])]
       .filter((u) => !q || u.name.toLowerCase().includes(q) || (u.nameFa || "").includes(q) || (u.username || "").toLowerCase().includes(q.replace(/^@/, "")) || (u.phone || "").replace(/\s+/g, "").includes(q))
       .sort((a, b) => {
         if (a.online !== b.online) return a.online ? -1 : 1;
@@ -83,7 +127,7 @@ export default function ContactsScreen({ store, isRtl, t, onNewGroup, onNewChann
   const quick = [
     { id: "group", icon: Users, label: t.newGroup, onClick: onNewGroup },
     { id: "channel", icon: Megaphone, label: t.newChannel, onClick: onNewChannel },
-    { id: "invite", icon: UserPlus, label: t.inviteFriends, onClick: () => setAdding(true) },
+    { id: "invite", icon: UserPlus, label: t.inviteFriends, onClick: () => (DEMO_WORLD ? setAdding(true) : shareApp(t, onToast)) },
   ];
 
   return (
@@ -111,7 +155,7 @@ export default function ContactsScreen({ store, isRtl, t, onNewGroup, onNewChann
       <Label as="h2" className="m-0 mt-2 px-1">{t.sortedByLastSeen}</Label>
       <List>
         {contacts.length === 0 && (
-          <li className="list-none px-4 py-8 text-center text-sm text-muted">{t.noContactsMatch}</li>
+          <li className="list-none px-4 py-8 text-center text-sm text-muted">{query.trim() || DEMO_WORLD ? t.noContactsMatch : t.noContactsYet}</li>
         )}
         {contacts.map((u) => {
           const sub = subtitleOf(u);
@@ -135,11 +179,15 @@ export default function ContactsScreen({ store, isRtl, t, onNewGroup, onNewChann
       </List>
 
       <AnimatePresence>
-        {adding && (
+        {adding && (DEMO_WORLD ? (
           <ContactSheet store={store} isRtl={isRtl} t={t}
             onSave={(v) => { const user = store.addContact(v); setAdding(false); store.openOrCreatePrivateChat(user); }}
             onClose={() => setAdding(false)} />
-        )}
+        ) : (
+          <FindPersonSheet store={store} isRtl={isRtl} t={t}
+            onFound={(user) => { setAdding(false); store.openOrCreatePrivateChat(user); }}
+            onClose={() => setAdding(false)} />
+        ))}
       </AnimatePresence>
     </Screen>
   );

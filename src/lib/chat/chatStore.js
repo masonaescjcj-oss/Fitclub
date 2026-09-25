@@ -3,8 +3,16 @@
 import { ME, createChat, createMessage, createUser, uniqueUsername } from "./chatModel";
 import { BOT_CHAT_ID, BOT_ID, BUDDIES, DEFAULT_PREFS, botWelcome } from "../buddy/buddyModel";
 import { loadSession } from "../session";
+import { backendOn } from "../backend/supabase";
 
 const KEY = "fitclub.chat.v1";
+
+/**
+ * Without accounts the messenger is a lived-in demo: stand-in people,
+ * stories, public communities and simulated replies. With accounts it holds
+ * only real people and real chats, plus Saved Messages on this device.
+ */
+export const DEMO_WORLD = !backendOn;
 
 const ago = (mins) => new Date(Date.now() - mins * 60000).toISOString();
 
@@ -113,6 +121,10 @@ export function directoryMessages(chatId) {
 /** Teammates whose identity both sides agreed to show. Kept in step by the chat hook. */
 export const REVEALED = new Set();
 
+/** The stand-ins, where the demo shows them; empty for a real account. */
+export const PEOPLE_SHOWN = DEMO_WORLD ? PEOPLE : [];
+export const STORIES_SHOWN = DEMO_WORLD ? STORIES : [];
+
 /** People the athlete added by hand. findUser() is a plain function, so the hook keeps this in step with state. */
 export const CUSTOM = new Map();
 export function registerCustomUsers(list = []) {
@@ -158,7 +170,34 @@ function botChat() {
   });
 }
 
-function seed() {
+/** A real account's own messenger identity: nothing made up, the account's name and username. */
+const REAL_ME = { ...DEFAULT_ME, avatar: "", emojiStatus: "", bio: "", username: "", phone: "", birthday: "", stars: 0 };
+
+function realMe(me) {
+  const session = loadSession();
+  // Values still at the demo's samples (its phone, birthday, stars) were never the athlete's.
+  const own = Object.fromEntries(Object.entries(me).filter(([k, v]) => !(k in DEFAULT_ME) || k === "prefs" || v !== DEFAULT_ME[k]));
+  return { ...REAL_ME, ...own, name: session.name || me.name || "", username: session.username || "" };
+}
+
+/** A real account starts with Saved Messages alone; everything else comes from its chats on the server. */
+function realSeed() {
+  return {
+    chats: [createChat({
+      id: "saved", type: "private", title: "Saved Messages", titleFa: "پیام‌های ذخیره‌شده",
+      emoji: "🔖", color: "#38bdf8", members: [ME], pinned: true, lastReadAt: ago(0),
+    })],
+    messages: [], folder: "all", me: realMe({}), customUsers: [], seenStories: [],
+    buddy: { prefs: { ...DEFAULT_PREFS }, liked: [], passed: [], matches: [] },
+    blocked: [],
+    // Whose this is: another account signing in on the same device starts clean.
+    owner: loadSession().userId || null,
+  };
+}
+
+const seed = () => (DEMO_WORLD ? demoSeed() : realSeed());
+
+function demoSeed() {
   const chats = [];
   const messages = [];
   const push = (chatId, patch) => messages.push(createMessage({ chatId, ...patch }));
@@ -279,6 +318,7 @@ function meFromSession(me) {
 }
 
 function normalize(state) {
+  if (!DEMO_WORLD) return normalizeReal(state);
   // Saves from before folders existed get the seeded tags back by chat id.
   const seeded = Object.fromEntries(seed().chats.map((c) => [c.id, c.folders]));
   const chats = (state.chats || []).map((c) => ({ ...createChat(), ...c, folders: c.folders || seeded[c.id] || [] }));
@@ -299,6 +339,29 @@ function normalize(state) {
       prefs: { ...DEFAULT_PREFS, ...(state.buddy?.prefs || {}) },
       liked: state.buddy?.liked || [], passed: state.buddy?.passed || [], matches: state.buddy?.matches || [],
     },
+    blocked: state.blocked || [],
+  };
+}
+
+/**
+ * A real account keeps only its server chats and Saved Messages. The demo's
+ * stand-in chats, contacts and teammate bot, picked up before accounts
+ * started empty, are dropped along with their messages.
+ */
+function normalizeReal(state) {
+  const base = realSeed();
+  if (state.owner && state.owner !== base.owner) return base;
+  const keep = (state.chats || []).filter((c) => c.remote || c.id === "saved").map((c) => ({ ...createChat(), ...c, folders: c.folders || [] }));
+  const chats = keep.some((c) => c.id === "saved") ? keep : [...base.chats, ...keep];
+  const ids = new Set(chats.map((c) => c.id));
+  return {
+    ...base,
+    chats,
+    messages: (state.messages || []).filter((m) => ids.has(m.chatId) && !(m.chatId === "saved" && String(m.text).startsWith("Squat PB: 140kg")))
+      .map((m) => ({ ...createMessage(), ...m })),
+    folder: state.folder || "all",
+    me: realMe(state.me || {}),
+    seenStories: state.seenStories || [],
     blocked: state.blocked || [],
   };
 }

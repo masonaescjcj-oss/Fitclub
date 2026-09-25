@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Check, X } from "lucide-react";
 import { useChatT } from "../../lib/chat/chatI18n";
 import { useChatStore } from "../../lib/chat/chatContext";
-import { STORIES, findUser } from "../../lib/chat/chatStore";
+import { STORIES_SHOWN, findUser } from "../../lib/chat/chatStore";
 import { ME, makeInviteLink, relativeTime } from "../../lib/chat/chatModel";
 import { resolveJoin } from "../../lib/chat/search";
 import { localized } from "../../lib/checklistModel";
@@ -201,7 +201,7 @@ export default function CommunityPage({ isRtl, onExit, joinCode = null, onJoinHa
   const openStory = (s) => {
     // Play the rail from the tapped story onwards, in the order it is shown.
     const seen = new Set(store.seenStories || []);
-    const list = [...STORIES].sort((a, b) => Number(seen.has(a.id)) - Number(seen.has(b.id)));
+    const list = [...STORIES_SHOWN].sort((a, b) => Number(seen.has(a.id)) - Number(seen.has(b.id)));
     setStory({ list, index: Math.max(list.findIndex((x) => x.id === s.id), 0) });
   };
 
@@ -381,7 +381,7 @@ export default function CommunityPage({ isRtl, onExit, joinCode = null, onJoinHa
   const screenView = () => {
     switch (store.screen) {
       case "contacts":
-        return <ContactsScreen store={store} isRtl={isRtl} t={t}
+        return <ContactsScreen store={store} isRtl={isRtl} t={t} onToast={setToast}
           onNewGroup={startGroup} onNewChannel={startChannel} />;
       case "settings":
         return <SettingsScreen store={store} name={name} isRtl={isRtl} t={t}

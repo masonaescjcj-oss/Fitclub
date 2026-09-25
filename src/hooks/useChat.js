@@ -4,13 +4,28 @@ import {
   makeInviteLink, membershipMessage, messengerNotifications, sortChats, toggleReaction, totalUnread, uniqueUsername, unreadCount,
   unreadMentions, visibleMessages, votePoll,
 } from "../lib/chat/chatModel";
-import { CUSTOM, DIRECTORY, REVEALED, directoryMessages, findUser, loadChat, registerCustomUsers, saveChat, takenUsernames } from "../lib/chat/chatStore";
+import { CUSTOM, DEMO_WORLD, DIRECTORY, REVEALED, directoryMessages, findUser, loadChat, registerCustomUsers, saveChat, takenUsernames } from "../lib/chat/chatStore";
 import { BOT_CHAT_ID, BOT_ID, findBuddy } from "../lib/buddy/buddyModel";
-import { saveSession } from "../lib/session";
+import { loadSession, saveSession } from "../lib/session";
 import { scheduleChannelLife, scheduleGreeting, scheduleReply } from "../lib/chat/simulator";
 import { createApi, loadServerConfig, saveServerConfig, toLocalChat, toLocalMessage, toWireId } from "../lib/chat/api";
+import { SUPABASE_SERVER, createSupabaseApi } from "../lib/chat/supabaseApi";
 import { TRANSCRIPTS } from "../lib/chat/extras";
 import { uid } from "../lib/chat/chatModel";
+
+/**
+ * Where the messenger talks to. With accounts, the signed-in account on
+ * Supabase, always; without them, a development server if one was set up
+ * in settings, or nothing (this device alone, with simulated peers).
+ */
+function initialServer() {
+  if (!DEMO_WORLD) {
+    const userId = loadSession().userId;
+    return userId ? { kind: SUPABASE_SERVER, url: SUPABASE_SERVER, token: userId, me: { id: userId }, status: "connecting" } : null;
+  }
+  const c = loadServerConfig();
+  return c ? { ...c, status: c.token ? "connecting" : "offline" } : null;
+}
 
 /** Owns the whole messenger: chats, messages, and the simulated peers. */
 export default function useChat(lang = "en") {
@@ -28,7 +43,7 @@ export default function useChat(lang = "en") {
 
   /* ── the server, when there is one ── */
   // { url, token, me, status: offline | connecting | online | error } or null when running purely on this device.
-  const [server, setServer] = useState(() => { const c = loadServerConfig(); return c ? { ...c, status: c.token ? "connecting" : "offline" } : null; });
+  const [server, setServer] = useState(initialServer);
   const [remoteUsers, setRemoteUsers] = useState([]); // people met through the server
   const apiRef = useRef(null);
   const lastSync = useRef(null);
@@ -119,7 +134,7 @@ export default function useChat(lang = "en") {
     });
     lastSync.current = data.now;
     setServer((sv) => (sv ? { ...sv, me, status: "online" } : sv));
-    saveServerConfig({ url: client.base, token: server?.token, me });
+    if (client.base !== SUPABASE_SERVER) saveServerConfig({ url: client.base, token: server?.token, me });
   }, [absorbUsers, server?.token]);
 
   /** One live event from the server. */
@@ -147,7 +162,7 @@ export default function useChat(lang = "en") {
   // Connect when we have a token; reconnects re-sync from where we left off.
   useEffect(() => {
     if (!server || !server.token) { apiRef.current = null; return undefined; }
-    const client = createApi(server);
+    const client = server.kind === SUPABASE_SERVER ? createSupabaseApi({ me: server.token }) : createApi(server);
     apiRef.current = client;
     let closed = false;
     setServer((sv) => ({ ...sv, status: "connecting" }));
@@ -691,7 +706,7 @@ export default function useChat(lang = "en") {
     folder: state.folder,
     me: state.me,
     customUsers: state.customUsers,
-    directory: DIRECTORY,
+    directory: DEMO_WORLD ? DIRECTORY : [],
     seenStories: state.seenStories,
     buddy: state.buddy,
     blocked: state.blocked,

@@ -271,9 +271,17 @@ export default function SettingsScreen({ store, name, isRtl, t, onGoProfile, onT
           right={isRtl ? "فارسی" : "English"} onClick={onToggleLanguage} />
         <ToggleRow icon={well(Moon)} label={t.nightMode} sub={t.nightModeSub}
           on={theme === "dark"} onChange={(on) => setTheme(on ? "dark" : "light")} />
-        <Row isRtl={isRtl} chevron icon={well(Server, status === "online" ? "inv" : "sunk")} title={t.serverRow}
-          subtitle={serverLine(store.server, t)} right={<StatusDot status={status} />}
-          onClick={() => setSheet("server")} />
+        {store.server?.kind === "supabase" ? (
+          // With accounts the messenger is the account: nothing to set up, only its state to show.
+          <Row isRtl={isRtl} icon={well(Server, status === "online" ? "inv" : "sunk")} title={t.accountRow}
+            subtitle={status === "online" ? t.accountSubOnline(store.server.me?.username || me.username)
+              : status === "error" ? t.serverSubError : t.serverSubConnecting}
+            right={<StatusDot status={status} />} />
+        ) : (
+          <Row isRtl={isRtl} chevron icon={well(Server, status === "online" ? "inv" : "sunk")} title={t.serverRow}
+            subtitle={serverLine(store.server, t)} right={<StatusDot status={status} />}
+            onClick={() => setSheet("server")} />
+        )}
       </List>
 
       {/* Premium block */}

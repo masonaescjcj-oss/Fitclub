@@ -89,7 +89,8 @@ export function Avatar({ chat, user, size = 48, ring, showStatus = true, classNa
       </span>
     );
   } else {
-    body = <KitAvatar name={name || source?.name || ""} size={size} tone={self ? "bg-sand" : toneOf(toneKey)} />;
+    body = <KitAvatar name={name || source?.name || ""} size={size} tone={self ? "bg-sand" : toneOf(toneKey)}
+      src={self ? loadSession().avatarUrl : user?.photo} />;
   }
 
   return (

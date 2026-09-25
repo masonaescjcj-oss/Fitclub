@@ -3,7 +3,7 @@ import { flushSync } from "react-dom";
 import { motion } from "framer-motion";
 import { Archive, Loader2, MessageCircle, MoreHorizontal, PenSquare, Pin, Search, VolumeX, X } from "lucide-react";
 import { ME, lastMessage, previewOf, relativeTime } from "../../lib/chat/chatModel";
-import { STORIES, findUser } from "../../lib/chat/chatStore";
+import { DEMO_WORLD, STORIES_SHOWN, findUser } from "../../lib/chat/chatStore";
 import { globalSearch } from "../../lib/chat/search";
 import { Empty, IconButton, Label, cx, num } from "../ui/kit";
 import { Avatar, NameBadges, Ticks, senderName } from "./ChatBits";
@@ -288,7 +288,7 @@ export default function ChatList({ store, isRtl, t, onOpen, onOpenAt, onMenu, on
   const stories = useMemo(() => {
     const seen = new Set(store.seenStories || []);
     // Unseen first, the way Telegram orders the rail.
-    return [...STORIES].sort((a, b) => Number(seen.has(a.id)) - Number(seen.has(b.id)));
+    return [...STORIES_SHOWN].sort((a, b) => Number(seen.has(a.id)) - Number(seen.has(b.id)));
   }, [store.seenStories]);
 
   const status = store.server?.status;
@@ -470,7 +470,7 @@ export default function ChatList({ store, isRtl, t, onOpen, onOpenAt, onMenu, on
               ))}
             </ul>
           )}
-          <p className="m-0 px-6 pt-5 text-center text-[12px] leading-relaxed text-muted">{t.simulatedNote}</p>
+          {DEMO_WORLD && <p className="m-0 px-6 pt-5 text-center text-[12px] leading-relaxed text-muted">{t.simulatedNote}</p>}
         </div>
       )}
     </div>
