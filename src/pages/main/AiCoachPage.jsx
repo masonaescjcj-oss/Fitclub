@@ -24,6 +24,10 @@ const timeOf = (iso, isRtl) =>
 // bottom inset, and the pinned top bar starts right under the top one.
 const DOCK_BOTTOM = "max(env(safe-area-inset-bottom), 12px)";
 const BAR_TOP = "calc(env(safe-area-inset-top) + 6px)";
+// A round glass button: the conversation shows through it, blurred, with the
+// canvas tint keeping the icon legible over any bubble.
+const GLASS = "pointer-events-auto w-11 h-11 rounded-full flex items-center justify-center border-0 p-0 cursor-pointer "
+  + "bg-canvas/40 backdrop-blur-xl backdrop-saturate-150 ring-1 ring-inset ring-ink/10 shadow-lift text-ink transition-transform active:scale-95";
 
 /* ──────────────────────────── tiny markdown ──────────────────────────── */
 
@@ -387,34 +391,38 @@ export default function AiCoachPage({ isRtl, onClose }) {
 
   return (
     <Screen isRtl={isRtl} tabbed style={{ paddingTop: 0, ...(dockH ? { paddingBottom: dockH + 24 } : {}) }}>
-      {/* The pinned bar, the way a native full-screen view keeps its way out
-          in sight: close where back lives, the coach in the middle, settings
-          at the far end. The conversation fades out under it. */}
-      <header className="sticky top-0 z-30 -mx-5 px-5 pb-2 bg-canvas" style={{ paddingTop: BAR_TOP }}>
-        <div className="h-12 grid grid-cols-[auto_1fr_auto] items-center gap-3">
+      {/* Full screen: only the two ways out float, as glass with nothing
+          behind them. The coach's name sits at the top of the page between
+          them and scrolls away with the conversation. */}
+      <div dir={isRtl ? "rtl" : "ltr"} className="fixed inset-x-0 top-0 z-40 pointer-events-none" style={{ paddingTop: BAR_TOP }}>
+        <div className="w-full md:max-w-lg mx-auto px-5 h-12 flex items-center justify-between">
           {onClose ? (
-            <IconButton label={t.close} tone="card" onClick={onClose}>
+            <button type="button" onClick={onClose} aria-label={t.close} title={t.close} className={GLASS}>
               <X className="w-5 h-5" strokeWidth={2.2} />
-            </IconButton>
-          ) : <span className="w-11" aria-hidden="true" />}
-          <div className="min-w-0 justify-self-center flex items-center gap-2.5">
-            <span className="w-9 h-9 shrink-0 rounded-full bg-coach text-on-accent flex items-center justify-center ring-[3px] ring-coach/35">
-              <CoachIcon size={18} />
-            </span>
-            <div className="min-w-0 flex flex-col gap-0.5">
-              <h1 className="m-0 font-display font-extrabold text-[19px] leading-none tracking-[-0.03em] text-ink truncate">{t.title}</h1>
-              <button type="button" onClick={openSettings}
-                className="self-start max-w-full inline-flex items-center gap-1.5 p-0 bg-transparent border-0 cursor-pointer text-[12px] leading-tight text-muted text-start">
-                <span aria-hidden="true" className={cx("w-1.5 h-1.5 rounded-full shrink-0", coach.live ? "bg-coach ring-1 ring-inset ring-ink/15" : "bg-faint")} />
-                <span className="truncate">{coach.live ? t.liveSub : t.demo}</span>
-              </button>
-            </div>
-          </div>
-          <IconButton label={t.settings} onClick={openSettings}>
+            </button>
+          ) : <span />}
+          <button type="button" onClick={openSettings} aria-label={t.settings} title={t.settings} className={GLASS}>
             <SlidersHorizontal className="w-5 h-5" strokeWidth={2} />
-          </IconButton>
+          </button>
         </div>
-        <span aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-full h-5 bg-gradient-to-b from-canvas to-canvas/0" />
+      </div>
+
+      <header className="h-12 grid grid-cols-[2.75rem_1fr_2.75rem] items-center gap-3" style={{ marginTop: BAR_TOP }}>
+        <span aria-hidden="true" />
+        <div className="min-w-0 justify-self-center flex items-center gap-2.5">
+          <span className="w-9 h-9 shrink-0 rounded-full bg-coach text-on-accent flex items-center justify-center ring-[3px] ring-coach/35">
+            <CoachIcon size={18} />
+          </span>
+          <div className="min-w-0 flex flex-col gap-0.5">
+            <h1 className="m-0 font-display font-extrabold text-[19px] leading-none tracking-[-0.03em] text-ink truncate">{t.title}</h1>
+            <button type="button" onClick={openSettings}
+              className="self-start max-w-full inline-flex items-center gap-1.5 p-0 bg-transparent border-0 cursor-pointer text-[12px] leading-tight text-muted text-start">
+              <span aria-hidden="true" className={cx("w-1.5 h-1.5 rounded-full shrink-0", coach.live ? "bg-coach ring-1 ring-inset ring-ink/15" : "bg-faint")} />
+              <span className="truncate">{coach.live ? t.liveSub : t.demo}</span>
+            </button>
+          </div>
+        </div>
+        <span aria-hidden="true" />
       </header>
 
       <ContextTiles snapshot={coach.snapshot} isRtl={isRtl} t={t} onAsk={ask} />
