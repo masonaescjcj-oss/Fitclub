@@ -313,8 +313,13 @@ export default function ChecklistPage({ isRtl, onBack, onGoToStreak }) {
         <ActivityFeed list={list} isRtl={isRtl} t={t} open={feedOpen} onToggle={() => setFeedOpen((v) => !v)} />
       )}
 
-      {/* Group lists are local-only for now: say so rather than implying sync. */}
-      {isGroup && (
+      {/* A shared list says so; a group list that isn't shared (the demo's) says where its ticks live. */}
+      {isGroup && list.remote && (
+        <p className="m-0 px-1 min-h-[44px] inline-flex items-center gap-2 text-[13px] font-medium text-muted">
+          <Users className="w-4 h-4 shrink-0" strokeWidth={2} />{t.sharedLive}
+        </p>
+      )}
+      {isGroup && !list.remote && (
         <div className="px-1">
           <button type="button" onClick={() => setNoteOpen((v) => !v)} aria-expanded={noteOpen}
             className="min-h-[44px] inline-flex items-center gap-2 bg-transparent border-0 p-0 cursor-pointer text-[13px] font-medium text-muted">
