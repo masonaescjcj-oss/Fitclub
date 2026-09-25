@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { AnimatePresence } from "framer-motion";
-import { Check, Megaphone, Phone, Search, UserPlus, Users } from "lucide-react";
+import { Check, Megaphone, Search, UserPlus, Users } from "lucide-react";
 import { PEOPLE } from "../../lib/chat/chatStore";
 import { timeOf, validateUsername } from "../../lib/chat/chatModel";
 import { Button, Field, IconButton, IconWell, Label, List, Row, Screen, Sheet, cx, num } from "../ui/kit";
@@ -59,7 +59,7 @@ export function ContactSheet({ store, initial = null, isRtl, t, onSave, onClose 
 }
 
 /** Contact directory, sorted the way Telegram sorts it: online first, then last seen. */
-export default function ContactsScreen({ store, isRtl, t, onGoCalls, onNewGroup, onNewChannel }) {
+export default function ContactsScreen({ store, isRtl, t, onNewGroup, onNewChannel }) {
   const [query, setQuery] = useState("");
   const [adding, setAdding] = useState(false);
 
@@ -84,7 +84,6 @@ export default function ContactsScreen({ store, isRtl, t, onGoCalls, onNewGroup,
     { id: "group", icon: Users, label: t.newGroup, onClick: onNewGroup },
     { id: "channel", icon: Megaphone, label: t.newChannel, onClick: onNewChannel },
     { id: "invite", icon: UserPlus, label: t.inviteFriends, onClick: () => setAdding(true) },
-    { id: "calls", icon: Phone, label: t.recentCalls, onClick: onGoCalls },
   ];
 
   return (
@@ -92,9 +91,6 @@ export default function ContactsScreen({ store, isRtl, t, onGoCalls, onNewGroup,
       <header className="flex items-center justify-between gap-3">
         <h1 className="m-0 min-w-0 truncate font-display font-extrabold text-[38px] leading-[0.95] tracking-[-0.04em] text-ink">{t.contactsTitle}</h1>
         <div className="flex gap-2 shrink-0">
-          <IconButton label={t.recentCalls} tone="card" onClick={onGoCalls}>
-            <Phone className="w-5 h-5" strokeWidth={2} />
-          </IconButton>
           <IconButton label={t.addContact} tone="jet" onClick={() => setAdding(true)}>
             <UserPlus className="w-5 h-5" strokeWidth={2} />
           </IconButton>

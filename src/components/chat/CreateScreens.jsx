@@ -210,7 +210,7 @@ export function ChatTypeScreen({ kind, draft, chats, selfId = null, isRtl, t, on
       ) : (
         <>
           <InviteLinkCard link={draft.inviteLink} t={t} isRtl={isRtl} className="mt-2" hint={t.inviteLinkHint}
-            onCopy={copy} onQr={() => onToast(t.qrSoon)} onRevoke={onRevoke} />
+            onCopy={copy} onRevoke={onRevoke} />
         </>
       )}
     </StepScreen>

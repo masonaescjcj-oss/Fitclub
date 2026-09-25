@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
 import {
-  Ban, Bell, BellOff, Check, Flag, Flame, Globe, Hourglass, Lock, LogOut, MoreHorizontal, Phone, PlusCircle, Radio,
-  Search, Settings, Share2, ShieldCheck, Target, Trash2, Trophy, UserCheck, UserMinus, UserPlus, Users, VenetianMask, Video,
+  Ban, Bell, BellOff, Check, Flag, Flame, Globe, Hourglass, Lock, LogOut, MoreHorizontal,
+  Search, Settings, Share2, ShieldCheck, Target, Trash2, Trophy, UserCheck, UserMinus, UserPlus, Users, VenetianMask,
 } from "lucide-react";
 import { ME, chatLink, lastMessage, previewOf, relativeTime } from "../../lib/chat/chatModel";
 import { PEOPLE, findUser } from "../../lib/chat/chatStore";
@@ -52,16 +52,12 @@ export default function PeerProfileScreen({
 
   const actions = user
     ? [
-      { id: "call", icon: Phone, label: t.call, onClick: () => onToast(t.callsSimNote) },
-      { id: "video", icon: Video, label: t.video, onClick: () => onToast(t.callsSimNote) },
       { id: "mute", icon: chat.muted ? BellOff : Bell, label: chat.muted ? t.unmute : t.mute, onClick: () => store.toggleMuted(chat.id) },
       { id: "search", icon: Search, label: t.searchAction, onClick: onSearch },
       { id: "more", icon: MoreHorizontal, label: t.more, onClick: onMore },
     ]
     : [
-      ...(isChannel && iAdmin ? [{ id: "live", icon: Radio, label: t.liveStream, onClick: () => onToast(t.liveSoon) }] : []),
       { id: "mute", icon: chat.muted ? BellOff : Bell, label: chat.muted ? t.unmute : t.mute, onClick: () => store.toggleMuted(chat.id) },
-      ...(isChannel && iAdmin ? [{ id: "story", icon: PlusCircle, label: t.addStory, onClick: () => onToast(t.storiesSoon) }] : []),
       ...(link ? [{ id: "share", icon: Share2, label: t.shareLinkAction, onClick: copyLink }] : [{ id: "search", icon: Search, label: t.searchAction, onClick: onSearch }]),
       { id: "more", icon: MoreHorizontal, label: t.more, onClick: onMore },
     ];
@@ -163,7 +159,7 @@ export default function PeerProfileScreen({
         {!user && link && (chat.isPublic || iAdmin) && (
           <LinkCard label={chat.isPublic ? t.linkLabel : t.inviteLink} link={link} t={t} isRtl={isRtl}
             hint={chat.isPublic ? (isChannel ? t.linkHint : null) : t.inviteLinkHint}
-            onCopy={copyLink} onQr={() => onToast(t.qrSoon)}
+            onCopy={copyLink}
             onRevoke={iAdmin && !chat.isPublic ? () => { store.regenerateInviteLink(chat.id); onToast(t.linkRevoked); } : null} />
         )}
 

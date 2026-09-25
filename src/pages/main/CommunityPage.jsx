@@ -10,7 +10,6 @@ import { localized } from "../../lib/checklistModel";
 import ChatList from "../../components/chat/ChatList";
 import ChatView from "../../components/chat/ChatView";
 import ContactsScreen, { ContactSheet } from "../../components/chat/ContactsScreen";
-import CallsScreen from "../../components/chat/CallsScreen";
 import SettingsScreen from "../../components/chat/SettingsScreen";
 import ProfileScreen from "../../components/chat/ProfileScreen";
 import PeerProfileScreen from "../../components/chat/PeerProfileScreen";
@@ -383,11 +382,7 @@ export default function CommunityPage({ isRtl, onExit, joinCode = null, onJoinHa
     switch (store.screen) {
       case "contacts":
         return <ContactsScreen store={store} isRtl={isRtl} t={t}
-          onGoCalls={() => store.setScreen("calls")}
           onNewGroup={startGroup} onNewChannel={startChannel} />;
-      case "calls":
-        return <CallsScreen isRtl={isRtl} t={t}
-          onBack={() => store.setScreen("list")} onToast={setToast} />;
       case "settings":
         return <SettingsScreen store={store} name={name} isRtl={isRtl} t={t}
           onGoProfile={() => store.setScreen("profile")}
@@ -405,7 +400,6 @@ export default function CommunityPage({ isRtl, onExit, joinCode = null, onJoinHa
           onMenu={setMenuChat}
           onCompose={() => store.setScreen("contacts")}
           onOpenStory={openStory}
-          onAddStory={() => setToast(t.storiesSoon)}
           people={addablePeople(store)}
           onOpenUser={(u) => store.openOrCreatePrivateChat(u)}
           onJoin={(c) => { store.joinChat(c); setToast(t.joinedToast(isRtl ? c.titleFa || c.title : c.title)); }} />;

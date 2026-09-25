@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { motion } from "framer-motion";
-import { Archive, Loader2, MessageCircle, MoreHorizontal, PenSquare, Pin, Plus, Search, VolumeX, X } from "lucide-react";
+import { Archive, Loader2, MessageCircle, MoreHorizontal, PenSquare, Pin, Search, VolumeX, X } from "lucide-react";
 import { ME, lastMessage, previewOf, relativeTime } from "../../lib/chat/chatModel";
 import { STORIES, findUser } from "../../lib/chat/chatStore";
 import { globalSearch } from "../../lib/chat/search";
@@ -34,22 +34,16 @@ export function matchesFolder(chat, folder, unread) {
 const HEAD_TOP = "calc(env(safe-area-inset-top) + 6px)";
 const stickTop = { top: "calc(env(safe-area-inset-top) + 58px)" };
 
-/** A story bubble: an ink ring while unseen, a faint one once watched, a plus on your own. */
-function StoryBubble({ user, seen, mine, label, name, onClick }) {
+/** A story bubble: an ink ring while unseen, a faint one once watched. */
+function StoryBubble({ user, seen, label, name, onClick }) {
   return (
     <li className="w-[66px] shrink-0 flex flex-col items-center gap-1.5">
       <button type="button" onClick={onClick} aria-label={label}
         className={cx("relative w-[62px] h-[62px] rounded-full flex items-center justify-center border-0 p-0 bg-canvas cursor-pointer active:scale-95 transition-transform",
-          mine ? "" : seen ? "ring-[1.5px] ring-faint" : "ring-[2.5px] ring-ink")}>
-        <Avatar user={user} size={mine ? 62 : 54} showStatus={false} />
-        {mine && (
-          <span aria-hidden="true"
-            className="absolute bottom-0 end-0 w-[22px] h-[22px] rounded-full bg-jet text-accent ring-2 ring-canvas flex items-center justify-center">
-            <Plus className="w-3.5 h-3.5" strokeWidth={3} />
-          </span>
-        )}
+          seen ? "ring-[1.5px] ring-faint" : "ring-[2.5px] ring-ink")}>
+        <Avatar user={user} size={54} showStatus={false} />
       </button>
-      <span className={cx("max-w-full truncate text-xs leading-tight", seen || mine ? "text-muted" : "text-ink font-semibold")}>{name}</span>
+      <span className={cx("max-w-full truncate text-xs leading-tight", seen ? "text-muted" : "text-ink font-semibold")}>{name}</span>
     </li>
   );
 }
@@ -280,7 +274,7 @@ function SearchResults({ query, store, people, isRtl, t, onOpen, onOpenUser, onJ
   );
 }
 
-export default function ChatList({ store, isRtl, t, onOpen, onOpenAt, onMenu, onCompose, onOpenStory, onAddStory, onOpenUser, onJoin, people = [] }) {
+export default function ChatList({ store, isRtl, t, onOpen, onOpenAt, onMenu, onCompose, onOpenStory, onOpenUser, onJoin, people = [] }) {
   const [editing, setEditing] = useState(false);
   const [query, setQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
@@ -390,7 +384,6 @@ export default function ChatList({ store, isRtl, t, onOpen, onOpenAt, onMenu, on
         <motion.div ref={railRef} initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
           transition={{ duration: 0.22, ease: "easeOut" }} className="overflow-hidden">
           <ul aria-label={t.storiesLabel} className="m-0 px-5 pt-1.5 pb-1 list-none flex gap-2.5 overflow-x-auto scrollbar-hide">
-            <StoryBubble mine user={findUser(ME)} label={t.myStory} name={t.myStory} onClick={onAddStory} />
             {stories.map((s) => {
               const u = findUser(s.userId);
               const seen = seenIds.includes(s.id);

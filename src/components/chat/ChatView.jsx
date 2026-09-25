@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  ArrowLeft, ArrowRight, Ban, Bell, BellOff, ChevronDown, Clock, Forward, Languages, Phone, Pin, Search, Trash2, X,
+  ArrowLeft, ArrowRight, Ban, Bell, BellOff, ChevronDown, Clock, Forward, Languages, Pin, Search, Trash2, X,
 } from "lucide-react";
 import {
   ME, groupByDay, isGroupedWith, relativeTime, scheduledMessages,
@@ -155,7 +155,6 @@ export default function ChatView({ store, chat, isRtl, t, onBack, onOpenProfile,
 
   const selectionMode = selection.length > 0;
   const canProfile = chat.id !== "saved";
-  const canCall = !!peer && chat.type === "private";
   const Back = isRtl ? ArrowRight : ArrowLeft;
   const title = isRtl ? chat.titleFa || chat.title : chat.title;
   const dayLabel = (at) => (new Date(at).toDateString() === new Date().toDateString()
@@ -206,11 +205,6 @@ export default function ChatView({ store, chat, isRtl, t, onBack, onOpenProfile,
                   )}
                 </span>
               </button>
-              {canCall && (
-                <IconButton label={isRtl ? "تماس" : "Call"} onClick={() => setToast(t.callsSimNote)}>
-                  <Phone className="w-5 h-5" strokeWidth={2} />
-                </IconButton>
-              )}
               <IconButton label={t.searchMessages} onClick={() => setSearchOpen(true)}>
                 <Search className="w-5 h-5" strokeWidth={2} />
               </IconButton>

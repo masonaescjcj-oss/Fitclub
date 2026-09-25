@@ -1,18 +1,7 @@
 // Seeds and static config for the messenger's Telegram-shaped shell:
-// call history, gifts, settings rows, canned voice transcripts.
+// gifts, settings rows, canned voice transcripts.
 
 import { PEOPLE } from "./chatStore";
-
-const ago = (mins) => new Date(Date.now() - mins * 60000).toISOString();
-
-/** Seed call log. Calls need a backend, so these are display-only. */
-export const CALLS = [
-  { id: "c1", userId: "sara", type: "outgoing", at: ago(90), seconds: 340 },
-  { id: "c2", userId: "coach", type: "incoming", at: ago(300), seconds: 1240 },
-  { id: "c3", userId: "amir", type: "missed", at: ago(1500), seconds: 0 },
-  { id: "c4", userId: "lena", type: "outgoing", at: ago(2900), seconds: 65 },
-  { id: "c5", userId: "coach", type: "missed", at: ago(4400), seconds: 0 },
-];
 
 /** Gifts, Telegram-style: an emoji, a name, a star price. */
 export const GIFTS = [
