@@ -259,16 +259,21 @@ export function Chip({ active, onClick, className = "", children, onCard = false
   );
 }
 
-/** A two-to-four way segmented control on a soft track. */
-export function Segmented({ options, value, onChange, className = "", onCard = false }) {
+/**
+ * A two-to-four way segmented control. On paper it is a white track with an
+ * ink pill; `onCard` puts a white pill on a soft track inside a card; `line`
+ * puts a white pill on a line-coloured track on paper.
+ */
+export function Segmented({ options, value, onChange, className = "", onCard = false, line = false }) {
+  const pill = onCard || line;
   return (
-    <div role="tablist" className={cx("flex p-1 rounded-full", onCard ? "bg-sunk" : "bg-card", className)}>
+    <div role="tablist" className={cx("flex p-1 rounded-full", line ? "bg-line" : onCard ? "bg-sunk" : "bg-card", className)}>
       {options.map((o) => {
         const on = o.id === value;
         return (
           <button key={o.id} type="button" role="tab" aria-selected={on} onClick={() => onChange(o.id)}
             className={cx("flex-1 h-9 rounded-full text-sm border-0 cursor-pointer transition-colors whitespace-nowrap px-2",
-              on ? (onCard ? "bg-card shadow-lift font-semibold text-ink" : "bg-inv text-on-inv font-semibold") : "bg-transparent text-muted font-medium")}>
+              on ? (pill ? "bg-card shadow-lift font-semibold text-ink" : "bg-inv text-on-inv font-semibold") : "bg-transparent text-muted font-medium")}>
             {o.label}
           </button>
         );
@@ -429,19 +434,21 @@ export const Field = React.forwardRef(function Field({ label, hint, error, prefi
 /* ─────────────────────────────── overlays ─────────────────────────────── */
 
 /**
- * A bottom sheet. Render it conditionally (or pass `open`); Escape and the
- * scrim close it. `footer` sits pinned under the scrolling body.
+ * A bottom sheet. Escape and the scrim close it; `footer` sits pinned under
+ * the scrolling body. Pass `open` and the sheet animates in and out itself.
+ * Render it conditionally instead and it animates out only when the caller
+ * wraps it in its own <AnimatePresence>.
  */
-export function Sheet({ open = true, title, eyebrow, onClose, isRtl, footer, children, closeLabel, tall = false }) {
+export function Sheet({ open, title, eyebrow, onClose, isRtl, footer, children, closeLabel, tall = false }) {
+  const managed = open !== undefined;
+  const shown = managed ? open : true;
   useEffect(() => {
-    if (!open) return undefined;
+    if (!shown) return undefined;
     const onKey = (e) => { if (e.key === "Escape") onClose?.(); };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
-  return (
-    <AnimatePresence>
-      {open && (
+  }, [shown, onClose]);
+  const body = shown && (
         <div dir={isRtl ? "rtl" : "ltr"} className="ui fixed inset-0 z-[70] flex items-end justify-center !bg-transparent">
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             onClick={onClose} className="absolute inset-0 bg-hero/45 backdrop-blur-[2px]" />
@@ -464,9 +471,8 @@ export function Sheet({ open = true, title, eyebrow, onClose, isRtl, footer, chi
             {footer && <div className="px-5 pt-3 pb-[max(env(safe-area-inset-bottom),20px)] flex gap-2.5 shrink-0">{footer}</div>}
           </motion.div>
         </div>
-      )}
-    </AnimatePresence>
   );
+  return managed ? <AnimatePresence>{body}</AnimatePresence> : body || null;
 }
 
 /** A quiet empty state: icon, a line, an optional action. */
