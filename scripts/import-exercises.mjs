@@ -47,6 +47,7 @@
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, openSync, readFileSync, readSync, closeSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep as pathSep } from "node:path";
+import { fileURLToPath } from "node:url";
 
 // The app's .js files carry no "type" in package.json; keep Node's notice about that out of the report.
 const emitWarning = process.emitWarning;
@@ -55,7 +56,7 @@ process.emitWarning = function quiet(warning, ...rest) {
   if (code === "MODULE_TYPELESS_PACKAGE_JSON") return undefined;
   return emitWarning.call(this, warning, ...rest);
 };
-const { LIFTMANUAL_URL, normalizeExercise, slugify } = await import(new URL("../src/lib/training/liftmanual.js", import.meta.url));
+const { LIFTMANUAL_URL, canonicalRow, normalizeExercise, slugify } = await import(new URL("../src/lib/training/liftmanual.js", import.meta.url));
 process.emitWarning = emitWarning;
 
 /* ───────────────────────────── arguments ───────────────────────────── */
@@ -83,7 +84,11 @@ export function parseArgs(argv) {
 
 /* ───────────────────────────── reading ───────────────────────────── */
 
-/** RFC 4180 CSV (quotes, "" escapes, new lines inside quotes, CRLF); the delimiter is sniffed from the header. */
+/**
+ * RFC 4180 CSV (quotes, "" escapes, new lines inside quotes, CRLF); the
+ * delimiter is sniffed from the header. `row` is the spreadsheet row number
+ * (the header is row 1).
+ */
 export function parseCsv(text) {
   const src = text.replace(/^﻿/, "");
   const firstLine = src.slice(0, src.search(/\r?\n|$/));
@@ -92,32 +97,32 @@ export function parseCsv(text) {
   let row = [];
   let field = "";
   let quoted = false;
-  let line = 1;
-  let rowLine = 1;
   for (let i = 0; i < src.length; i += 1) {
     const c = src[i];
     if (quoted) {
       if (c === '"' && src[i + 1] === '"') { field += '"'; i += 1; }
       else if (c === '"') quoted = false;
-      else { if (c === "\n") line += 1; field += c; }
+      else field += c;
     } else if (c === '"' && field === "") quoted = true;
     else if (c === delim) { row.push(field); field = ""; }
     else if (c === "\n" || c === "\r") {
       if (c === "\r" && src[i + 1] === "\n") i += 1;
       row.push(field); field = "";
-      if (row.some((f) => f.trim())) rows.push({ cells: row, line: rowLine });
-      row = []; line += 1; rowLine = line;
+      rows.push(row);
+      row = [];
     } else field += c;
   }
   row.push(field);
-  if (row.some((f) => f.trim())) rows.push({ cells: row, line: rowLine });
-  if (!rows.length) return [];
-  const header = rows[0].cells.map((h) => h.trim());
-  return rows.slice(1).map(({ cells, line: at }) => {
+  rows.push(row);
+  const header = (rows[0] || []).map((h) => h.trim());
+  const out = [];
+  rows.slice(1).forEach((cells, i) => {
+    if (!cells.some((f) => f.trim())) return;
     const obj = {};
     header.forEach((h, k) => { if (h) obj[h] = (cells[k] ?? "").replace(/\r\n?/g, "\n").trim(); });
-    return { row: at, data: obj };
+    out.push({ row: i + 2, data: obj });
   });
+  return out;
 }
 
 /** Rows of a data file: [{row, data}], `row` being the spreadsheet row or the JSON position. */
@@ -201,7 +206,7 @@ export function buildCatalog(rows, { mediaDir = null, dataDir = process.cwd() } 
 
   for (const { row, data } of rows) {
     const res = normalizeExercise(data);
-    const name = String(data?.name ?? data?.nameEn ?? data?.Name ?? res.value?.nameEn ?? "").trim();
+    const name = String(canonicalRow(data).nameEn ?? "").trim();
     const where = { row, name, slug: res.slug };
     for (const w of res.warnings) warnings.push({ ...where, message: w });
     if (!res.ok) { for (const e of res.errors) errors.push({ ...where, message: e }); continue; }
@@ -219,7 +224,7 @@ export function buildCatalog(rows, { mediaDir = null, dataDir = process.cwd() } 
       const candidates = [mediaDir && join(mediaDir, p), mediaDir && join(mediaDir, basename(p)), join(dataDir, p)].filter(Boolean);
       const hit = candidates.find((c) => existsSync(c) && statSync(c).isFile());
       if (hit) files[kind] = { file: hit };
-      else errors.push({ ...where, message: `${kind} file not found: ${p}`, soft: true });
+      else warnings.push({ ...where, message: `${kind} file not found: ${p}` });
     }
     const found = media.get(rec.slug);
     if (found) {
@@ -240,7 +245,7 @@ export function buildCatalog(rows, { mediaDir = null, dataDir = process.cwd() } 
 }
 
 /** Final media paths and file copies for the records, relative to the catalog's media base. */
-function planMedia(records, { outDir, copy, mediaBase }) {
+function planMedia(records, { outDir, copy, mediaBase, mediaDir }) {
   const copies = [];
   const problems = [];
   for (const r of records) {
@@ -256,7 +261,7 @@ function planMedia(records, { outDir, copy, mediaBase }) {
         if (!mediaBase && (rel.startsWith("..") || isAbsolute(rel))) {
           problems.push(`${r.rec.slug}: ${f.file} is outside --out and there is no --media-base; the app could not load it`);
         }
-        media[kind] = toPosix(mediaBase ? relative(dirname(f.file), f.file) : rel);
+        media[kind] = toPosix(mediaBase && mediaDir ? relative(mediaDir, f.file) : rel);
       }
     }
     r.rec = { ...r.rec };
@@ -285,7 +290,7 @@ export function formatReport(r) {
     lines.push(`  ${pad("with poster")}${r.withPoster}`);
     if (!r.dryRun) lines.push(`  ${pad("media files copied")}${r.copied}`);
   }
-  const rowsWithErrors = new Set(r.errors.filter((e) => !e.soft).map((e) => e.row));
+  const rowsWithErrors = new Set(r.errors.map((e) => e.row));
   if (r.errors.length) {
     lines.push("", `Errors (${rowsWithErrors.size} row${rowsWithErrors.size === 1 ? "" : "s"} skipped)`);
     for (const e of r.errors) lines.push(`  row ${String(e.row).padEnd(5)} ${e.slug || e.name || "?"}: ${e.message}`);
@@ -334,7 +339,7 @@ export function run(argv, { log = console.log } = {}) {
   const blocked = opts.strict && built.errors.length > 0;
   const write = !opts.dryRun && !blocked;
   const outDir = opts.out ? resolve(opts.out) : write ? mkdtempSync(join(tmpdir(), "fitclub-exercises-")) : null;
-  const { copies, problems } = planMedia(built.records, { outDir: outDir || process.cwd(), copy: opts.copy, mediaBase: opts.mediaBase });
+  const { copies, problems } = planMedia(built.records, { outDir: outDir || process.cwd(), copy: opts.copy, mediaBase: opts.mediaBase, mediaDir });
 
   const exercises = built.records.map((r) => r.rec).sort((a, b) => a.slug.localeCompare(b.slug));
   const catalog = {
@@ -384,6 +389,6 @@ export function run(argv, { log = console.log } = {}) {
   return built.errors.length ? 1 : 0;
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === resolve(new URL(import.meta.url).pathname)) {
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   process.exitCode = run(process.argv.slice(2));
 }

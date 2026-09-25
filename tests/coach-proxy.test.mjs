@@ -7,6 +7,9 @@ import Anthropic from '@anthropic-ai/sdk';
 
 const require = createRequire(import.meta.url);
 const coachApi = require('../api/coach.js');
+// The function loads the SDK's CommonJS build and checks errors by class, so
+// the fakes throw that build's classes; the browser half uses the ES build.
+const { Anthropic: Sdk } = require('@anthropic-ai/sdk');
 const { createCoachHandler, validateInput, sseFrame, LIMITS } = coachApi;
 
 const client = await import('../src/lib/coach/claudeClient.js');
@@ -135,9 +138,10 @@ async function call(handler, req) {
   const h = makeHandler(fake, { rate: { max: 1000, windowMs: 1000 } });
   const status = async (b, headers) => (await call(h, fakeReq({ body: b, headers }))).statusCode;
 
-  const many = Array.from({ length: LIMITS.maxMessages + 1 }, (_, i) => ({ role: i % 2 ? 'assistant' : 'user', content: `m${i}` }));
-  check('21 messages → 413', await status({ messages: many }) === 413);
-  check('20 messages are fine', await status({ messages: many.slice(1) }) === 200);
+  // Alternating turns that open and close with the athlete.
+  const turns = (n) => Array.from({ length: n }, (_, i) => ({ role: i % 2 && i < n - 1 ? 'assistant' : 'user', content: `m${i}` }));
+  check('21 messages → 413', await status({ messages: turns(LIMITS.maxMessages + 1) }) === 413);
+  check('20 messages are fine', await status({ messages: turns(LIMITS.maxMessages) }) === 200);
   check('over the character cap → 413', await status({ messages: [{ role: 'user', content: 'x'.repeat(LIMITS.maxChars + 1) }] }) === 413);
   check('system counts toward the cap', await status({ system: 'y'.repeat(LIMITS.maxChars), messages: [{ role: 'user', content: 'hi' }] }) === 413);
   check('declared body over the byte cap → 413', await status(body(), { 'content-length': String(LIMITS.maxBodyBytes + 1) }) === 413);
@@ -154,7 +158,7 @@ async function call(handler, req) {
   check('non-text content → 400', await status({ messages: [{ role: 'user', content: [{ type: 'image', source: { type: 'url', url: 'https://x' } }] }] }) === 400);
   check('blank content → 400', await status({ messages: [{ role: 'user', content: '   ' }] }) === 400);
   check('too many system blocks → 400', await status({ system: Array.from({ length: 5 }, () => ({ type: 'text', text: 's' })), messages: MSGS }) === 400);
-  check('none of the refused requests reached Anthropic', fake.calls.length === 3, fake.calls.length);
+  check('none of the refused requests reached Anthropic', fake.calls.length === 2, fake.calls.length);
 
   const clean = validateInput({
     system: [{ type: 'text', text: 'rules', cache_control: { type: 'ephemeral', ttl: '1h' }, extra: 1 }],
@@ -194,7 +198,7 @@ async function call(handler, req) {
 
 // ── error mapping ──
 {
-  const apiErr = (status, type) => Anthropic.APIError.generate(status, { type: 'error', error: { type, message: 'nope' } }, 'nope', new Headers());
+  const apiErr = (status, type) => Sdk.APIError.generate(status, { type: 'error', error: { type, message: 'nope' } }, 'nope', new Headers());
   const cases = [
     ['rate limited upstream', apiErr(429, 'rate_limit_error'), 429, 'rate'],
     ['bad request upstream', apiErr(400, 'invalid_request_error'), 400, 'request'],
@@ -202,7 +206,7 @@ async function call(handler, req) {
     ['permission denied is a server problem', apiErr(403, 'permission_error'), 502, 'server'],
     ['overloaded', apiErr(529, 'overloaded_error'), 502, 'server'],
     ['request too large upstream', apiErr(413, 'request_too_large'), 400, 'request'],
-    ['connection failure', new Anthropic.APIConnectionError({ message: 'socket hang up' }), 502, 'network'],
+    ['connection failure', new Sdk.APIConnectionError({ message: 'socket hang up' }), 502, 'network'],
     ['anything else', new Error('boom'), 500, 'unknown'],
   ];
   for (const [name, err, status, kind] of cases) {
@@ -220,7 +224,7 @@ async function call(handler, req) {
   check('error surfacing from finalMessage after output → error event', late.body.endsWith('event: error\ndata: {"error":"rate"}\n\n'), late.body);
 
   const cs = coachApi.classifyUpstream;
-  check('abort maps to aborted', cs(new Anthropic.APIUserAbortError()) === 'aborted' && cs(Object.assign(new Error('x'), { name: 'AbortError' })) === 'aborted');
+  check('abort maps to aborted', cs(new Sdk.APIUserAbortError()) === 'aborted' && cs(Object.assign(new Error('x'), { name: 'AbortError' })) === 'aborted');
   check('server kinds are exactly the client kinds', JSON.stringify(coachApi.ERROR_KINDS) === JSON.stringify(client.ERROR_KINDS), coachApi.ERROR_KINDS);
   for (const isRtl of [false, true]) {
     const t = useCoachT(isRtl);
@@ -238,7 +242,7 @@ async function call(handler, req) {
     yield HAPPY[0];
     yield textDelta('Let me');
     res.emit('close'); // the athlete tapped Stop
-    if (opts.signal.aborted) throw new Anthropic.APIUserAbortError();
+    if (opts.signal.aborted) throw new Sdk.APIUserAbortError();
     yield textDelta(' never sent');
   });
   const h = makeHandler(fake);
@@ -359,18 +363,18 @@ check('errors were logged with their kind', logs.some((l) => l.includes('upstrea
   const h2 = createCoachHandler({ anthropic: () => upstream, verifyUser, log });
   server.removeAllListeners('request');
   server.on('request', (req, res) => { h2(req, res); });
-  upstream = fakeAnthropic(async function* () { yield HAPPY[0]; yield textDelta('Par'); throw new Anthropic.APIConnectionError({ message: 'reset' }); });
+  upstream = fakeAnthropic(async function* () { yield HAPPY[0]; yield textDelta('Par'); throw new Sdk.APIConnectionError({ message: 'reset' }); });
   const partial = [];
   check('client: mid-stream error event → its kind', await kindOf(client.streamViaProxy({ system: SYSTEM, messages: MSGS, token: TOKEN, fetchImpl, onText: (_d, full) => partial.push(full) })) === 'network');
   check('client: text before a mid-stream error was still delivered', partial.join() === 'Par', partial);
-  upstream = fakeAnthropic(async function* () { throw Anthropic.APIError.generate(529, { type: 'error', error: { type: 'overloaded_error', message: 'x' } }, 'x', new Headers()); });
+  upstream = fakeAnthropic(async function* () { throw Sdk.APIError.generate(529, { type: 'error', error: { type: 'overloaded_error', message: 'x' } }, 'x', new Headers()); });
   check('client: JSON error before the stream → its kind', await kindOf(client.streamViaProxy({ system: SYSTEM, messages: MSGS, token: TOKEN, fetchImpl })) === 'server');
 
   const ctrl = new AbortController();
   upstream = fakeAnthropic(async function* (opts) {
     yield HAPPY[0]; yield textDelta('Hold on');
     await new Promise((r) => { if (opts.signal.aborted) r(); else opts.signal.addEventListener('abort', r); });
-    throw new Anthropic.APIUserAbortError();
+    throw new Sdk.APIUserAbortError();
   });
   const stopped = await kindOf(client.streamViaProxy({ system: SYSTEM, messages: MSGS, token: TOKEN, fetchImpl, signal: ctrl.signal, onText: () => ctrl.abort() }));
   check('client: Stop mid-reply → aborted', stopped === 'aborted', stopped);
