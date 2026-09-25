@@ -33,7 +33,7 @@ function ContextStrip({ mode, message, chat, isRtl, t, onCancel }) {
         <span className="text-[13px] font-bold truncate" style={tone ? { color: tone } : undefined}>
           {edit ? t.editingMessage : senderName(message.senderId, isRtl)}
         </span>
-        <span className="text-[13px] text-muted truncate">{message.text || t.photo}</span>
+        <span dir="auto" className="text-[13px] text-muted truncate text-start">{message.text || t.photo}</span>
       </span>
       <IconButton label={t.cancel} tone="soft" size={36} onClick={onCancel}>
         <X className="w-4 h-4" strokeWidth={2.2} />

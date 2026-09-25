@@ -166,7 +166,7 @@ export default function ChatView({ store, chat, isRtl, t, onBack, onOpenProfile,
     <div dir={isRtl ? "rtl" : "ltr"} className="ui tg-wallpaper w-full min-h-[100dvh] flex flex-col text-ink">
       {/* Navigation bar */}
       <header className="sticky top-0 z-30 bg-canvas/85 backdrop-blur-xl border-b border-line/70 pt-[max(env(safe-area-inset-top),10px)]">
-        <div className="flex items-center gap-2.5 px-4 pt-1 pb-2.5 min-h-[58px]">
+        <div className="flex items-center gap-2 px-4 pt-1 pb-2.5 min-h-[58px]">
           {selectionMode ? (
             <>
               <IconButton label={t.cancel} onClick={() => setSelection([])}><X className="w-5 h-5" strokeWidth={2} /></IconButton>
@@ -192,8 +192,8 @@ export default function ChatView({ store, chat, isRtl, t, onBack, onOpenProfile,
             <>
               <IconButton label={t.backToApp} onClick={onBack}><Back className="w-5 h-5" strokeWidth={2} /></IconButton>
               <button type="button" onClick={canProfile ? onOpenProfile : undefined} aria-label={t.infoLabel}
-                className="flex-1 min-w-0 flex items-center gap-2.5 text-start bg-transparent border-0 p-0 cursor-pointer">
-                <Avatar chat={chat} user={peer} size={42} showStatus={false} />
+                className="flex-1 min-w-0 flex items-center gap-2.5 ps-0.5 text-start bg-transparent border-0 p-0 cursor-pointer">
+                <Avatar chat={chat} user={peer} size={40} showStatus={false} />
                 <span className="min-w-0 flex flex-col gap-0.5">
                   <span className="flex items-center gap-1 min-w-0">
                     <span className="text-[17px] font-bold leading-tight truncate">{title}</span>
@@ -227,7 +227,7 @@ export default function ChatView({ store, chat, isRtl, t, onBack, onOpenProfile,
                   <span aria-hidden="true" className="w-[3px] self-stretch rounded-full bg-inv shrink-0" />
                   <span className="min-w-0 flex flex-col">
                     <span className="text-[12px] font-bold">{t.pinnedMessage}</span>
-                    <span className="text-[13px] text-muted truncate">{pinned.text || t.photo}</span>
+                    <span dir="auto" className="text-[13px] text-muted truncate text-start">{pinned.text || t.photo}</span>
                   </span>
                 </button>
                 <IconButton label={t.unpinMessage} tone="ghost" onClick={() => store.pinMessage(chat.id, pinned.id)} className="!text-muted">

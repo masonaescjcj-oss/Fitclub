@@ -264,10 +264,10 @@ export function Chip({ active, onClick, className = "", children, onCard = false
  * ink pill; `onCard` puts a white pill on a soft track inside a card; `line`
  * puts a white pill on a line-coloured track on paper.
  */
-export function Segmented({ options, value, onChange, className = "", onCard = false, line = false }) {
+export function Segmented({ options, value, onChange, className = "", onCard = false, line = false, label }) {
   const pill = onCard || line;
   return (
-    <div role="tablist" className={cx("flex p-1 rounded-full", line ? "bg-line" : onCard ? "bg-sunk" : "bg-card", className)}>
+    <div role="tablist" aria-label={label} className={cx("flex p-1 rounded-full", line ? "bg-line" : onCard ? "bg-sunk" : "bg-card", className)}>
       {options.map((o) => {
         const on = o.id === value;
         return (
@@ -487,13 +487,13 @@ export function Empty({ icon, title, body, action }) {
   );
 }
 
-/** A floating toast above the tab bar. */
-export function Toast({ children }) {
+/** A floating toast above the tab bar. `check={false}` drops the tick, for errors. */
+export function Toast({ children, check = true }) {
   return (
     <div className="fixed bottom-28 inset-x-0 flex justify-center z-[95] pointer-events-none">
       <motion.span initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
         className="ui !bg-inv !text-on-inv px-4 h-10 rounded-full inline-flex items-center gap-2 text-sm font-semibold shadow-bar">
-        <CheckIcon className="w-4 h-4 text-accent" strokeWidth={2.6} />{children}
+        {check && <CheckIcon className="w-4 h-4 text-accent" strokeWidth={2.6} />}{children}
       </motion.span>
     </div>
   );

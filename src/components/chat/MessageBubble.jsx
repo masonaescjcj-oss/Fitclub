@@ -53,7 +53,7 @@ function ReplyQuote({ message, chat, out, isRtl, t, onJump }) {
         <span className="text-[12px] font-bold truncate" style={tone ? { color: tone } : undefined}>
           {senderName(message.senderId, isRtl)}
         </span>
-        <span className={cx("text-[13px] truncate", out ? "text-on-inv/70" : "text-muted")}>
+        <span dir="auto" className={cx("text-[13px] truncate text-start", out ? "text-on-inv/70" : "text-muted")}>
           {message.deleted ? t.deletedMessage : message.text || t.photo}
         </span>
       </span>
@@ -208,16 +208,18 @@ export default function MessageBubble({
     : cx(grouped && "rounded-ss-[10px]", tail ? "rounded-es-[6px]" : "rounded-es-[10px]");
 
   const meta = (
-    <span className={cx("flex items-center justify-end gap-1 mt-0.5 -mb-0.5 text-[11px] tabular-nums", soft)} dir="ltr">
-      {message.pinned && <Pin className="w-3 h-3" strokeWidth={2} />}
-      {isChannel && message.views > 0 && (
-        <span className="inline-flex items-center gap-0.5">
-          <Eye className="w-3.5 h-3.5" strokeWidth={2} /> {num(message.views.toLocaleString("en-US"), isRtl)}
-        </span>
-      )}
-      {message.editedAt && <span>{t.edited}</span>}
-      <span>{clockOf(message.at, isRtl)}</span>
-      <Ticks message={message} className={out ? "text-on-inv" : "text-ink"} />
+    <span className={cx("flex justify-end mt-0.5 -mb-0.5 text-[11px] tabular-nums", soft)}>
+      <span className="inline-flex items-center gap-1" dir="ltr">
+        {message.pinned && <Pin className="w-3 h-3" strokeWidth={2} />}
+        {isChannel && message.views > 0 && (
+          <span className="inline-flex items-center gap-0.5">
+            <Eye className="w-3.5 h-3.5" strokeWidth={2} /> {num(message.views.toLocaleString("en-US"), isRtl)}
+          </span>
+        )}
+        {message.editedAt && <span dir="auto">{t.edited}</span>}
+        <span>{clockOf(message.at, isRtl)}</span>
+        <Ticks message={message} className={out ? "text-on-inv" : "text-ink"} />
+      </span>
     </span>
   );
 
