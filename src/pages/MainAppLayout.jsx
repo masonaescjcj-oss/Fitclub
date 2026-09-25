@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import MainAppHeader from "../components/MainAppHeader";
-import { ChecklistProvider, useChecklistStore } from "../lib/checklistContext";
+import { ChecklistProvider } from "../lib/checklistContext";
 import { NutritionProvider } from "../lib/nutrition/nutritionContext";
 import { ChatProvider, useChatStore } from "../lib/chat/chatContext";
 import { TrainingProvider, useTrainingStore } from "../lib/training/trainingContext";
@@ -12,11 +11,11 @@ import { clearShareFromLocation, readShareFromLocation } from "../lib/training/p
 import { clearJoinFromLocation, readJoinFromLocation } from "../lib/chat/search";
 import { ImportSheet } from "../components/training/TrainingSheets";
 import { applyMealPlan } from "./main/WorkoutPage";
-import { loadSession } from "../lib/session";
-import { overallStreak } from "../lib/checklistModel";
 import BottomNavBar from "../components/BottomNavBar";
+import { Toast } from "../components/ui/kit";
 
 // Main 5 Pages
+import TodayPage from "./main/TodayPage";
 import WorkoutPage from "./main/WorkoutPage";
 import DietPage from "./main/DietPage";
 import AiCoachPage from "./main/AiCoachPage";
@@ -57,7 +56,7 @@ export default function MainAppLayout({ onNavigate }) {
 }
 
 function MainAppShell({ onNavigate }) {
-  const [activeTab, setActiveTab] = useState("fitness");
+  const [activeTab, setActiveTab] = useState("today");
   const [subPage, setSubPage] = useState(null);
   // A plan shared by link lands here; the sheet decides whether it is a
   // program or a nutrition plan and hands it to the right store.
@@ -80,20 +79,14 @@ function MainAppShell({ onNavigate }) {
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
-  useEffect(() => { if (joinCode) { clearJoinFromLocation(); setSubPage(null); setActiveTab("chat"); } }, [joinCode]);
+  useEffect(() => { if (joinCode) { clearJoinFromLocation(); setSubPage(null); setActiveTab("club"); } }, [joinCode]);
   useEffect(() => { if (!flash) return undefined; const id = setTimeout(() => setFlash(""), 1800); return () => clearTimeout(id); }, [flash]);
 
-  const { lists } = useChecklistStore();
-  // An open conversation takes the whole screen, the way a messenger does:
-  // the app header and tab bar step aside so the composer isn't buried.
-  const onChatTab = activeTab === "chat" && !subPage;
-  // The messenger draws its own navigation, header and tab bar alike, so
-  // FitClub's step aside on the whole tab; its Back button is the way out.
-  const hideHeader = onChatTab;
-  const immersive = onChatTab;
-  const userName = loadSession().name || "Isaac";
-  // The header badge now reflects the real longest run across the athlete's lists.
-  const streak = overallStreak(lists);
+  // The messenger keeps its Telegram look and draws its own navigation,
+  // header and tab bar alike, so FitClub's tab bar steps aside on the whole
+  // Club tab; its Back button is the way out.
+  const immersive = activeTab === "club" && !subPage;
+  const alerts = chat.unreadMentionTotal + chat.notifications.filter((n) => n.unread && n.kind === "system").length;
 
   const language = localStorage.getItem("language") || "en";
   const isRtl = language === "fa";
@@ -111,23 +104,8 @@ function MainAppShell({ onNavigate }) {
   return (
     <div
       dir={isRtl ? "rtl" : "ltr"}
-      className="w-full md:max-w-lg mx-auto min-h-[100dvh] bg-black text-white flex flex-col justify-between overflow-x-hidden relative font-sans select-none"
+      className="w-full md:max-w-lg mx-auto min-h-[100dvh] bg-canvas text-white flex flex-col justify-between overflow-x-hidden relative font-sans select-none"
     >
-      {/* Top Header (Shown unless on sub-pages or Active Workout) */}
-      {!subPage && !hideHeader && (
-        <MainAppHeader
-          userName={userName}
-          streak={streak}
-          coins={450}
-          onProfileClick={() => setSubPage("profile")}
-          onNotificationClick={() => setSubPage("notifications")}
-          onWalletClick={() => setSubPage("wallet")}
-          onStreakClick={() => setSubPage("streakDetail")}
-          alerts={chat.unreadMentionTotal + chat.notifications.filter((n) => n.unread && n.kind === "system").length}
-          isRtl={isRtl}
-        />
-      )}
-
       {/* Main & Sub-View Page Container */}
       <AnimatePresence mode="wait">
         <motion.div
@@ -146,23 +124,24 @@ function MainAppShell({ onNavigate }) {
           {subPage === "history" && <HistoryPage onBack={() => setSubPage(null)} isRtl={isRtl} />}
           {subPage === "tutorials" && <TutorialsPage onBack={() => setSubPage(null)} isRtl={isRtl} />}
           {subPage === "notifications" && <NotificationsPage onBack={() => setSubPage(null)} isRtl={isRtl}
-            onOpenChat={(chatId, messageId) => { setOpenTarget({ chatId, messageId }); setSubPage(null); setActiveTab("chat"); }} />}
+            onOpenChat={(chatId, messageId) => { setOpenTarget({ chatId, messageId }); setSubPage(null); setActiveTab("club"); }} />}
           {subPage === "workoutReport" && <WorkoutReportPage onBack={() => setSubPage(null)} isRtl={isRtl} />}
           {subPage === "team" && <TeamPage onBack={() => setSubPage(null)} isRtl={isRtl} />}
           {subPage === "wallet" && <WalletPage onBack={() => setSubPage(null)} isRtl={isRtl} />}
           {subPage === "subscription" && <SubscriptionPage onBack={() => setSubPage(null)} isRtl={isRtl} />}
           {subPage === "recipeExplore" && <RecipeExplorePage onBack={() => setSubPage(null)} isRtl={isRtl} />}
           {subPage === "dietGuide" && <DietGuidePage onBack={() => setSubPage(null)} isRtl={isRtl} />}
+          {subPage === "checklist" && <ChecklistPage isRtl={isRtl} onBack={() => setSubPage(null)} onGoToStreak={() => setSubPage("streakDetail")} />}
 
           {/* Main 5 Tabs */}
           {!subPage && (
             <>
-              {activeTab === "fitness" && <WorkoutPage isRtl={isRtl} />}
-              {activeTab === "diet" && <DietPage isRtl={isRtl} onGoToRecipe={() => setSubPage("recipeExplore")} onGoToGuide={() => setSubPage("dietGuide")} />}
-              {activeTab === "aiCoach" && <AiCoachPage isRtl={isRtl} />}
-              {activeTab === "chat" && <CommunityPage isRtl={isRtl} onExit={() => setActiveTab("fitness")} joinCode={joinCode} onJoinHandled={() => setJoinCode(null)}
+              {activeTab === "today" && <TodayPage isRtl={isRtl} alerts={alerts} onOpen={handleSubNavigate} onTab={setActiveTab} />}
+              {activeTab === "train" && <WorkoutPage isRtl={isRtl} onOpen={handleSubNavigate} />}
+              {activeTab === "fuel" && <DietPage isRtl={isRtl} onGoToRecipe={() => setSubPage("recipeExplore")} onGoToGuide={() => setSubPage("dietGuide")} />}
+              {activeTab === "coach" && <AiCoachPage isRtl={isRtl} />}
+              {activeTab === "club" && <CommunityPage isRtl={isRtl} onExit={() => setActiveTab("today")} joinCode={joinCode} onJoinHandled={() => setJoinCode(null)}
                 openTarget={openTarget} onOpenHandled={() => setOpenTarget(null)} />}
-              {activeTab === "checklist" && <ChecklistPage isRtl={isRtl} onGoToStreak={() => setSubPage("streakDetail")} />}
             </>
           )}
         </motion.div>
@@ -177,21 +156,18 @@ function MainAppShell({ onNavigate }) {
             setActiveTab(tab);
           }}
           isRtl={isRtl}
+          clubDot={chat.unreadTotal > 0}
         />
       )}
 
       {/* A shared plan opened from a link */}
       {shareCode && (
         <ImportSheet initialCode={shareCode} isRtl={isRtl} t={tt}
-          onImportProgram={(compact) => { const p = training.importProgram(compact); training.setActiveProgram(p.id); setActiveTab("fitness"); setSubPage(null); setShareCode(null); setFlash(tt.importedOk); }}
-          onApplyMeal={(meal) => { applyMealPlan(nutrition, meal); setActiveTab("diet"); setSubPage(null); setShareCode(null); setFlash(tt.appliedOk); }}
+          onImportProgram={(compact) => { const p = training.importProgram(compact); training.setActiveProgram(p.id); setActiveTab("train"); setSubPage(null); setShareCode(null); setFlash(tt.importedOk); }}
+          onApplyMeal={(meal) => { applyMealPlan(nutrition, meal); setActiveTab("fuel"); setSubPage(null); setShareCode(null); setFlash(tt.appliedOk); }}
           onClose={() => setShareCode(null)} />
       )}
-      {flash && (
-        <div className="fixed bottom-24 inset-x-0 flex justify-center z-[95] pointer-events-none">
-          <span className="px-4 py-2 rounded-full bg-emerald-500/20 border border-emerald-500/40 backdrop-blur text-xs font-black text-emerald-200">✓ {flash}</span>
-        </div>
-      )}
+      {flash && <Toast>{flash}</Toast>}
     </div>
   );
 }

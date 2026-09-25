@@ -4,7 +4,8 @@
 
 @layer base {
   body {
-    @apply bg-[#09090b] text-white font-sans antialiased overflow-hidden;
+    @apply text-white font-sans antialiased overflow-hidden;
+    background-color: rgb(var(--ui-bg));
     -webkit-tap-highlight-color: transparent;
   }
 }
@@ -57,9 +58,74 @@
   --tg-action-fg: #ffffff;
 }
 [data-theme="light"] body {
-  background: #f2f2f7;
+  background: rgb(var(--ui-bg));
   color: #0f0f12;
 }
+/*
+ * "Ink & Volt" — the redesign's tokens, as RGB channels for Tailwind's alpha
+ * modifiers (see tailwind.config.js). Paper is the default; night swaps the
+ * surfaces. --ui-accent is the athlete's pick (src/lib/accent.js).
+ */
+:root {
+  --ui-bg: 243 242 236;
+  --ui-card: 255 255 255;
+  --ui-sunk: 243 242 236;
+  --ui-line: 228 226 218;
+  --ui-hair: 238 237 230;
+  --ui-fg: 18 19 16;
+  --ui-muted: 95 97 88;
+  --ui-faint: 201 199 189;
+  --ui-inv: 18 19 16;
+  --ui-on-inv: 243 242 236;
+  --ui-hero: 18 19 16;
+  --ui-hero-2: 38 39 34;
+  --ui-hero-fg: 243 242 236;
+  --ui-hero-muted: 167 169 158;
+  --ui-accent: 212 255 63;
+  --ui-on-accent: 18 19 16;
+  --ui-coach: 205 189 255;
+  --ui-alert: 194 58 38;
+  --ui-bar: 18 19 16;
+  --ui-bar-edge: 18 19 16;
+  --ui-grape: 116 98 224;
+  --ui-ochre: 184 107 18;
+  --ui-sand: 234 220 195;
+  --ui-sage: 207 224 195;
+  --ui-mist: 201 221 242;
+}
+[data-theme="dark"] {
+  --ui-bg: 12 13 10;
+  --ui-card: 26 27 23;
+  --ui-sunk: 36 37 32;
+  --ui-line: 46 47 41;
+  --ui-hair: 38 39 34;
+  --ui-fg: 243 242 236;
+  --ui-muted: 167 169 158;
+  --ui-faint: 92 94 86;
+  --ui-inv: 243 242 236;
+  --ui-on-inv: 18 19 16;
+  --ui-hero: 26 27 23;
+  --ui-hero-2: 42 43 38;
+  --ui-alert: 255 122 99;
+  --ui-bar: 30 31 27;
+  --ui-bar-edge: 52 53 47;
+  --ui-grape: 160 146 255;
+  --ui-ochre: 240 170 80;
+}
+/* A redesigned screen: paper ground, Geist, and tabular numbers for the data. */
+.ui {
+  background-color: rgb(var(--ui-bg));
+  color: rgb(var(--ui-fg));
+  font-family: Geist, Vazirmatn, system-ui, -apple-system, sans-serif;
+  font-feature-settings: "ss01", "tnum";
+  -webkit-font-smoothing: antialiased;
+}
+.ui :focus-visible { outline: 2px solid rgb(var(--ui-fg)); outline-offset: 2px; }
+/* Letter-spacing breaks Persian joins, and Persian has no capitals. */
+[dir="rtl"] .tracking-label, .tracking-label:lang(fa) { letter-spacing: 0; }
+/* Hero cards stay ink in paper mode and lift off the night ground with a hairline. */
+[data-theme="dark"] .ui-hero { box-shadow: inset 0 0 0 1px rgb(var(--ui-line)); }
+
 /* White text inside an accent-coloured element, whatever the theme. */
 .on-accent { --fg: #ffffff; }
 

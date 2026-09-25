@@ -4,13 +4,13 @@
     <meta charset="utf-8" />
     <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
-    <meta name="theme-color" content="#f2f2f7" />
+    <meta name="theme-color" content="#F3F2EC" />
     <meta name="description" content="FitClub AI - Next Generation Fitness Experience" />
     
-    <!-- Google Fonts: Outfit & Inter -->
+    <!-- Google Fonts: the redesign (Bricolage Grotesque, Geist, Geist Mono, Vazirmatn) and the messenger (Outfit, Inter) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Outfit:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Geist:wght@400..700&family=Geist+Mono:wght@400..600&family=Vazirmatn:wght@400..800&family=Inter:wght@300;400;500;600;700;800;900&family=Outfit:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     
     <title>FitClub AI</title>
     <script>
@@ -21,6 +21,8 @@
         document.documentElement.dataset.theme = theme;
         document.documentElement.classList.toggle("dark", theme === "dark");
         document.documentElement.style.colorScheme = theme;
+        var accents = { volt: "212 255 63", lilac: "205 189 255", peach: "255 179 138", mint: "143 240 207" };
+        try { var a = accents[localStorage.getItem("fitclub.accent")]; if (a) document.documentElement.style.setProperty("--ui-accent", a); } catch (e) {}
         var fa = false;
         try { fa = localStorage.getItem("language") === "fa"; } catch (e) {}
         document.documentElement.lang = fa ? "fa" : "en";
@@ -28,7 +30,7 @@
       })();
     </script>
   </head>
-  <body class="bg-[#09090b] text-white font-sans antialiased overflow-hidden select-none">
+  <body class="font-sans antialiased overflow-hidden select-none">
     <noscript>You need to enable JavaScript to run this app.</noscript>
     <div id="root"></div>
   </body>
