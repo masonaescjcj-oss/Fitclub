@@ -100,19 +100,23 @@ function MainAppShell({ onNavigate }) {
   };
 
   const currentViewKey = subPage || activeTab;
+  // Every tab and sub-screen opens at its top, not where the last one was scrolled to.
+  useEffect(() => { window.scrollTo(0, 0); }, [currentViewKey]);
 
   return (
     <div
       dir={isRtl ? "rtl" : "ltr"}
-      className="w-full md:max-w-lg mx-auto min-h-[100dvh] bg-canvas text-white flex flex-col justify-between overflow-x-hidden relative font-sans select-none"
+      className="w-full md:max-w-lg mx-auto min-h-[100dvh] bg-canvas text-white flex flex-col justify-between overflow-x-clip relative font-sans select-none"
     >
       {/* Main & Sub-View Page Container */}
       <AnimatePresence mode="wait">
+        {/* A fade only: a transform here would become the containing block for
+            the fixed sheets and docks inside the pages. */}
         <motion.div
           key={currentViewKey}
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -6 }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
           transition={{ duration: 0.12, ease: "easeOut" }}
           className="w-full flex-grow"
         >

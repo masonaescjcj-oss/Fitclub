@@ -29,7 +29,7 @@ export default function App() {
   };
 
   return (
-    <div className="w-full h-full min-h-[100dvh] bg-canvas font-sans antialiased overflow-hidden">
+    <div className="w-full h-full min-h-[100dvh] bg-canvas font-sans antialiased overflow-x-clip">
       <AnimatePresence mode="wait">
         {currentPage === 'welcome' && (
           <WelcomePage key="welcome" onNavigate={navigate} />

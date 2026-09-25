@@ -4,7 +4,9 @@
 
 @layer base {
   body {
-    @apply text-white font-sans antialiased overflow-hidden;
+    /* Only sideways overflow is clipped: pages scroll the window, and the
+       tab bar, docks and sheets are fixed on top of it. */
+    @apply text-white font-sans antialiased overflow-x-hidden;
     background-color: rgb(var(--ui-bg));
     -webkit-tap-highlight-color: transparent;
   }

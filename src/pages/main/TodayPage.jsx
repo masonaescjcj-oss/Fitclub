@@ -138,7 +138,7 @@ export default function TodayPage({ isRtl, alerts = 0, onOpen, onTab }) {
         <div className="flex flex-col gap-1.5 min-w-0">
           <Label>{isRtl ? fmt(now, true, { weekday: "long", day: "numeric", month: "long" })
             : `${fmt(now, false, { weekday: "short" })} · ${now.getDate()} ${now.toLocaleDateString("en-US", { month: "short" })}`}</Label>
-          <h1 className="m-0 font-display font-extrabold text-[32px] leading-none tracking-[-0.035em] truncate">
+          <h1 className="m-0 font-display font-extrabold text-[32px] leading-none tracking-[-0.035em] line-clamp-2 break-words">
             {isRtl ? `${greeting(c, now.getHours())}، ${name}` : `${greeting(c, now.getHours())}, ${name}`}
           </h1>
         </div>
