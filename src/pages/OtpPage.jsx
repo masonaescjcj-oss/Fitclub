@@ -102,7 +102,7 @@ export default function OtpPage({ onNavigate, email = "dddddddd@dd.com" }) {
           lede={
             <>
               {isRtl ? "یک رمز عبور یک‌بار مصرف (OTP) به ایمیل " : "A one-time password (OTP) has been sent to your registered email "}
-              <bdi className="font-semibold text-ink break-all">{email}</bdi>
+              <bdi className="font-semibold text-ink break-words">{email}</bdi>
               {isRtl ? " ارسال شده است. " : ". "}
               <button type="button" onClick={() => onNavigate("signup")}
                 className="inline px-0 py-2 -my-2 bg-transparent border-0 cursor-pointer font-semibold text-ink underline underline-offset-[3px] decoration-1">
@@ -140,7 +140,7 @@ export default function OtpPage({ onNavigate, email = "dddddddd@dd.com" }) {
 
         <div className="min-h-[44px] flex items-center justify-between gap-3">
           {timer > 0 ? (
-            <span className="inline-flex items-center gap-2 font-mono text-[13px] text-muted">
+            <span className="inline-flex items-center gap-2 font-mono rtl:font-ui text-[13px] text-muted">
               <Clock className="w-4 h-4" strokeWidth={2} />
               {isRtl ? `ارسال مجدد کد در ${formatTimer(timer)}` : `Resend code in ${formatTimer(timer)}`}
             </span>

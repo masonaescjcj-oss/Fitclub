@@ -79,7 +79,7 @@ function MessengerAlerts({ isRtl, onOpenChat, onlyMentions }) {
                           <span className="font-bold">{titleOf(chat)}</span>
                         )}
                       </span>
-                      <span className="text-xs text-muted whitespace-nowrap" dir="ltr">{relativeTime(n.at, t)}</span>
+                      <span className="text-xs text-muted whitespace-nowrap" dir={isRtl ? undefined : "ltr"}>{num(relativeTime(n.at, t), isRtl)}</span>
                       {n.unread && <UnreadDot label={c.unread} />}
                     </span>
                     {mention ? (

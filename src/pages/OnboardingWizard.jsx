@@ -119,7 +119,7 @@ function MeasurePicker({ value, min, max, onChange, format, unit, isRtl, label, 
     <Card className="flex flex-col items-center gap-7 pt-9 pb-5">
       <div className="flex items-baseline gap-2">
         <span dir={ltrReadout ? "ltr" : undefined}
-          className="font-display font-extrabold text-[88px] leading-[0.85] tracking-[-0.05em] text-ink">{format(value)}</span>
+          className="font-display font-extrabold text-[88px] leading-[0.85] tracking-[-0.05em] rtl:tracking-normal text-ink">{format(value)}</span>
         {unit && <span className="text-xl font-bold text-muted">{unit}</span>}
       </div>
       <div className="w-full flex flex-col gap-1.5">
@@ -634,7 +634,7 @@ export default function OnboardingWizard({ onNavigate }) {
                 <div className="flex-1 min-w-0 flex flex-col gap-1">
                   <div className="flex items-baseline justify-between gap-3">
                     <span className="text-[15px] font-bold">{isRtl ? "شاخص BMI فعلی شما" : "Your current BMI"}</span>
-                    <span className="font-display font-extrabold text-[28px] leading-none tracking-[-0.03em]">{n(bmiValue)}</span>
+                    <span className="font-display font-extrabold text-[28px] leading-none tracking-[-0.03em]">{isRtl ? n(bmiValue).replace(".", "٫") : bmiValue}</span>
                   </div>
                   <p className="m-0 text-[13px] leading-snug text-muted">
                     {isRtl

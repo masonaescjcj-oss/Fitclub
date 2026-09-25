@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowDown, ArrowUp, BadgeCheck, Check, Copy, Link2, Plus, Salad, Search, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, BadgeCheck, Check, Copy, Dumbbell, Link2, Plus, Salad, Search, Trash2, X } from "lucide-react";
 import {
   Button, Card, Chip, CtaButton, Field, IconButton, IconWell, Label, List, Row, Segmented, Tag, Toggle, cx, initials, num,
 } from "../ui/kit";
@@ -64,9 +64,11 @@ export function AuthorChip({ author, t }) {
 export function ProgramMark({ name, active = true, size = 48 }) {
   return (
     <IconWell tone={active ? "inv" : "sunk"} square size={size}>
-      <span className="font-display font-extrabold tracking-[-0.02em]" style={{ fontSize: Math.round(size * 0.36) }}>
-        {initials(name || "?")}
-      </span>
+      {String(name || "").trim() ? (
+        <span className="font-display font-extrabold tracking-[-0.02em]" style={{ fontSize: Math.round(size * 0.36) }}>
+          {initials(name)}
+        </span>
+      ) : <Dumbbell style={{ width: size * 0.42, height: size * 0.42 }} strokeWidth={2} />}
     </IconWell>
   );
 }
@@ -143,9 +145,9 @@ export function ProgramBuilderSheet({ program, isRtl, t, author, onSave, onClose
           <Field className="flex-1 min-w-0" label={t.programName} autoFocus={isNew} value={p.name}
             onChange={(e) => set({ name: e.target.value })} placeholder={t.programNamePh} />
         </div>
-        <div className="grid grid-cols-[1fr_104px] gap-2.5">
-          <Field label={t.description} value={p.description} onChange={(e) => set({ description: e.target.value })} />
-          <Field label={t.weeksLabel} type="number" inputMode="numeric" min="1" max="52" value={p.weeks} inputClass="text-center"
+        <div className="grid grid-cols-[minmax(0,1fr)_112px] gap-2.5 items-end">
+          <Field className="min-w-0" label={t.description} value={p.description} onChange={(e) => set({ description: e.target.value })} />
+          <Field className="min-w-0" label={t.weeksLabel} type="number" inputMode="numeric" min="1" max="52" value={p.weeks} inputClass="text-center"
             onChange={(e) => set({ weeks: Math.max(1, Math.min(52, +e.target.value || 1)) })} />
         </div>
 
