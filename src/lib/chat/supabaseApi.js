@@ -163,6 +163,24 @@ export function createSupabaseApi({ me, client = supabase }) {
       if (error) throw toApiError(error);
       return { path };
     },
+    /** Takes photos down with their messages. Skips any this account may not remove. */
+    async removePhotos(paths) {
+      if (!paths?.length) return;
+      const { error } = await client.storage.from(CHAT_MEDIA_BUCKET).remove(paths);
+      if (error) throw toApiError(error);
+    },
+    /** Every photo in the chat's folder, cleared before the chat itself is deleted. */
+    async clearPhotos(chatId) {
+      const bucket = client.storage.from(CHAT_MEDIA_BUCKET);
+      for (;;) {
+        const { data, error } = await bucket.list(chatId, { limit: 100 });
+        if (error) throw toApiError(error);
+        if (!data?.length) return;
+        const { data: gone, error: failed } = await bucket.remove(data.map((f) => `${chatId}/${f.name}`));
+        if (failed) throw toApiError(failed);
+        if (!gone?.length) return; // what's left isn't this account's to remove
+      }
+    },
     /** A link to one of this chat's photos, good for an hour. */
     async photoUrl(path) {
       const { data, error } = await client.storage.from(CHAT_MEDIA_BUCKET).createSignedUrl(path, 3600);

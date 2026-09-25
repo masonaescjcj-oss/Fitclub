@@ -168,15 +168,12 @@ check("a fresh invite link replaces the old one", r.value.inviteLink !== oldLink
 await db.exec("grant select, insert, update, delete on storage.objects to authenticated; grant select on storage.objects to anon;");
 const bucket = (await db.query("select public, file_size_limit, allowed_mime_types from storage.buckets where id = 'fitclub-chat-media'")).rows[0];
 check("chat photos live in a private bucket, images only, 5 MB at most", bucket && bucket.public === false && Number(bucket.file_size_limit) === 5242880 && bucket.allowed_mime_types.includes("image/jpeg"), bucket);
+const photos = async (like = '%') => (await db.query(`select count(*)::int n from storage.objects where bucket_id = 'fitclub-chat-media' and name like '${like}'`)).rows[0].n;
 check("Anna adds a photo to the group", (await as(A, `insert into storage.objects (bucket_id, name) values ('fitclub-chat-media', '${g.id}/p1.jpg')`)).ok);
-check("Ben, a member, sees it", (await as(B, "select name from storage.objects where bucket_id = 'fitclub-chat-media'")).rows.length === 1);
+check("Ben, in the group, sees it", (await as(B, "select name from storage.objects where bucket_id = 'fitclub-chat-media'")).rows.length === 1);
 check("Cara, removed from the group, doesn't", (await as(C, "select name from storage.objects where bucket_id = 'fitclub-chat-media'")).rows.length === 0);
 check("Dan, outside it, can't add one", !(await as(D, `insert into storage.objects (bucket_id, name) values ('fitclub-chat-media', '${g.id}/p2.jpg')`)).ok);
 check("…nor into a made-up folder", !(await as(A, `insert into storage.objects (bucket_id, name) values ('fitclub-chat-media', 'not-a-chat/p3.jpg')`)).ok);
-const bDel = await as(B, "delete from storage.objects where bucket_id = 'fitclub-chat-media' and name like '%/p1.jpg'");
-check("Ben can't take Anna's photo down", bDel.ok && bDel.rows.length === 0 && (await db.query("select count(*)::int n from storage.objects where bucket_id = 'fitclub-chat-media'")).rows[0].n === 1);
-await as(A, "delete from storage.objects where bucket_id = 'fitclub-chat-media' and name like '%/p1.jpg'");
-check("Anna can", (await db.query("select count(*)::int n from storage.objects where bucket_id = 'fitclub-chat-media'")).rows[0].n === 0);
 
 // ── invite links and joining ──
 const peek = await rpc(D, "resolve", r.value.inviteLink);
@@ -190,6 +187,12 @@ check("joining twice changes nothing", (await rpc(D, "join", r.value.inviteLink)
 check("Dan, a member, can't delete Anna's message", (await rpc(D, "delete_message", mine.value.id)).error?.includes("not_yours"));
 const tomb = await rpc(B, "delete_message", poll.value.id);
 check("Ben, an admin, can delete it, leaving a tombstone", tomb.ok && tomb.value.deleted && tomb.value.poll === null && tomb.value.text === "");
+await as(D, `insert into storage.objects (bucket_id, name) values ('fitclub-chat-media', '${g.id}/p4.jpg')`);
+const dDel = await as(D, "delete from storage.objects where bucket_id = 'fitclub-chat-media' and name like '%/p1.jpg' returning name");
+check("Dan, a member, can't take Anna's photo down", dDel.ok && dDel.rows.length === 0 && (await photos("%/p1.jpg")) === 1);
+check("Ben, an admin, can take Dan's down, as he can his message", (await as(B, "delete from storage.objects where bucket_id = 'fitclub-chat-media' and name like '%/p4.jpg' returning name")).rows.length === 1);
+await as(D, `insert into storage.objects (bucket_id, name) values ('fitclub-chat-media', '${g.id}/p5.jpg')`);
+check("Dan takes his own down", (await as(D, "delete from storage.objects where bucket_id = 'fitclub-chat-media' and name like '%/p5.jpg' returning name")).rows.length === 1);
 
 // ── a public channel ──
 const ch = await rpc(A, "create_chat", "channel", "Squad News", "", "", "", true, "squad_news", []);
@@ -219,6 +222,10 @@ check("…from his side it's the same chat", (await rpc(B, "private_chat", A)).v
 check("nobody opens a private chat with themself", (await rpc(A, "private_chat", A)).error?.includes("self"));
 check("a private chat has no admin to rename it", (await rpc(A, "update_chat", p1.value.id, { title: "x" })).error?.includes("admins_only"));
 check("Cara can't read Anna and Ben's chat", (await rpc(C, "history", p1.value.id, null)).error?.includes("chat_not_found"));
+await as(B, `insert into storage.objects (bucket_id, name) values ('fitclub-chat-media', '${p1.value.id}/pb.jpg')`);
+check("Cara can't see or clear a private chat's photo", (await as(C, "select name from storage.objects where name like '%/pb.jpg'")).rows.length === 0
+  && (await as(C, "delete from storage.objects where name like '%/pb.jpg' returning name")).rows.length === 0);
+check("either person in a private chat can clear its photos, as either can delete it", (await as(A, "delete from storage.objects where bucket_id = 'fitclub-chat-media' and name like '%/pb.jpg' returning name")).rows.length === 1);
 
 // ── leaving and deleting ──
 const solo = (await rpc(A, "create_chat", "group", "Pair", "", "", "", false, null, ["cara_flow", "dan_moves"])).value;
@@ -230,9 +237,14 @@ await clearInbox();
 check("Anna deletes it", (await rpc(A, "delete_chat", g.id)).ok);
 check("…and everyone left in it is told", (await inbox(B)).some((e) => e.kind === "removed" && e.chat_id === g.id) && (await inbox(D)).some((e) => e.kind === "removed"));
 check("…its messages go with it", (await db.query(`select count(*)::int as n from public.fitclub_messages where chat_id = '${g.id}'`)).rows[0].n === 0);
+await as(D, `insert into storage.objects (bucket_id, name) values ('fitclub-chat-media', '${solo.id}/pd.jpg')`);
 await rpc(C, "leave_chat", solo.id);
 await rpc(D, "leave_chat", solo.id);
 check("the last one out deletes the chat", (await db.query(`select count(*)::int as n from public.fitclub_chats where id = '${solo.id}'`)).rows[0].n === 0);
+check("Dan, gone from the chat, still sees the photo he added…", (await as(D, "select name from storage.objects where name like '%/pd.jpg'")).rows.length === 1
+  && (await as(C, "select name from storage.objects where name like '%/pd.jpg'")).rows.length === 0);
+check("…and can clear it", (await as(D, "delete from storage.objects where bucket_id = 'fitclub-chat-media' and name like '%/pd.jpg' returning name")).rows.length === 1);
+check("Anna can still clear her photo from the deleted squad", (await as(A, "delete from storage.objects where bucket_id = 'fitclub-chat-media' and name like '%/p1.jpg' returning name")).rows.length === 1 && (await photos()) === 0);
 
 check("helpers inside the schema can't be called from outside", !(await as(A, `select public.fitclub_emit(array['${A}'::uuid], 'chat', null)`)).ok
   && !(await as(A, `select public.fitclub_person('${B}')`)).ok);

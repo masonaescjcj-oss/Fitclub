@@ -324,7 +324,13 @@ export default function useChat(lang = "en") {
     /** Telegram keeps a tombstone rather than removing the row outright. */
     deleteMessage: (id, forEveryone = false) => {
       const m = latest.current.messages.find((x) => x.id === id);
-      if (m?.remote && apiRef.current) { apiRef.current.remove(id).catch(() => {}); patchMessage(id, (x) => ({ ...x, deleted: true, text: "", media: null, poll: null, reactions: {} })); return; }
+      if (m?.remote && apiRef.current) {
+        const client = apiRef.current;
+        const photo = m.kind === "photo" ? m.media?.path : null;
+        client.remove(id).then(() => (photo && client.removePhotos ? client.removePhotos([photo]) : null)).catch(() => {});
+        patchMessage(id, (x) => ({ ...x, deleted: true, text: "", media: null, poll: null, reactions: {} }));
+        return;
+      }
       if (forEveryone) patchMessage(id, (x) => ({ ...x, deleted: true, text: "", media: null, poll: null, reactions: {} }));
       else setState((s) => ({ ...s, messages: s.messages.filter((x) => x.id !== id) }));
     },
@@ -697,7 +703,15 @@ export default function useChat(lang = "en") {
 
     deleteChat: (chatId) => {
       const client = remote(chatId);
-      if (client) client.deleteChat(chatId).catch(() => {});
+      const chat = latest.current.chats.find((c) => c.id === chatId);
+      if (client) {
+        (async () => {
+          // Its photos first: once the chat is gone, nobody can list its folder.
+          if (client.clearPhotos && (chat?.type === "private" || chat?.createdBy === ME)) await client.clearPhotos(chatId).catch(() => {});
+          // Someone else's group can't be deleted, only left, as Telegram's "Delete and leave".
+          await client.deleteChat(chatId).catch((e) => (e?.code === "owner_only" ? client.leave(chatId) : null));
+        })().catch(() => {});
+      }
       setState((s) => ({
         ...s,
         chats: s.chats.filter((c) => c.id !== chatId),
