@@ -54,6 +54,8 @@ declare
 begin
   if jsonb_typeof(p_report) is distinct from 'object' or btrim(msg) = '' then return false; end if;
   fp := md5(k || '|' || msg || '|' || split_part(st, E'\n', 1) || '|' || b || '|' || coalesce(me::text, 'visitor'));
+  -- Two copies of one error arriving together are counted, not both stored.
+  perform pg_advisory_xact_lock(hashtext('fitclub_error_reports:' || fp));
 
   select id into hit from public.fitclub_error_reports
   where fingerprint = fp and last_at > now() - interval '1 hour'
