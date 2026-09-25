@@ -3,7 +3,7 @@
 // signed-in person. Every function is a no-op that reports "offline" when
 // the backend isn't configured, so the demo build keeps working unchanged.
 
-import { backendOn, supabase } from "./supabase";
+import { AVATAR_BUCKET, SCHEMA, backendOn, supabase } from "./supabase";
 import { createSync, hookWrites } from "./sync";
 import { clearSession, saveSession } from "../session";
 
@@ -84,7 +84,7 @@ async function attach(user, { timeoutMs }) {
     const me = deviceId();
     channel = supabase
       .channel(`user_state:${user.id}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "user_state", filter: `user_id=eq.${user.id}` },
+      .on("postgres_changes", { event: "*", schema: SCHEMA, table: "user_state", filter: `user_id=eq.${user.id}` },
         (payload) => { if (payload.new?.device !== me) catchUp(); })
       .subscribe();
   }
@@ -103,9 +103,16 @@ function detach({ clear }) {
   window.removeEventListener("pagehide", onVisibility);
 }
 
+const PROFILE_COLUMNS = "username, name, bio, avatar_url, lang, onboarded";
+
+/** The person's FitClub profile, created on first sign-in (nothing on auth.users does it). */
 async function loadProfile(user) {
-  const { data } = await supabase.from("profiles").select("username, name, bio, avatar_url, lang, onboarded").eq("id", user.id).maybeSingle();
-  return data || { username: null, name: "", bio: "", avatar_url: null, lang: "fa", onboarded: false };
+  const { data } = await supabase.from("profiles").select(PROFILE_COLUMNS).eq("id", user.id).maybeSingle();
+  if (data) return data;
+  const { data: created } = await supabase.from("profiles")
+    .upsert({ id: user.id, name: user.user_metadata?.full_name || "" }, { onConflict: "id", ignoreDuplicates: true })
+    .select(PROFILE_COLUMNS).maybeSingle();
+  return created || { username: null, name: "", bio: "", avatar_url: null, lang: "fa", onboarded: false };
 }
 
 function mirror(user, profile) {
@@ -142,11 +149,21 @@ export const landingFor = (profile) => (!profile?.username ? "profile-setup" : p
 
 export async function signUp(email, password) {
   if (!backendOn) return offline;
-  const { data, error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: window.location.origin } });
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    // Marks the account as FitClub's in a project other apps share.
+    options: { emailRedirectTo: window.location.origin, data: { app: "fitclub" } },
+  });
   if (error) return result(error);
   // Supabase answers an existing, confirmed address with a user that has no identities.
   if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) return { error: "exists" };
-  return { error: null, needsCode: !data.session };
+  // With email confirmation off the account is ready at once: no code step.
+  if (data.session) {
+    const { profile } = await boot();
+    return { error: null, needsCode: false, profile };
+  }
+  return { error: null, needsCode: true };
 }
 
 /** The 6-digit code from the confirmation email. */
@@ -214,13 +231,13 @@ export async function saveProfile(patch) {
   const row = {};
   for (const k of ["username", "name", "bio", "avatar_url", "lang", "onboarded"]) if (patch[k] !== undefined) row[k] = patch[k];
   if (row.username) row.username = String(row.username).toLowerCase();
-  const { data: saved, error } = await supabase.from("profiles").update(row).eq("id", user.id).select().maybeSingle();
+  const { data: saved, error } = await supabase.from("profiles").upsert({ id: user.id, ...row }, { onConflict: "id" }).select(PROFILE_COLUMNS).maybeSingle();
   if (error) return { error: error.code === "23505" ? "taken" : error.code === "23514" ? "invalid" : "unknown" };
   mirror(user, saved || row);
   return { error: null, profile: saved };
 }
 
-/** Uploads a profile photo to avatars/<user id>/ and saves its public URL. */
+/** Uploads a profile photo to fitclub-avatars/<user id>/ and saves its public URL. */
 export async function uploadAvatar(file) {
   if (!backendOn) return offline;
   const { data } = await supabase.auth.getUser();
@@ -228,9 +245,9 @@ export async function uploadAvatar(file) {
   if (!user) return { error: "invalid" };
   const ext = (file.name?.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
   const path = `${user.id}/avatar-${Date.now()}.${ext}`;
-  const { error } = await supabase.storage.from("avatars").upload(path, file, { upsert: true, contentType: file.type || undefined });
+  const { error } = await supabase.storage.from(AVATAR_BUCKET).upload(path, file, { upsert: true, contentType: file.type || undefined });
   if (error) return { error: "unknown" };
-  const url = supabase.storage.from("avatars").getPublicUrl(path).data.publicUrl;
+  const url = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(path).data.publicUrl;
   return saveProfile({ avatar_url: url });
 }
 

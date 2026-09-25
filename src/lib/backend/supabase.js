@@ -17,9 +17,16 @@ const ANON_KEY = process.env.REACT_APP_SUPABASE_ANON_KEY || "";
 
 export const backendOn = Boolean(URL && ANON_KEY);
 
+// FitClub shares its Supabase project with other apps, so its tables live in
+// their own `fitclub` schema (supabase/migrations). Every .from() and .rpc()
+// goes there; auth and storage are the project's own.
+export const SCHEMA = "fitclub";
+export const AVATAR_BUCKET = "fitclub-avatars";
+
 export const supabase = backendOn
   ? createClient(URL, ANON_KEY, {
-      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: "pkce" },
+      db: { schema: SCHEMA },
+      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: "pkce", storageKey: "fitclub.auth" },
     })
   : null;
 

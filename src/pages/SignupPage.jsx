@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { backendOn } from "../lib/backend/supabase";
-import { providers, signInWithProvider, signUp } from "../lib/backend/account";
+import { landingFor, providers, signInWithProvider, signUp } from "../lib/backend/account";
 import { authMessage } from "../lib/backend/authMessages";
 import { Lock, Mail } from "lucide-react";
 import { CtaButton, Field } from "../components/ui/kit";
@@ -72,10 +72,11 @@ export default function SignupPage({ onNavigate }) {
     setError("");
 
     if (backendOn) {
-      signUp(email.trim(), password).then(({ error: code }) => {
+      signUp(email.trim(), password).then(({ error: code, needsCode, profile }) => {
         setIsLoading(false);
         if (code) setError(authMessage(code, isRtl));
-        else onNavigate("otp", email.trim());
+        else if (needsCode) onNavigate("otp", email.trim());
+        else onNavigate(landingFor(profile), email.trim());
       });
       return;
     }
