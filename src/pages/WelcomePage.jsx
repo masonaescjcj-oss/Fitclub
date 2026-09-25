@@ -64,7 +64,7 @@ export default function WelcomePage({ onNavigate }) {
 
   return (
     <FlowScreen isRtl={isFa} className="!bg-jet !text-hero-fg">
-      <div className="flex items-center justify-between pt-3 shrink-0">
+      <div className="flex items-center justify-between shrink-0">
         <span className="flex items-center gap-2.5" dir="ltr">
           <span className="w-9 h-9 rounded-[11px] bg-accent text-on-accent flex items-center justify-center">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2"

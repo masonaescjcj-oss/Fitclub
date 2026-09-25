@@ -22,7 +22,7 @@ export default function Header({
   const ink = tone === "ink";
 
   return (
-    <div className="relative z-10 flex items-center gap-3.5 pt-3 shrink-0">
+    <div className="relative z-10 flex items-center gap-3.5 shrink-0">
       {showBack && onBack ? (
         <IconButton label={backLabel || (isRtl ? "بازگشت" : "Back")} onClick={onBack} tone={ink ? "hero" : "card"}>
           <Back className="w-5 h-5" strokeWidth={2} />

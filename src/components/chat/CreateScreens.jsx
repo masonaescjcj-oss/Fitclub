@@ -35,7 +35,7 @@ export function StepScreen({ title, subtitle, isRtl, t, onBack, children, fab, f
       transition={{ type: "spring", stiffness: 380, damping: 40 }}
       className="ui fixed inset-0 flex flex-col md:max-w-lg md:mx-auto"
       style={{ zIndex }} dir={isRtl ? "rtl" : "ltr"}>
-      <div className="shrink-0 flex items-center gap-3 px-5 pt-[max(env(safe-area-inset-top),20px)] pb-3">
+      <div className="shrink-0 flex items-center gap-3 px-5 pt-[calc(env(safe-area-inset-top)+6px)] pb-3">
         <IconButton label={t.close} tone="card" onClick={onBack}>
           <Back className="w-5 h-5" strokeWidth={2} />
         </IconButton>

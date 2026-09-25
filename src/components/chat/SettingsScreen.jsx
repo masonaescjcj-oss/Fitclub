@@ -227,7 +227,7 @@ export default function SettingsScreen({ store, name, isRtl, t, onGoProfile, onT
   const status = store.server?.status || "offline";
 
   return (
-    <Screen isRtl={isRtl} tabbed style={{ paddingTop: "calc(env(safe-area-inset-top) + 6px)" }}>
+    <Screen isRtl={isRtl} tabbed>
       <header className="flex items-center gap-3">
         <h1 className="m-0 flex-1 min-w-0 truncate font-display font-extrabold text-[34px] leading-none tracking-[-0.04em] text-ink">{t.settingsTitle}</h1>
         <button type="button" onClick={onGoProfile}

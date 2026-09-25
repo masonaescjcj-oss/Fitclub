@@ -42,7 +42,7 @@ export function Hero({ color, emoji, chat, user, avatar, name, subtitle, badges,
   const Back = isRtl ? ArrowRight : ArrowLeft;
   return (
     <>
-      <div className="flex items-center justify-between gap-2 pt-3">
+      <div className="flex items-center justify-between gap-2">
         <IconButton label={t.close} tone="card" onClick={onBack}>
           <Back className="w-5 h-5" strokeWidth={2} />
         </IconButton>

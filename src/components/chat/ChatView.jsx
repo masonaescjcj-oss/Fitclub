@@ -165,7 +165,7 @@ export default function ChatView({ store, chat, isRtl, t, onBack, onOpenProfile,
   return (
     <div dir={isRtl ? "rtl" : "ltr"} className="ui tg-wallpaper w-full min-h-[100dvh] flex flex-col text-ink">
       {/* Navigation bar */}
-      <header className="sticky top-0 z-30 bg-canvas/90 backdrop-blur-xl border-b border-line/70 pt-[max(env(safe-area-inset-top),10px)]">
+      <header className="sticky top-0 z-30 bg-canvas/90 backdrop-blur-xl border-b border-line/70 pt-[calc(env(safe-area-inset-top)+6px)]">
         <div className="flex items-center gap-2 px-4 pt-1 pb-2.5 min-h-[58px]">
           {selectionMode ? (
             <>

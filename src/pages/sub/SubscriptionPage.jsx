@@ -39,13 +39,13 @@ export default function SubscriptionPage({ onBack, isRtl }) {
   return (
     <Screen isRtl={isRtl} className="!pt-0">
       <section aria-labelledby="pro-title"
-        className="ui-hero relative -mx-5 px-5 pt-[max(env(safe-area-inset-top),20px)] pb-7 rounded-b-[36px] bg-hero text-hero-fg overflow-hidden">
+        className="ui-hero relative -mx-5 px-5 pt-[calc(env(safe-area-inset-top)+6px)] pb-7 rounded-b-[36px] bg-hero text-hero-fg overflow-hidden">
         <span aria-hidden="true" className="absolute -top-6 -end-[60px] pointer-events-none">
           <Ring value={0.75} size={220} stroke={20} color="rgb(var(--ui-accent))" track="rgb(var(--ui-hero-2))">
             <Ring value={0.5} size={140} stroke={20} color="rgb(var(--ui-coach))" track="rgb(var(--ui-hero-2))" />
           </Ring>
         </span>
-        <div className="relative flex justify-between items-center pt-3">
+        <div className="relative flex justify-between items-center">
           <span className="h-[30px] px-3 rounded-full bg-accent text-on-accent inline-flex items-center font-mono text-xs font-semibold tracking-label">{c.tag}</span>
           <IconButton label={c.close} tone="hero" onClick={onBack}>
             <X className="w-5 h-5" strokeWidth={2} />

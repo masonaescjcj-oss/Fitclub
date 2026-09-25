@@ -123,11 +123,11 @@ export default function ActiveWorkoutModal({ store, isRtl, onClose, onFinished }
   return (
     <div data-theme="dark" dir={isRtl ? "rtl" : "ltr"} role="dialog" aria-modal="true" aria-label={dayTitle}
       className="ui fixed inset-0 z-[100] overflow-y-auto">
-      <div className={cx("min-h-full w-full md:max-w-lg mx-auto px-5 pt-[max(env(safe-area-inset-top),20px)] flex flex-col",
+      <div className={cx("min-h-full w-full md:max-w-lg mx-auto px-5 pt-[calc(env(safe-area-inset-top)+6px)] flex flex-col",
         finished && "pb-[max(env(safe-area-inset-bottom),24px)]")}>
 
         {/* top bar: end, the day and the clock, minimise */}
-        <div className="pt-2 flex items-center justify-between gap-3">
+        <div className="flex items-center justify-between gap-3">
           <RoundButton label={finished ? t.close : t.discard} onClick={close}><X className="w-5 h-5" strokeWidth={2} /></RoundButton>
           <div className="min-w-0 flex flex-col items-center gap-0.5">
             <Label className="truncate max-w-[210px]">{dayTitle}</Label>

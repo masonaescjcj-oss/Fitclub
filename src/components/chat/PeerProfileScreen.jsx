@@ -88,7 +88,7 @@ export default function PeerProfileScreen({
       transition={{ type: "spring", stiffness: 380, damping: 40 }}
       className="ui fixed inset-0 z-[70] overflow-y-auto scrollbar-hide bg-canvas text-ink md:max-w-lg md:mx-auto"
       dir={isRtl ? "rtl" : "ltr"}>
-      <div className="min-h-full px-5 pt-[max(env(safe-area-inset-top),20px)] pb-10 flex flex-col gap-3.5">
+      <div className="min-h-full px-5 pt-[calc(env(safe-area-inset-top)+6px)] pb-10 flex flex-col gap-3.5">
         <Hero chat={user ? undefined : chat} user={user || undefined} name={name} subtitle={subtitle}
           badges={<NameBadges verified={chat.verified || user?.verified} premium={chat.premium || user?.premium} size={20} />}
           isRtl={isRtl} t={t} onBack={onBack} editLabel={t.edit} onEdit={onEdit}>

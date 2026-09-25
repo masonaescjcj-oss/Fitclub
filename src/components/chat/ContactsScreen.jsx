@@ -59,9 +59,6 @@ export function ContactSheet({ store, initial = null, isRtl, t, onSave, onClose 
 }
 
 /** Contact directory, sorted the way Telegram sorts it: online first, then last seen. */
-// Level with the chat list's header, right under the safe area.
-const ROOT_TOP = { paddingTop: "calc(env(safe-area-inset-top) + 6px)" };
-
 export default function ContactsScreen({ store, isRtl, t, onGoCalls, onNewGroup, onNewChannel }) {
   const [query, setQuery] = useState("");
   const [adding, setAdding] = useState(false);
@@ -91,7 +88,7 @@ export default function ContactsScreen({ store, isRtl, t, onGoCalls, onNewGroup,
   ];
 
   return (
-    <Screen isRtl={isRtl} tabbed style={ROOT_TOP}>
+    <Screen isRtl={isRtl} tabbed>
       <header className="flex items-center justify-between gap-3">
         <h1 className="m-0 min-w-0 truncate font-display font-extrabold text-[38px] leading-[0.95] tracking-[-0.04em] text-ink">{t.contactsTitle}</h1>
         <div className="flex gap-2 shrink-0">

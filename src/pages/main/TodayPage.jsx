@@ -134,7 +134,7 @@ export default function TodayPage({ isRtl, alerts = 0, onOpen, onTab }) {
 
   return (
     <Screen isRtl={isRtl} tabbed>
-      <header className="flex items-end justify-between gap-3 pt-3">
+      <header className="flex items-end justify-between gap-3">
         <div className="flex flex-col gap-1.5 min-w-0">
           <Label>{isRtl ? fmt(now, true, { weekday: "long", day: "numeric", month: "long" })
             : `${fmt(now, false, { weekday: "short" })} · ${now.getDate()} ${now.toLocaleDateString("en-US", { month: "short" })}`}</Label>

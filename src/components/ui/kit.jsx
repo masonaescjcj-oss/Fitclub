@@ -29,7 +29,7 @@ export function num(value, isRtl) {
 export function Screen({ isRtl, tabbed = false, className = "", children, ...rest }) {
   return (
     <div dir={isRtl ? "rtl" : "ltr"} {...rest}
-      className={cx("ui min-h-[100dvh] w-full px-5 pt-[max(env(safe-area-inset-top),20px)] flex flex-col gap-3.5",
+      className={cx("ui min-h-[100dvh] w-full px-5 pt-[calc(env(safe-area-inset-top)+6px)] flex flex-col gap-3.5",
         tabbed ? "pb-32" : "pb-10", className)}>
       {children}
     </div>
@@ -52,7 +52,7 @@ export function Label({ as: Tag = "span", className = "", children, ...rest }) {
 export function PageHead({ eyebrow, title, right, size = "lg", className = "" }) {
   const sizes = { md: "text-[32px] leading-none tracking-[-0.035em]", lg: "text-[38px] leading-[0.95] tracking-[-0.04em]", xl: "text-[42px] leading-[0.95] tracking-[-0.04em]" };
   return (
-    <header className={cx("flex items-end justify-between gap-3 pt-3", className)}>
+    <header className={cx("flex items-end justify-between gap-3", className)}>
       <div className="flex flex-col gap-1.5 min-w-0">
         {eyebrow && <Label>{eyebrow}</Label>}
         <h1 className={cx("m-0 font-display font-extrabold text-ink", sizes[size])}>{title}</h1>
@@ -66,7 +66,7 @@ export function PageHead({ eyebrow, title, right, size = "lg", className = "" })
 export function TopBar({ title, onBack, isRtl, right, backLabel }) {
   const Back = isRtl ? ArrowRight : ArrowLeft;
   return (
-    <div className="flex items-center gap-3 pt-3">
+    <div className="flex items-center gap-3">
       {onBack && (
         <IconButton label={backLabel || (isRtl ? "بازگشت" : "Back")} onClick={onBack} tone="card">
           <Back className="w-5 h-5" strokeWidth={2} />

@@ -141,8 +141,8 @@ export default function BuddyDiscoverScreen({ ranked, me, isRtl, t, onLike, onPa
   return (
     <motion.div initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} transition={{ type: "spring", stiffness: 380, damping: 40 }}
       className="ui fixed inset-0 z-[70] flex flex-col md:max-w-lg md:mx-auto" dir={isRtl ? "rtl" : "ltr"}>
-      <div className="flex-1 overflow-y-auto scrollbar-hide px-5 pt-[max(env(safe-area-inset-top),20px)] pb-4 flex flex-col gap-3.5">
-        <div className="flex items-center justify-between gap-3 pt-3">
+      <div className="flex-1 overflow-y-auto scrollbar-hide px-5 pt-[calc(env(safe-area-inset-top)+6px)] pb-4 flex flex-col gap-3.5">
+        <div className="flex items-center justify-between gap-3">
           <IconButton label={t.close} tone="card" onClick={onClose}><Back className="w-5 h-5" strokeWidth={2} /></IconButton>
           <Label>{isRtl ? `${n(ranked.length)} نفر در صف` : `${ranked.length} left to see`}</Label>
           <IconButton label={t.prefsTitle} tone="card" onClick={onOpenPrefs}><SlidersHorizontal className="w-5 h-5" strokeWidth={2} /></IconButton>

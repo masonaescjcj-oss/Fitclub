@@ -91,7 +91,7 @@ export default function ChecklistPage({ isRtl, onBack, onGoToStreak }) {
   if (!list) {
     return (
       <Screen isRtl={isRtl}>
-        <div className="flex items-center pt-3">{backButton}</div>
+        <div className="flex items-center">{backButton}</div>
         <div className="flex flex-col gap-1.5 pt-3">
           <h1 className="m-0 font-display font-extrabold text-[38px] leading-[0.95] tracking-[-0.04em] text-ink">{t.title}</h1>
         </div>
@@ -154,7 +154,7 @@ export default function ChecklistPage({ isRtl, onBack, onGoToStreak }) {
   return (
     <Screen isRtl={isRtl}>
       {/* ── Bar: back, search, list settings, New ─────────────────── */}
-      <div className="flex items-center justify-between gap-2 pt-3">
+      <div className="flex items-center justify-between gap-2">
         {backButton || <span />}
         <div className="flex items-center gap-2">
           <IconButton label={t.search} tone={searching ? "inv" : "card"} aria-pressed={searching}
