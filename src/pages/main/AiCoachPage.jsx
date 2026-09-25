@@ -72,11 +72,14 @@ function Markdown({ text }) {
 
 /* ──────────────────────────── pieces ──────────────────────────── */
 
+/** Who wrote a live reply: the model the server reported, Claude when it didn't say. */
+const liveTag = (model, t) => (!model || model.startsWith("claude") ? t.poweredBy : model.startsWith("you.com") ? "You.com" : model);
+
 function Bubble({ msg, isRtl, t, streaming }) {
   const isAi = msg.role === "assistant";
   const empty = !msg.text.trim();
   const body = msg.refused ? t.refused : msg.text + (msg.truncated ? `\n${t.truncated}` : "");
-  const tag = isAi && msg.source === "demo" ? t.demoTag : isAi && msg.source === "live" ? t.poweredBy : null;
+  const tag = isAi && msg.source === "demo" ? t.demoTag : isAi && msg.source === "live" ? liveTag(msg.model, t) : null;
   return (
     <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, ease: "easeOut" }}
       className={cx("px-3.5 py-3 text-[15px] leading-[1.45] break-words",
