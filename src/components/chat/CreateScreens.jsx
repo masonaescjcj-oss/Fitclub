@@ -197,7 +197,7 @@ export function ChatTypeScreen({ kind, draft, chats, selfId = null, isRtl, t, on
           {/* The link reads left to right in both languages; its message follows the page. */}
           <div dir="ltr">
             <Field value={username} onChange={(e) => setUsername(e.target.value.replace(/\s+/g, ""))} aria-label={t.linkLabel}
-              prefix={<span className="text-muted font-medium">{LINK_HOST}/</span>}
+              prefix={<span className="text-muted font-medium">{LINK_HOST}/</span>} inputClass="-ms-2.5"
               autoCapitalize="none" autoCorrect="off" spellCheck={false} maxLength={32}
               error={error && slug ? <span dir={dir} className="block text-start">{t[LINK_ERROR[error]]}</span> : null}
               hint={<span dir={dir} className={cx("flex items-center gap-1.5", !error && "text-ink font-medium")}>

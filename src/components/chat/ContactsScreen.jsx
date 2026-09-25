@@ -45,7 +45,7 @@ export function ContactSheet({ store, initial = null, isRtl, t, onSave, onClose 
       <div dir="ltr">
         <Field value={username} onChange={(e) => setUsername(e.target.value.replace(/\s+/g, ""))}
           label={<span dir={dirOf(isRtl)} className="block text-start">{t.contactUsername}</span>} aria-label={t.contactUsername}
-          prefix={<span className="text-muted">@</span>} autoCapitalize="none" spellCheck={false} maxLength={32}
+          prefix={<span className="text-muted">@</span>} inputClass="-ms-2" autoCapitalize="none" spellCheck={false} maxLength={32}
           error={error ? <span dir={dirOf(isRtl)} className="block text-start">{t[USERNAME_ERROR[error]]}</span> : null}
           hint={<span dir={dirOf(isRtl)} className={cx("flex items-center gap-1.5", slug && "text-ink font-medium")}>
             {slug && <Check className="w-3.5 h-3.5 shrink-0" strokeWidth={2.6} />}

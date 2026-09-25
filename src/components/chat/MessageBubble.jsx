@@ -83,7 +83,7 @@ function Poll({ message, out, isRtl, t, onVote }) {
               className={cx("relative h-10 rounded-xl overflow-hidden flex items-center justify-between gap-2 px-3 text-[14px] text-ink border-0 cursor-pointer text-start",
                 out ? "bg-card" : "bg-sunk", mine ? "font-bold" : "font-semibold")}>
               {voted && (
-                <motion.span aria-hidden="true" className={cx("absolute inset-y-0 start-0", mine ? "bg-accent" : "bg-line")}
+                <motion.span aria-hidden="true" className={cx("absolute inset-y-0 start-0", mine ? "bg-accent dark:bg-accent/40" : "bg-line")}
                   initial={{ width: 0 }} animate={{ width: `${share}%` }} transition={{ duration: 0.35 }} />
               )}
               <span className="relative min-w-0 flex items-center gap-2">
@@ -300,8 +300,8 @@ export default function MessageBubble({
                     <FileText className="w-5 h-5" strokeWidth={2} />
                   </span>
                   <span className="min-w-0 flex flex-col">
-                    <span className="text-[14px] font-semibold truncate">{message.media?.name}</span>
-                    <span className={cx("text-[12px]", soft)}>{message.media?.size}</span>
+                    <span dir="auto" className="text-[14px] font-semibold truncate text-start">{message.media?.name}</span>
+                    <span dir="auto" className={cx("text-[12px] text-start", soft)}>{message.media?.size}</span>
                   </span>
                 </span>
               ) : (

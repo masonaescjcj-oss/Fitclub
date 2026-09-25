@@ -21,6 +21,11 @@ const bandOf = (id) => BANDS[[...String(id)].reduce((h, ch) => (h * 31 + ch.char
 
 const timeLabel = (time, t) => t[time === "any" ? "anyTime" : time];
 
+/** A score as Latin "83%" or Persian "۸۳٪". */
+const pct = (v, isRtl) => `${num(v, isRtl)}${isRtl ? "٪" : "%"}`;
+/** Aliases carry Latin digits in the data ("ورزشکار 118"); Persian screens show them in Persian. */
+const aliasText = (c, isRtl) => num(aliasOf(c, isRtl), isRtl);
+
 /** Why two athletes fit, as short lines. Shared habits fold into one line, the way the card reads best. */
 function reasonLines(reasons, t, isRtl) {
   const lines = [];
@@ -46,7 +51,7 @@ function CandidateCard({ entry, me, isRtl, t }) {
   const { candidate: c, score, reasons } = entry;
   const n = (v) => num(v, isRtl);
   const sep = sepOf(isRtl);
-  const alias = aliasOf(c, isRtl);
+  const alias = aliasText(c, isRtl);
   const lines = reasonLines(reasons, t, isRtl);
   const miss = mismatchLine(me, c, t, isRtl);
   return (
@@ -55,14 +60,14 @@ function CandidateCard({ entry, me, isRtl, t }) {
       {/* The next cards in the pile, peeking over the top. */}
       <span aria-hidden="true" className="absolute inset-x-6 top-0 h-[60px] rounded-[28px] bg-line" />
       <span aria-hidden="true" className="absolute inset-x-3 top-2.5 h-[60px] rounded-[30px] bg-hair" />
-      <article aria-label={`${alias}, ${n(score)}%`}
+      <article aria-label={`${alias}, ${pct(score, isRtl)}`}
         className="relative rounded-[32px] bg-card overflow-hidden shadow-[0_10px_30px_rgba(18,19,16,0.08)]">
         <div className={cx("h-[150px] p-5 flex items-end justify-between text-on-accent", bandOf(c.id))}>
           <span className="w-[84px] h-[84px] rounded-full bg-jet text-accent flex items-center justify-center ring-[5px] ring-card">
             <VenetianMask className="w-10 h-10" strokeWidth={1.8} />
           </span>
           <span className="flex flex-col items-end">
-            <span className="font-display font-extrabold text-[56px] leading-[0.85] tracking-[-0.05em]">{n(score)}%</span>
+            <span className="font-display font-extrabold text-[56px] leading-[0.85] tracking-[-0.05em]">{pct(score, isRtl)}</span>
             <span className="text-[13px] font-semibold">{t.compatible}</span>
           </span>
         </div>
@@ -158,9 +163,9 @@ export default function BuddyDiscoverScreen({ ranked, me, isRtl, t, onLike, onPa
                     <VenetianMask className="w-9 h-9" strokeWidth={1.8} />
                   </span>
                 </div>
-                <Label className="!text-hero-muted">{n(result.score)}% {t.compatible}</Label>
+                <Label className="!text-hero-muted">{pct(result.score, isRtl)} {t.compatible}</Label>
                 <h2 className="m-0 font-display font-extrabold text-[40px] leading-[0.95] tracking-[-0.04em]">{t.itsMatch}</h2>
-                <p className="m-0 text-sm leading-relaxed text-hero-muted max-w-[280px]">{t.matchSub(aliasOf(result.candidate, isRtl))}</p>
+                <p className="m-0 text-sm leading-relaxed text-hero-muted max-w-[280px]">{t.matchSub(aliasText(result.candidate, isRtl))}</p>
               </Card>
               <div className="flex gap-2">
                 <Button tone="card" className="flex-1" onClick={() => setResult(null)}>{t.keepBrowsing}</Button>
@@ -242,7 +247,7 @@ export function CrewSheet({ matches, isRtl, t, onCreate, onClose }) {
   const [name, setName] = useState("");
   const [picked, setPicked] = useState(matches.slice(0, 3).map((m) => m.buddyId));
   const toggle = (id) => setPicked((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
-  const label = (m) => (m.revealed ? (isRtl ? m.nameFa : m.name) : (isRtl ? m.aliasFa : m.alias));
+  const label = (m) => (m.revealed ? (isRtl ? m.nameFa : m.name) : (isRtl ? num(m.aliasFa, true) : m.alias));
   const n = (v) => num(v, isRtl);
   const faces = [ME, ...picked].slice(0, 6);
   return (
@@ -279,7 +284,7 @@ export function CrewSheet({ matches, isRtl, t, onCreate, onClose }) {
               <Avatar user={findUser(m.buddyId)} size={40} showStatus={false} />
               <span className="flex-1 min-w-0 flex flex-col gap-0.5">
                 <span className="text-[15px] font-semibold text-ink truncate">{label(m)}</span>
-                <span className="text-[13px] text-muted">{n(m.score)}% {t.compatible}</span>
+                <span className="text-[13px] text-muted">{pct(m.score, isRtl)} {t.compatible}</span>
               </span>
             </li>
           );
@@ -364,7 +369,7 @@ export function ReportSheet({ name, isRtl, t, onSend, onClose }) {
   const [reason, setReason] = useState(null);
   const reasons = [["spam", t.reportSpam], ["harass", t.reportHarass], ["fake", t.reportFake], ["other", t.reportOther]];
   return (
-    <Sheet title={`${t.reportTitle} ${name}`} isRtl={isRtl} onClose={onClose} closeLabel={t.close}
+    <Sheet title={`${t.reportTitle} ${num(name, isRtl)}`} isRtl={isRtl} onClose={onClose} closeLabel={t.close}
       footer={
         <>
           <Button tone="card" className="flex-1" onClick={onClose}>{t.cancel}</Button>
