@@ -134,7 +134,7 @@ export function ProgramBuilderSheet({ program, isRtl, t, author, onSave, onClose
       <Sheet title={isNew ? t.newProgram : t.editProgram} isRtl={isRtl} t={t} onClose={onClose} tall
         footer={
           <>
-            <Button tone="soft" className="flex-1" onClick={onClose}>{t.cancel}</Button>
+            <Button tone="card" className="flex-1" onClick={onClose}>{t.cancel}</Button>
             <Button tone="ink" className="flex-1" disabled={!valid} onClick={() => onSave({ ...p, name: p.name.trim(), author })}>
               {t.save}
             </Button>
