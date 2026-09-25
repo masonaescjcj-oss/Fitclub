@@ -43,7 +43,7 @@ export function AvatarStack({ members, size = 24, max = 4, ring = "ring-card" })
       ))}
       {rest > 0 && (
         <span className={cx("relative rounded-full bg-sunk text-muted font-bold flex items-center justify-center ring-2", ring)}
-          style={{ width: size, height: size, marginLeft: -size * 0.3, fontSize: Math.round(size * 0.36) }}>
+          style={{ width: size, height: size, marginLeft: -size * 0.3, zIndex: shown.length + 1, fontSize: Math.round(size * 0.36) }}>
           +{rest}
         </span>
       )}

@@ -123,7 +123,8 @@ export default function ActiveWorkoutModal({ store, isRtl, onClose, onFinished }
   return (
     <div data-theme="dark" dir={isRtl ? "rtl" : "ltr"} role="dialog" aria-modal="true" aria-label={dayTitle}
       className="ui fixed inset-0 z-[100] overflow-y-auto">
-      <div className="min-h-full w-full md:max-w-lg mx-auto px-5 pt-[max(env(safe-area-inset-top),20px)] pb-[max(env(safe-area-inset-bottom),24px)] flex flex-col">
+      <div className={cx("min-h-full w-full md:max-w-lg mx-auto px-5 pt-[max(env(safe-area-inset-top),20px)] flex flex-col",
+        finished && "pb-[max(env(safe-area-inset-bottom),24px)]")}>
 
         {/* top bar: end, the day and the clock, minimise */}
         <div className="pt-2 flex items-center justify-between gap-3">
@@ -162,60 +163,69 @@ export default function ActiveWorkoutModal({ store, isRtl, onClose, onFinished }
               <p className="m-0 mt-10 text-[15px] text-muted">{t.noDays}</p>
             )}
 
-            {rest !== null && (
-              <div className="mt-3.5 rounded-[22px] bg-card p-3 ps-3.5 flex items-center gap-3" role="timer" aria-live="off">
-                <Ring value={restTotal ? rest / restTotal : 0} size={44} stroke={4} color="rgb(var(--ui-accent))" track="rgb(var(--ui-hero-2))">
-                  <Timer className="w-[18px] h-[18px] text-accent" strokeWidth={2} />
-                </Ring>
-                <div className="flex-1 min-w-0 flex flex-col gap-1">
-                  <Label>{t.restTimer}</Label>
-                  <span className="font-display font-extrabold text-2xl leading-none tracking-[-0.02em]">{t.left(n(shortClock(rest)))}</span>
-                </div>
-                <button type="button" onClick={() => { setRest((r) => (r || 0) + 15); setRestTotal((x) => Math.max(x, (rest || 0) + 15)); }}
-                  className="h-10 px-3.5 rounded-full bg-hero-2 text-ink text-sm font-semibold border-0 cursor-pointer active:scale-95 transition-transform">
-                  +{n(15)} {isRtl ? "ث" : "s"}
-                </button>
-                <button type="button" onClick={() => setRest(null)}
-                  className="h-10 px-3.5 rounded-full bg-hero-2 text-ink text-sm font-semibold border-0 cursor-pointer active:scale-95 transition-transform">
-                  {t.skip}
-                </button>
-              </div>
-            )}
-
             <div className="flex-grow min-h-6" />
 
-            <p className="m-0 mb-3 flex justify-center flex-wrap gap-x-4 gap-y-1 text-[13px] text-muted">
-              <span className="inline-flex items-center gap-1.5"><Check className="w-3.5 h-3.5" strokeWidth={2.4} />{n(setsDone)} {t.sets}</span>
-              <span className="inline-flex items-center gap-1.5"><Dumbbell className="w-3.5 h-3.5" strokeWidth={2} />{n(Math.round(sessionVolume(draft)).toLocaleString("en-US"))} {t.kg}</span>
-              <span className="inline-flex items-center gap-1.5"><Flame className="w-3.5 h-3.5" strokeWidth={2} />~{n(calories)} kcal</span>
-            </p>
-
-            <PrimaryAction t={t} n={n} current={current} index={index} count={exercises.length} Forward={Forward}
-              onComplete={toggleDone} onNext={() => setIndex(index + 1)} onFinish={finish} />
-
-            <div className="mt-1.5 grid grid-cols-3 items-center h-11 text-sm font-semibold">
-              <span className="justify-self-start">
-                {index > 0 && (
-                  <button type="button" onClick={() => setIndex(index - 1)}
-                    className="h-11 px-1 inline-flex items-center gap-1.5 bg-transparent border-0 text-muted cursor-pointer">
-                    <Back className="w-4 h-4" strokeWidth={2} />{t.prevExercise}
+            {/* pinned: the running totals, the next action, and moving between exercises */}
+            <div className="sticky bottom-0 -mx-5 px-5 pt-3 pb-[max(env(safe-area-inset-bottom),12px)] bg-canvas
+              before:content-[''] before:absolute before:inset-x-0 before:-top-6 before:h-6 before:pointer-events-none before:bg-gradient-to-t before:from-canvas before:to-canvas/0">
+              {rest !== null && (
+                <div className="mb-3 rounded-[22px] bg-card p-3 ps-3.5 flex items-center gap-2.5" role="timer" aria-live="off">
+                  <Ring value={restTotal ? rest / restTotal : 0} size={44} stroke={4} color="rgb(var(--ui-accent))" track="rgb(var(--ui-hero-2))">
+                    <Timer className="w-[18px] h-[18px] text-accent" strokeWidth={2} />
+                  </Ring>
+                  <div className="flex-1 min-w-0 flex flex-col gap-1">
+                    <Label>{t.restTimer}</Label>
+                    <span className="flex items-baseline gap-1.5 whitespace-nowrap">
+                      <span dir="ltr" className="font-display font-extrabold text-2xl leading-none tracking-[-0.02em]">{n(shortClock(rest))}</span>
+                      <span className="text-[15px] font-semibold text-muted">{t.leftWord}</span>
+                    </span>
+                  </div>
+                  <button type="button" onClick={() => { setRest((r) => (r || 0) + 15); setRestTotal((x) => Math.max(x, (rest || 0) + 15)); }}
+                    className="h-10 px-3 rounded-full bg-hero-2 text-ink text-sm font-semibold border-0 cursor-pointer active:scale-95 transition-transform">
+                    +{n(15)} {isRtl ? "ث" : "s"}
                   </button>
-                )}
-              </span>
-              <span className="justify-self-center">
-                <button type="button" onClick={finish}
-                  className="h-11 px-1 bg-transparent border-0 text-ink/85 underline underline-offset-[3px] cursor-pointer whitespace-nowrap">
-                  {t.finishWorkout}
-                </button>
-              </span>
-              <span className="justify-self-end">
-                {index < exercises.length - 1 && (
-                  <button type="button" onClick={() => setIndex(index + 1)}
-                    className="h-11 px-1 inline-flex items-center gap-1.5 bg-transparent border-0 text-muted cursor-pointer">
-                    {t.nextExercise}<Forward className="w-4 h-4" strokeWidth={2} />
+                  <button type="button" onClick={() => setRest(null)}
+                    className="h-10 px-3 rounded-full bg-hero-2 text-ink text-sm font-semibold border-0 cursor-pointer active:scale-95 transition-transform">
+                    {t.skip}
                   </button>
-                )}
-              </span>
+                </div>
+              )}
+
+              {rest === null && (
+              <p className="m-0 mb-3 flex justify-center flex-wrap gap-x-4 gap-y-1 text-[13px] text-muted">
+                <span className="inline-flex items-center gap-1.5"><Check className="w-3.5 h-3.5" strokeWidth={2.4} />{n(setsDone)} {t.sets}</span>
+                <span className="inline-flex items-center gap-1.5"><Dumbbell className="w-3.5 h-3.5" strokeWidth={2} />{n(Math.round(sessionVolume(draft)).toLocaleString("en-US"))} {t.kg}</span>
+                <span className="inline-flex items-center gap-1.5"><Flame className="w-3.5 h-3.5" strokeWidth={2} />~{n(calories)} kcal</span>
+              </p>
+              )}
+
+              <PrimaryAction t={t} n={n} current={current} index={index} count={exercises.length} Forward={Forward}
+                onComplete={toggleDone} onNext={() => setIndex(index + 1)} onFinish={finish} />
+
+              <div className="mt-1 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 h-11 text-[13px] font-semibold whitespace-nowrap">
+                <span className="justify-self-start">
+                  {index > 0 && (
+                    <button type="button" onClick={() => setIndex(index - 1)}
+                      className="h-11 px-1 inline-flex items-center gap-1.5 bg-transparent border-0 text-muted cursor-pointer">
+                      <Back className="w-4 h-4" strokeWidth={2} />{t.prevExercise}
+                    </button>
+                  )}
+                </span>
+                <span className="justify-self-center">
+                  <button type="button" onClick={finish}
+                    className="h-11 px-1 bg-transparent border-0 text-ink/85 underline underline-offset-[3px] cursor-pointer whitespace-nowrap">
+                    {t.finishWorkout}
+                  </button>
+                </span>
+                <span className="justify-self-end">
+                  {index < exercises.length - 1 && (
+                    <button type="button" onClick={() => setIndex(index + 1)}
+                      className="h-11 px-1 inline-flex items-center gap-1.5 bg-transparent border-0 text-muted cursor-pointer">
+                      {t.nextExercise}<Forward className="w-4 h-4" strokeWidth={2} />
+                    </button>
+                  )}
+                </span>
+              </div>
             </div>
           </>
         )}
@@ -283,7 +293,7 @@ function Current({ t, n, sep, isRtl, index, count, current, exercise, last, onPa
     exercise?.equipment,
     target ? `${n(sets.length)} × ${n(target)}${mode !== "reps" ? ` ${unit}` : ""}` : null,
     current.restSec ? t.restFor(n(current.restSec)) : null,
-  ].filter(Boolean).join(sep);
+  ].filter(Boolean);
 
   return (
     <>
@@ -295,7 +305,11 @@ function Current({ t, n, sep, isRtl, index, count, current, exercise, last, onPa
           <h1 className="m-0 mt-2 font-display font-extrabold text-[44px] leading-[0.95] tracking-[-0.045em] text-ink break-words">
             {exerciseName(current.exerciseId, isRtl)}
           </h1>
-          {meta && <span className="mt-2 text-sm text-muted">{meta}</span>}
+          {meta.length > 0 && (
+            <span className="mt-2 text-sm text-muted">
+              {meta.map((part, i) => <React.Fragment key={i}>{i > 0 && sep}<bdi>{part}</bdi></React.Fragment>)}
+            </span>
+          )}
           {current.note && <span className="mt-1 text-[13px] text-muted">{current.note}</span>}
         </div>
         <span className="mt-1 w-16 h-16 rounded-2xl overflow-hidden shrink-0 ring-1 ring-line">

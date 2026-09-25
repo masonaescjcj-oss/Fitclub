@@ -1,19 +1,60 @@
-import React, { useState, useEffect } from "react";
-import { loadProfile, targetsFor } from "../lib/nutrition/profile";
-import { Sparkles, Flame, Dumbbell, Calendar, Activity, TrendingDown, Target, PieChart, ChevronRight, Rocket } from "lucide-react";
+import React, { useState, useEffect, useMemo } from "react";
+import { motion } from "framer-motion";
+import { Minus, TrendingDown, TrendingUp } from "lucide-react";
+import { loadProfile, proteinPerKg, targetsFor } from "../lib/nutrition/profile";
+import { loadTraining } from "../lib/training/trainingStore";
+import { loadState as loadChecklists } from "../lib/checklistStore";
+import { loadSession } from "../lib/session";
+import { Card, CtaButton, IconWell, Label, Ring, Tag, cx, num } from "../components/ui/kit";
+import { SparkIcon } from "../components/ui/icons";
+import Header, { FlowFooter, FlowScreen, FlowTitle } from "../components/Header";
+
+// The plan the answers produce: the program the athlete starts on, the day's
+// fuel targets, the checklist, and a word from the coach. Every number is read
+// from the stores the app itself will use, so Today never contradicts it.
+
+const GOAL_LABEL = {
+  "Weight Loss": ["Weight loss", "کاهش وزن"],
+  "Muscle Gain": ["Muscle gain", "افزایش عضله"],
+  "Keep Fit": ["Keep fit", "تثبیت وزن"],
+  "Max Strength": ["Max strength", "حداکثر قدرت"],
+};
+
+/** The program Train will open on, and the shape of its week. */
+function activeProgram() {
+  const training = loadTraining();
+  const program = training.programs.find((p) => p.id === training.activeProgramId) || training.programs[0] || null;
+  if (!program) return null;
+  const workouts = program.days.filter((d) => d.type !== "rest" && d.exercises.length);
+  // Today estimates eight minutes per exercise; the plan uses the same rule.
+  const minutes = workouts.length
+    ? Math.round(workouts.reduce((a, d) => a + d.exercises.length * 8, 0) / workouts.length) : 0;
+  return { program, workouts, minutes };
+}
+
+/** How many items the athlete's daily list asks for, the same list Today shows. */
+function dailyHabits() {
+  const { lists = [] } = loadChecklists();
+  const list = lists.find((l) => l.type === "personal" && l.reset?.mode === "daily") || lists[0];
+  return list ? list.items.length : 0;
+}
 
 export default function AiPlanSummaryPage({ onNavigate }) {
   // The wizard just wrote these answers; show what they actually produce
   // rather than a fixed number the diet tab would then contradict.
-  const planTargets = targetsFor(loadProfile());
-  const planKcal = planTargets.kcal.toLocaleString();
+  const profile = useMemo(() => loadProfile(), []);
+  const planTargets = useMemo(() => targetsFor(profile), [profile]);
+  const planKcal = planTargets.kcal.toLocaleString("en-US");
   const planProtein = planTargets.protein;
+  const plan = useMemo(() => activeProgram(), []);
+  const habits = useMemo(() => dailyHabits(), []);
 
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [isReady, setIsReady] = useState(false);
 
   const language = localStorage.getItem("language") || "en";
   const isRtl = language === "fa";
+  const n = (v) => num(v, isRtl);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -30,294 +71,177 @@ export default function AiPlanSummaryPage({ onNavigate }) {
     return () => clearInterval(interval);
   }, []);
 
-  return (
-    <div
-      dir={isRtl ? "rtl" : "ltr"}
-      className="w-full md:max-w-lg mx-auto min-h-[100dvh] bg-black text-white flex flex-col justify-between overflow-x-hidden relative font-sans select-none px-4 pt-5 pb-24"
-    >
-      {/* Main Content Container */}
-      <div className="flex-grow flex flex-col justify-start px-0 relative z-10 w-full">
-        
-        {!isReady ? (
-          /* Processing Phase */
-          <div className="py-20 flex flex-col items-center text-center my-auto">
-            <div className="relative w-24 h-24 mb-6 flex items-center justify-center">
-              <div className="absolute inset-0 rounded-full bg-[#844783]/30 blur-xl animate-pulse" />
-              <div className="w-20 h-20 rounded-full bg-[#18121c] border-2 border-[#844783] flex items-center justify-center text-[#844783] shadow-[0_0_35px_rgba(132,71,131,0.5)]">
-                <Sparkles className="w-10 h-10 animate-spin text-amber-300" style={{ animationDuration: "3s" }} />
-              </div>
-            </div>
-
-            <h2 className="text-2xl sm:text-3xl font-black text-white mb-2">
-              {isRtl ? "در حال آماده‌سازی برنامه کامل شما... 🧠" : "Processing Your Complete Plan... 🧠"}
-            </h2>
-            <p className="text-xs text-neutral-400 font-medium mb-8 max-w-xs leading-relaxed">
-              {isRtl
-                ? "محاسبه دقیق متابولیسم بدنی، تفکیک ماکروها و پیش‌بینی روند موفقیت شما..."
-                : "Calculating your metabolic rate, macro split, and predicted progress curve..."}
-            </p>
-
-            {/* Progress Bar */}
-            <div className="w-full max-w-xs bg-[#141416] border border-white/10 rounded-full h-3.5 overflow-hidden p-0.5 mb-3 shadow-inner">
-              <div
-                className="bg-gradient-to-r from-[#844783] via-[#965595] to-[#a356a2] h-full rounded-full transition-all duration-300 shadow-md"
-                style={{ width: `${loadingProgress}%` }}
-              />
-            </div>
-            <span className="text-xs font-mono font-bold text-gray-400">
-              {loadingProgress}%
+  if (!isReady) {
+    return (
+      <FlowScreen isRtl={isRtl}>
+        <div className="flex-1 flex flex-col items-center justify-center text-center gap-5 pb-16">
+          <Ring value={loadingProgress / 100} size={148} stroke={10}>
+            <span className="font-display font-extrabold text-[36px] leading-none tracking-[-0.04em]">
+              {n(loadingProgress)}<span className="text-xl text-muted">{isRtl ? "٪" : "%"}</span>
             </span>
-          </div>
-        ) : (
-          /* Creative & Modern Plan Dashboard */
-          <div className="space-y-4 py-1 animate-in fade-in zoom-in-95 duration-300 w-full">
-            
-            {/* Clean Header Title */}
-            <div className={`mb-1 ${isRtl ? "text-right" : "text-left"}`}>
-              <h2 className="text-2xl font-black text-white tracking-tight uppercase">
-                {isRtl ? "برنامه کامل شما آماده است!" : "YOUR COMPLETE PLAN IS READY!"}
+          </Ring>
+          <Tag tone="coach" className="font-semibold"><SparkIcon size={14} />{isRtl ? "مربی" : "Coach"}</Tag>
+          <h1 className="m-0 font-display font-extrabold text-[30px] leading-[1.05] tracking-[-0.035em] rtl:leading-[1.35] rtl:tracking-normal">
+            {isRtl ? "در حال آماده‌سازی برنامه کامل شما..." : "Processing your complete plan..."}
+          </h1>
+          <p className="m-0 max-w-[300px] text-[15px] leading-[1.45] text-muted">
+            {isRtl
+              ? "محاسبه دقیق متابولیسم بدنی، تفکیک ماکروها و پیش‌بینی روند موفقیت شما..."
+              : "Calculating your metabolic rate, macro split, and predicted progress curve..."}
+          </p>
+        </div>
+      </FlowScreen>
+    );
+  }
+
+  const name = (loadSession().name || "").trim().split(/\s+/)[0];
+  const goal = GOAL_LABEL[profile.goal]?.[isRtl ? 1 : 0] || profile.goal;
+  const program = plan?.program;
+  const days = plan?.workouts.length || 0;
+  const minutes = plan?.minutes || 0;
+  const sep = isRtl ? "، " : " · ";
+
+  // Macros by the energy they carry, so the bar reads as the day's calories.
+  const macros = [
+    { id: "protein", label: isRtl ? "پروتئین" : "Protein", grams: planTargets.protein, kcal: planTargets.protein * 4, dot: "bg-ink" },
+    { id: "carbs", label: isRtl ? "کربوهیدرات" : "Carbs", grams: planTargets.carbs, kcal: planTargets.carbs * 4, dot: "bg-grape" },
+    { id: "fat", label: isRtl ? "چربی" : "Fat", grams: planTargets.fat, kcal: planTargets.fat * 9, dot: "bg-ochre" },
+  ];
+  const macroKcal = macros.reduce((a, m) => a + m.kcal, 0) || 1;
+  const share = (m) => Math.round((m.kcal / macroKcal) * 100);
+  const pct = (v) => (isRtl ? `${n(v)}٪` : `${v}%`);
+
+  // Four weeks at this intake, at 7,700 kcal per kilo of bodyweight.
+  const weekly = planTargets.maintenance ? ((planTargets.kcal - planTargets.maintenance) * 7) / 7700 : 0;
+  const start = profile.weight;
+  const end = Math.round((start + weekly * 4) * 10) / 10;
+  const delta = Math.round((end - start) * 10) / 10;
+  const kg = isRtl ? "کیلو" : "kg";
+  const OutlookIcon = delta < 0 ? TrendingDown : delta > 0 ? TrendingUp : Minus;
+
+  const stats = [
+    { id: "kcal", label: isRtl ? "کالری" : "Calories", value: n(planKcal), sub: isRtl ? "کالری در روز" : "kcal a day" },
+    {
+      id: "protein", label: isRtl ? "پروتئین" : "Protein", value: `${n(planProtein)} ${isRtl ? "گرم" : "g"}`,
+      sub: isRtl ? `حدود ${n(proteinPerKg(planProtein, profile.weight).toFixed(1))} گرم به ازای هر کیلو`
+        : `about ${proteinPerKg(planProtein, profile.weight).toFixed(1)} g per kg`,
+    },
+    { id: "train", label: isRtl ? "تمرین" : "Training", value: `${n(days)} × ${n(minutes)}`, sub: isRtl ? "جلسه × دقیقه در هفته" : "sessions × minutes a week" },
+    { id: "habits", label: isRtl ? "چک‌لیست" : "Checklist", value: n(habits), sub: isRtl ? "عادت در روز" : "habits a day" },
+  ];
+
+  return (
+    <FlowScreen isRtl={isRtl}>
+      <Header onBack={() => onNavigate("onboarding-wizard")} isRtl={isRtl} />
+
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, ease: [0.2, 0.8, 0.2, 1] }}
+        className="flex flex-col gap-2.5">
+        <FlowTitle size={36} className="!mt-4 mb-2"
+          title={name
+            ? (isRtl ? `برنامه کامل شما آماده است، ${name}.` : `Your plan is ready, ${name}.`)
+            : (isRtl ? "برنامه کامل شما آماده است!" : "Your complete plan is ready!")} />
+
+        {program && (
+          <Card tone="hero" className="flex flex-col gap-4" aria-label={isRtl ? "برنامه" : "Program"}>
+            <div className="flex justify-between items-center gap-2">
+              <Label className="!text-hero-muted">
+                {isRtl ? `برنامه${sep}بلوک ${n(program.weeks || 1)} هفته‌ای` : `Program · ${program.weeks || 1}-week block`}
+              </Label>
+              <Tag tone="accent" className="font-bold">{goal}</Tag>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <h2 className="m-0 font-display font-extrabold text-[32px] leading-none tracking-[-0.035em] rtl:leading-[1.3] rtl:tracking-normal">
+                {isRtl && program.nameFa ? program.nameFa : program.name}
               </h2>
+              <p className="m-0 text-sm text-hero-fg/70">
+                {isRtl ? `${n(days)} روز در هفته، هر جلسه حدود ${n(minutes)} دقیقه` : `${days} days a week · about ${minutes} min each`}
+              </p>
             </div>
-
-            {/* Key Metrics 4-Grid Cards */}
-            <div className="grid grid-cols-2 gap-3 text-left rtl:text-right w-full">
-              
-              <div className="p-3.5 rounded-2xl bg-[#141416]/90 border border-white/10 flex flex-col gap-1 relative overflow-hidden group hover:border-[#844783]/50 hover:bg-[#1b151e] transition-all">
-                <div className="flex items-center gap-1.5 text-amber-400 text-[10px] font-black uppercase tracking-wider">
-                  <Flame className="w-3.5 h-3.5 shrink-0" />
-                  <span>{isRtl ? "کالری روزانه" : "DAILY CALORIES"}</span>
-                </div>
-                <span className="text-xl font-black text-white tracking-tight" dir="ltr">
-                  {planKcal} <span className="text-xs font-bold text-gray-400">kcal</span>
-                </span>
-              </div>
-
-              <div className="p-3.5 rounded-2xl bg-[#141416]/90 border border-white/10 flex flex-col gap-1 relative overflow-hidden group hover:border-[#844783]/50 hover:bg-[#1b151e] transition-all">
-                <div className="flex items-center gap-1.5 text-purple-400 text-[10px] font-black uppercase tracking-wider">
-                  <Activity className="w-3.5 h-3.5 shrink-0" />
-                  <span>{isRtl ? "پروتئین هدف" : "PROTEIN TARGET"}</span>
-                </div>
-                <span className="text-xl font-black text-white tracking-tight" dir="ltr">
-                  {planProtein} <span className="text-xs font-bold text-gray-400">g/day</span>
-                </span>
-              </div>
-
-              <div className="p-3.5 rounded-2xl bg-[#141416]/90 border border-white/10 flex flex-col gap-1 relative overflow-hidden group hover:border-[#844783]/50 hover:bg-[#1b151e] transition-all">
-                <div className="flex items-center gap-1.5 text-emerald-400 text-[10px] font-black uppercase tracking-wider">
-                  <Calendar className="w-3.5 h-3.5 shrink-0" />
-                  <span>{isRtl ? "روزهای تمرین" : "WORKOUT DAYS"}</span>
-                </div>
-                <span className="text-lg font-black text-white tracking-tight">
-                  4 {isRtl ? "روز در هفته" : "Days / Wk"}
-                </span>
-              </div>
-
-              <div className="p-3.5 rounded-2xl bg-[#141416]/90 border border-white/10 flex flex-col gap-1 relative overflow-hidden group hover:border-[#844783]/50 hover:bg-[#1b151e] transition-all">
-                <div className="flex items-center gap-1.5 text-cyan-400 text-[10px] font-black uppercase tracking-wider">
-                  <Dumbbell className="w-3.5 h-3.5 shrink-0" />
-                  <span>{isRtl ? "سیستم تمرین" : "SPLIT TYPE"}</span>
-                </div>
-                <span className="text-lg font-black text-white tracking-tight">Full Body Plus</span>
-              </div>
-
-            </div>
-
-            {/* CHART 1: MACRO SPLIT NUTRITION BREAKDOWN */}
-            <div className="p-4 rounded-2xl bg-[#141416]/90 border border-white/10 shadow-sm relative overflow-hidden w-full">
-              
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 rounded-lg bg-[#844783]/20 text-[#844783]">
-                    <PieChart className="w-4 h-4" />
-                  </div>
-                  <h3 className="text-xs font-black text-white uppercase tracking-wider">
-                    {isRtl ? "تفکیک ارزش غذایی (Macronutrients)" : "MACRO SPLIT RATIO"}
-                  </h3>
-                </div>
-                <span className="text-[11px] font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/30">
-                  {planKcal} kcal
-                </span>
-              </div>
-
-              <div className="flex items-center justify-around py-1">
-                
-                {/* Visual SVG Donut Chart */}
-                <div className="relative w-24 h-24 flex items-center justify-center shrink-0">
-                  <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                    {/* Background Circle Track */}
-                    <path
-                      className="text-neutral-800"
-                      strokeWidth="4"
-                      stroke="currentColor"
-                      fill="none"
-                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                    />
-                    {/* Protein 30% Arc (Purple) */}
-                    <path
-                      className="text-[#844783]"
-                      strokeDasharray="30, 100"
-                      strokeWidth="4.5"
-                      strokeLinecap="round"
-                      stroke="currentColor"
-                      fill="none"
-                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                    />
-                    {/* Carbs 45% Arc (Amber) */}
-                    <path
-                      className="text-amber-400"
-                      strokeDasharray="45, 100"
-                      strokeDashoffset="-30"
-                      strokeWidth="4.5"
-                      strokeLinecap="round"
-                      stroke="currentColor"
-                      fill="none"
-                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                    />
-                    {/* Fat 25% Arc (Cyan) */}
-                    <path
-                      className="text-cyan-400"
-                      strokeDasharray="25, 100"
-                      strokeDashoffset="-75"
-                      strokeWidth="4.5"
-                      strokeLinecap="round"
-                      stroke="currentColor"
-                      fill="none"
-                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                    />
-                  </svg>
-
-                  {/* Center Text */}
-                  <div className="absolute flex flex-col items-center justify-center text-center">
-                    <span className="text-xs font-black text-white leading-none">100%</span>
-                    <span className="text-[8px] font-bold text-gray-400 uppercase mt-0.5">Macros</span>
-                  </div>
-                </div>
-
-                {/* Macro Legend List */}
-                <div className="space-y-1.5 text-left rtl:text-right">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2.5 h-2.5 rounded-full bg-[#844783] shrink-0" />
-                    <div>
-                      <span className="text-xs font-black text-white">Protein (30%)</span>
-                      <span className="text-[10px] text-gray-400 block font-semibold">{planProtein}g / day</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <div className="w-2.5 h-2.5 rounded-full bg-amber-400 shrink-0" />
-                    <div>
-                      <span className="text-xs font-black text-white">Carbs (45%)</span>
-                      <span className="text-[10px] text-gray-400 block font-semibold">265g / day</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <div className="w-2.5 h-2.5 rounded-full bg-cyan-400 shrink-0" />
-                    <div>
-                      <span className="text-xs font-black text-white">Fat (25%)</span>
-                      <span className="text-[10px] text-gray-400 block font-semibold">65g / day</span>
-                    </div>
-                  </div>
-                </div>
-
-              </div>
-
-            </div>
-
-            {/* CHART 2: PREDICTED 30-DAY PROGRESS AREA CURVE */}
-            <div className="p-4 rounded-2xl bg-[#141416]/90 border border-white/10 shadow-sm relative overflow-hidden w-full">
-              
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-400">
-                    <TrendingDown className="w-4 h-4" />
-                  </div>
-                  <h3 className="text-xs font-black text-white uppercase tracking-wider">
-                    {isRtl ? "نمودار پیش‌بینی روند موفقیت ۳۰ روزه" : "30-DAY PREDICTED PROGRESS"}
-                  </h3>
-                </div>
-                <div className="flex items-center gap-1 text-emerald-400 text-xs font-black">
-                  <Target className="w-3.5 h-3.5" />
-                  <span>Target: -3.5 kg</span>
-                </div>
-              </div>
-
-              {/* Area Progress Curve SVG */}
-              <div className="relative pt-3 pb-1">
-                <div className="h-24 w-full relative">
-                  <svg className="w-full h-full overflow-visible" viewBox="0 0 300 100" preserveAspectRatio="none">
-                    
-                    <defs>
-                      <linearGradient id="progressGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#844783" stopOpacity="0.5" />
-                        <stop offset="100%" stopColor="#844783" stopOpacity="0.0" />
-                      </linearGradient>
-                    </defs>
-
-                    {/* Area under curve */}
-                    <path
-                      d="M 0 20 Q 75 35, 150 55 T 300 85 L 300 100 L 0 100 Z"
-                      fill="url(#progressGrad)"
-                    />
-
-                    {/* Curve Line */}
-                    <path
-                      d="M 0 20 Q 75 35, 150 55 T 300 85"
-                      fill="none"
-                      stroke="#844783"
-                      strokeWidth="3.5"
-                      strokeLinecap="round"
-                    />
-
-                    {/* Points on Curve */}
-                    <circle cx="0" cy="20" r="4" fill="#ffffff" stroke="#844783" strokeWidth="2" />
-                    <circle cx="100" cy="40" r="4" fill="#844783" />
-                    <circle cx="200" cy="65" r="4" fill="#844783" />
-                    <circle cx="300" cy="85" r="5" fill="#10b981" stroke="#ffffff" strokeWidth="2" />
-                  </svg>
-
-                  {/* Point Badges */}
-                  <div className="absolute top-0 left-0 text-[10px] font-bold text-gray-400 bg-neutral-900/90 px-2 py-0.5 rounded-full border border-white/10">
-                    Week 1: 76.0 kg
-                  </div>
-                  <div className="absolute bottom-1 right-0 text-[10px] font-black text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/30">
-                    Target: 72.5 kg 🎯
-                  </div>
-                </div>
-
-                {/* X Axis Timeline */}
-                <div className="flex justify-between text-[10px] font-bold text-gray-400 mt-1.5 px-1" dir="ltr">
-                  <span>Wk 1 (Start)</span>
-                  <span>Wk 2</span>
-                  <span>Wk 3</span>
-                  <span className="text-emerald-400 font-black">Wk 4 (Goal)</span>
-                </div>
-              </div>
-
-            </div>
-
-          </div>
+            <ol aria-label={isRtl ? "هفته‌ی برنامه" : "The week"} className="m-0 p-0 list-none flex justify-between">
+              {program.days.map((d, i) => {
+                const rest = d.type === "rest" || !d.exercises.length;
+                const title = isRtl && d.titleFa ? d.titleFa : d.title;
+                return (
+                  <li key={d.id} title={title} aria-label={`${isRtl ? "روز" : "Day"} ${n(i + 1)}: ${title}`}
+                    className={cx("w-[38px] h-[38px] rounded-full flex items-center justify-center text-[13px]",
+                      rest ? "ring-[1.5px] ring-inset ring-hero-2 text-hero-muted font-semibold" : "bg-accent text-on-accent font-bold")}>
+                    {n(i + 1)}
+                  </li>
+                );
+              })}
+            </ol>
+            <p className="m-0 -mt-1 text-[13px] leading-snug text-hero-muted">
+              {plan.workouts.map((d) => (isRtl && d.titleFa ? d.titleFa : d.title)).join(sep)}
+            </p>
+          </Card>
         )}
 
-      </div>
-
-      {/* FIXED STICKY ENTER THE APP BOTTOM BAR */}
-      {isReady && (
-        <div className="fixed bottom-0 left-0 right-0 z-50 p-4 bg-gradient-to-t from-black via-black/95 to-transparent backdrop-blur-md">
-          <div className="w-full md:max-w-lg mx-auto">
-            <button
-              type="button"
-              onClick={() => onNavigate("main-app")}
-              className="w-full h-14 rounded-2xl bg-gradient-to-r from-[#844783] to-[#965595] hover:brightness-110 text-white font-black text-base tracking-wide transition-all duration-200 flex items-center justify-center gap-3 border border-white/20 shadow-[0_0_25px_rgba(132,71,131,0.5)] active:scale-[0.98]"
-            >
-              <Rocket className="w-5 h-5 text-amber-300" />
-              <span>{isRtl ? "ورود به برنامه (ENTER THE APP)" : "ENTER THE APP"}</span>
-              <ChevronRight className="w-5 h-5 rtl:rotate-180" />
-            </button>
-          </div>
+        <div className="grid grid-cols-2 gap-2.5">
+          {stats.map((s) => (
+            <Card key={s.id} className="flex flex-col gap-1.5">
+              <Label>{s.label}</Label>
+              <span className="font-display font-extrabold text-[28px] leading-none tracking-[-0.03em]">{s.value}</span>
+              <span className="text-[13px] leading-snug text-muted">{s.sub}</span>
+            </Card>
+          ))}
         </div>
-      )}
 
-    </div>
+        <Card tone="coach" className="flex gap-3 items-start" aria-label={isRtl ? "مربی" : "Coach"}>
+          <IconWell tone="inv" size={34} className="!text-coach !ring-0"><SparkIcon size={17} /></IconWell>
+          <p className="m-0 text-sm leading-[1.45]">
+            <span className="font-bold">{isRtl ? "مربی: " : "Coach: "}</span>
+            {isRtl
+              ? "وزنه‌ها و وعده‌ها را هر هفته بر اساس چیزی که واقعاً ثبت می‌کنی تنظیم می‌کنم."
+              : "I'll adjust weights and portions every week from what you actually log."}
+          </p>
+        </Card>
+
+        <Card className="flex flex-col gap-3.5" aria-label={isRtl ? "تفکیک ماکروها" : "Macro split"}>
+          <div className="flex items-center justify-between gap-3">
+            <Label>{isRtl ? "تفکیک ماکروها" : "Macro split"}</Label>
+            <span className="text-[13px] text-muted">{n(planKcal)} {isRtl ? "کالری" : "kcal"}</span>
+          </div>
+          <div aria-hidden="true" className="flex h-3 gap-[2px]">
+            {macros.map((m) => (
+              <span key={m.id} className={cx("h-full rounded-full", m.dot)} style={{ flex: `${m.kcal} 1 0` }} />
+            ))}
+          </div>
+          <ul className="m-0 p-0 list-none grid grid-cols-3 gap-2">
+            {macros.map((m) => (
+              <li key={m.id} className="flex flex-col gap-0.5">
+                <span className="inline-flex items-center gap-1.5 text-[13px] text-muted">
+                  <span className={cx("w-2 h-2 rounded-full shrink-0", m.dot)} />{m.label}
+                </span>
+                <span className="text-[17px] font-bold">{n(m.grams)} {isRtl ? "گرم" : "g"}</span>
+                <span className="text-xs text-muted">{pct(share(m))}</span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+
+        <Card className="flex items-center gap-3.5" aria-label={isRtl ? "چشم‌انداز چهار هفته" : "Four-week outlook"}>
+          <IconWell tone="sunk" size={44}><OutlookIcon className="w-5 h-5" strokeWidth={2} /></IconWell>
+          <span className="flex-1 min-w-0 flex flex-col gap-1">
+            <Label>{isRtl ? "چشم‌انداز ۴ هفته" : "4-week outlook"}</Label>
+            <span className="text-[15px] font-semibold leading-snug">
+              {delta === 0
+                ? (isRtl ? `ثابت در ${n(start)} ${kg}` : `Holding at ${start} ${kg}`)
+                : (isRtl ? `از ${n(start)} به حدود ${n(end.toFixed(1))} ${kg}` : `From ${start} to about ${end.toFixed(1)} ${kg}`)}
+            </span>
+          </span>
+          {delta !== 0 && (
+            <span className="shrink-0 font-display font-extrabold text-[26px] leading-none tracking-[-0.03em]" dir="ltr">
+              {delta > 0 ? "+" : "−"}{n(Math.abs(delta).toFixed(1))}
+            </span>
+          )}
+        </Card>
+      </motion.div>
+
+      <FlowFooter>
+        <CtaButton isRtl={isRtl} onClick={() => onNavigate("main-app")}>
+          {isRtl ? "ورود به برنامه" : "Enter the app"}
+        </CtaButton>
+      </FlowFooter>
+    </FlowScreen>
   );
 }

@@ -12,7 +12,7 @@ import { useChecklistT } from "../../lib/checklistI18n";
 const COPY = {
   en: {
     title: "Streak & Habits", current: "Current streak", dayStreak: "Day streak",
-    bestLine: (b, gap) => (gap > 0 ? `Your longest run is ${b} days. ${gap} more to beat it.` : b > 0 ? "This is your longest run yet." : ""),
+    bestLine: (b, gap, n) => (gap > 0 ? `Your longest run is ${n(b)} days. ${n(gap)} more to beat it.` : b > 0 ? "This is your longest run yet." : ""),
     thisWeek: "This week", today: "Today", milestones: "Milestones",
     last30: "Last 30 days", allDone: "All done", partial: "Partial", none: "No activity",
     bestStreak: "Best streak", perfectDays: "Perfect days", days: "days",
@@ -20,7 +20,7 @@ const COPY = {
   },
   fa: {
     title: "جزئیات استریک روزانه", current: "استریک فعلی", dayStreak: "روز متوالی",
-    bestLine: (b, gap) => (gap > 0 ? `طولانی‌ترین زنجیره‌ات ${b} روز است. ${gap} روز دیگر تا شکستنش.` : b > 0 ? "این طولانی‌ترین زنجیره‌ی تو تا امروز است." : ""),
+    bestLine: (b, gap, n) => (gap > 0 ? `طولانی‌ترین زنجیره‌ات ${n(b)} روز است. ${n(gap)} روز دیگر تا شکستنش.` : b > 0 ? "این طولانی‌ترین زنجیره‌ی تو تا امروز است." : ""),
     thisWeek: "این هفته", today: "امروز", milestones: "نقطه‌های عطف",
     last30: "تقویم فعالیت ۳۰ روز", allDone: "کامل", partial: "ناقص", none: "بدون فعالیت",
     bestStreak: "طولانی‌ترین زنجیره", perfectDays: "روزهای کامل", days: "روز",
@@ -73,7 +73,7 @@ export default function StreakDetailPage({ onBack, onGoToRank, onGoToHistory, is
   const fmt = (d, opts) => new Intl.DateTimeFormat(isRtl ? "fa-IR-u-ca-persian" : "en-GB", opts).format(d);
 
   const best = Math.max(longestStreak, currentStreak);
-  const bestLine = c.bestLine(n(best), n(best - currentStreak));
+  const bestLine = c.bestLine(best, best - currentStreak, n);
   const nextMilestone = MILESTONES.find((m) => m > currentStreak);
   const go = (fn) => () => { fn?.(); window.scrollTo(0, 0); };
 
@@ -171,7 +171,7 @@ export default function StreakDetailPage({ onBack, onGoToRank, onGoToHistory, is
               })}
             </div>
             <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-muted">
-              <span className="inline-flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-jet" />{c.allDone}</span>
+              <span className="inline-flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-jet dark:ring-1 dark:ring-inset dark:ring-line" />{c.allDone}</span>
               <span className="inline-flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-accent/40" />{c.partial}</span>
               <span className="inline-flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-sunk ring-1 ring-inset ring-line" />{c.none}</span>
             </div>

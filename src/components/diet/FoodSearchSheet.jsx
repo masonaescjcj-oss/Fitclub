@@ -56,7 +56,8 @@ function PortionPane({ food, meal, isRtl, t, onCancel, onConfirm, initialGrams }
         ))}
       </div>
 
-      <div className="flex items-center gap-2.5">
+      {/* Minus stays on the left and plus on the right in both languages, like a number line. */}
+      <div dir="ltr" className="flex items-center gap-2.5">
         <IconButton label={t.less} tone="hero" onClick={() => nudge(-0.5)}>
           <Minus className="w-5 h-5" strokeWidth={2.2} />
         </IconButton>
@@ -67,7 +68,7 @@ function PortionPane({ food, meal, isRtl, t, onCancel, onConfirm, initialGrams }
             onChange={(e) => setCount(Math.max(+e.target.value || 0, 0))}
             className="w-14 min-w-0 bg-transparent border-0 !outline-none text-center text-lg font-bold text-hero-fg [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
           />
-          <span className="text-sm text-hero-muted truncate">× {isRtl ? serving.fa : serving.en}</span>
+          <span dir={isRtl ? "rtl" : "ltr"} className="text-sm text-hero-muted truncate">× {isRtl ? serving.fa : serving.en}</span>
         </label>
         <IconButton label={t.more} tone="hero" onClick={() => nudge(0.5)}>
           <Plus className="w-5 h-5" strokeWidth={2.2} />
@@ -216,7 +217,7 @@ export default function FoodSearchSheet({ mealId, isRtl, t, recentIds, onPick, o
 
 function FoodList({ foods, chosen, isRtl, t, onPick, label }) {
   return (
-    <ul aria-label={label} className="m-0 p-0 py-1 list-none rounded-3xl bg-card divide-y divide-hair">
+    <ul aria-label={label} className="m-0 p-0 py-1 list-none rounded-3xl bg-card divide-y divide-hair overflow-hidden">
       {foods.map((food) => (
         <FoodRow key={food.id} food={food} isRtl={isRtl} t={t} selected={chosen?.id === food.id} onClick={() => onPick(food)} />
       ))}

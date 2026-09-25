@@ -315,9 +315,12 @@ export function Ring({ value = 0, size = 64, stroke = 8, color = "rgb(var(--ui-f
     <span className={cx("relative inline-flex items-center justify-center shrink-0", className)} style={{ width: size, height: size }}>
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true" className="absolute inset-0 -rotate-90">
         <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={track} strokeWidth={stroke} />
-        <motion.circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={stroke} strokeLinecap="round"
-          strokeDasharray={c} initial={{ strokeDashoffset: c }} animate={{ strokeDashoffset: c * (1 - v) }}
-          transition={{ duration: 0.8, ease: [0.2, 0.8, 0.2, 1] }} />
+        {/* A round cap would leave a dot at zero, so an empty ring draws no arc. */}
+        {v > 0 && (
+          <motion.circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={stroke} strokeLinecap="round"
+            strokeDasharray={c} initial={{ strokeDashoffset: c }} animate={{ strokeDashoffset: c * (1 - v) }}
+            transition={{ duration: 0.8, ease: [0.2, 0.8, 0.2, 1] }} />
+        )}
       </svg>
       {children && <span className="relative flex flex-col items-center justify-center text-center">{children}</span>}
     </span>
@@ -392,7 +395,8 @@ export function initials(name = "") {
 export function Avatar({ name, src, size = 44, tone, className = "" }) {
   const hash = [...String(name || "")].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7);
   const bg = tone || TONES[hash % TONES.length];
-  const fg = bg === "bg-jet" ? "text-accent" : "text-on-accent";
+  // Jet stays ink at night, so it gets a hairline to lift off a night card.
+  const fg = bg === "bg-jet" ? "text-accent dark:ring-1 dark:ring-inset dark:ring-line" : "text-on-accent";
   return (
     <span style={{ width: size, height: size, fontSize: Math.round(size * 0.34) }}
       className={cx("shrink-0 rounded-full flex items-center justify-center font-bold overflow-hidden", bg, fg, className)}>

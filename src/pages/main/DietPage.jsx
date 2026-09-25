@@ -490,7 +490,7 @@ function MealRow({ meal, entries, open, isRtl, t, sep, onToggle, onAdd, onSave, 
           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.22, ease: [0.2, 0.8, 0.2, 1] }} className="overflow-hidden">
             <div className="ms-[72px] me-2 pb-2 flex flex-col">
-              <span className="text-xs text-muted pb-1">{fmtNum(totals.kcal, isRtl)} {t.kcal}{sep}{macroLine(totals, isRtl, t, t.grams)}</span>
+              <span className="text-xs text-muted pb-1">{fmtNum(totals.kcal, isRtl)} {t.kcal}{sep}{macroLine(totals, isRtl, t)}</span>
               {entries.map((entry) => (
                 <EntryRow key={entry.id} entry={entry} isRtl={isRtl} t={t} sep={sep} onRemove={() => onRemove(entry.id)} />
               ))}

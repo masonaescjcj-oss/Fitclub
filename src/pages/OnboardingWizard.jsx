@@ -1,8 +1,17 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { applyOnboardingToProfile } from "../lib/nutrition/profile";
 import { motion, AnimatePresence } from "framer-motion";
-import { Dumbbell, Home, Building2, Activity, Utensils, Leaf, Drumstick, WheatOff, Scan, ChevronDown, Scale, Flame, GraduationCap, Zap as Lightning, Footprints, Sparkles, Star } from "lucide-react";
-import Header from "../components/Header";
+import {
+  Building2, Check, CheckCheck, Drumstick, Dumbbell, Flame, Footprints, GraduationCap, HeartPulse, Home, Leaf, Minus,
+  PersonStanding, Plus, Scale, Scan, Star, Trees, TrendingDown, Utensils, WheatOff, Zap as Lightning,
+} from "lucide-react";
+import { Card, Chip, CtaButton, IconButton, IconWell, Label, Segmented, cx, num } from "../components/ui/kit";
+import { TrainIcon } from "../components/ui/icons";
+import Header, { FlowFooter, FlowScreen, FlowTitle } from "../components/Header";
+
+// The onboarding questionnaire: one question per step, answered on cards
+// that turn ink when picked. Single-choice steps move on by themselves; every
+// step also has a pinned button so the current pick can be kept as it is.
 
 const frontMuscles = ["Shoulder", "Biceps", "Chest", "Neck", "Legs", "Abs"];
 const backMuscles = ["Trapezius", "Deltoids", "Triceps", "Legs", "Calf muscles", "Hips"];
@@ -20,11 +29,141 @@ const muscleTranslations = {
   }
 };
 
+/* ─────────────── glyphs lucide doesn't have in this version ─────────────── */
+
+const Glyph = ({ className = "", children }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"
+    aria-hidden="true" className={className}>
+    {children}
+  </svg>
+);
+const MaleIcon = (p) => <Glyph {...p}><circle cx="10" cy="14" r="5.5" /><path d="M14 10l5.5-5.5M14.5 4.5h5v5" /></Glyph>;
+const FemaleIcon = (p) => <Glyph {...p}><circle cx="12" cy="9" r="5.5" /><path d="M12 14.5V21M9 18h6" /></Glyph>;
+
+/* ─────────────── selection surfaces: card when open, ink when picked ─────────────── */
+
+const optionTone = (on) => (on ? "bg-inv text-on-inv" : "bg-card text-ink");
+const wellTone = (on) => (on ? "bg-on-inv/10 text-accent dark:bg-jet" : "bg-sunk text-ink");
+const subTone = (on) => (on ? "text-on-inv/65" : "text-muted");
+const tagTone = (on) => (on ? "bg-on-inv/10 text-on-inv/85" : "bg-sunk text-ink");
+const pressable = "border-0 cursor-pointer text-start transition-[background-color,color,transform] duration-150 active:scale-[0.98]";
+const tagCls = "h-7 px-3 rounded-full inline-flex items-center gap-1 text-xs font-semibold whitespace-nowrap";
+
+/** The round mark on a picked card: accent on ink, ink on paper at night. */
+function Tick({ on, className = "" }) {
+  return (
+    <span aria-hidden="true"
+      className={cx("w-[26px] h-[26px] shrink-0 rounded-full flex items-center justify-center transition-colors",
+        on ? "bg-accent text-on-accent dark:bg-jet dark:text-accent" : "ring-2 ring-inset ring-faint", className)}>
+      {on && <Check className="w-[15px] h-[15px]" strokeWidth={3} />}
+    </span>
+  );
+}
+
+function Well({ on, size = 44, children }) {
+  return (
+    <span style={{ width: size, height: size }}
+      className={cx("shrink-0 rounded-full flex items-center justify-center transition-colors", wellTone(on))}>
+      {children}
+    </span>
+  );
+}
+
+/** Four rising bars for workout intensity. */
+function IntensityBars({ level, on }) {
+  return (
+    <span className={cx("w-11 h-11 shrink-0 rounded-full flex items-end justify-center gap-[3px] pb-[13px] transition-colors", wellTone(on))}>
+      {[0, 1, 2, 3].map((i) => (
+        <span key={i} style={{ height: 6 + i * 4 }}
+          className={cx("w-1 rounded-full", i < level ? "bg-current" : on ? "bg-on-inv/25 dark:bg-hero-fg/25" : "bg-faint")} />
+      ))}
+    </span>
+  );
+}
+
+/** A full-width answer row. */
+function OptionRow({ on, onClick, lead, label, desc, ariaLabel }) {
+  return (
+    <button type="button" aria-pressed={on} aria-label={ariaLabel} onClick={onClick}
+      className={cx("w-full min-h-[68px] rounded-3xl px-4 py-3 flex items-center gap-3.5", pressable, optionTone(on))}>
+      {lead}
+      <span className="flex-1 min-w-0 flex flex-col gap-0.5">
+        <span className="text-[17px] font-bold leading-snug">{label}</span>
+        {desc && <span className={cx("text-[13px] leading-snug", subTone(on))}>{desc}</span>}
+      </span>
+      <Tick on={on} />
+    </button>
+  );
+}
+
+/** A tile in a two-column grid, with the tick in its top corner once picked. */
+function OptionTile({ on, onClick, top, children, ariaLabel, className = "" }) {
+  return (
+    <button type="button" aria-pressed={on} aria-label={ariaLabel} onClick={onClick}
+      className={cx("relative rounded-3xl p-4 flex flex-col items-start justify-between", pressable, optionTone(on), className)}>
+      {top}
+      {on && <Tick on className="absolute top-3.5 end-3.5" />}
+      {children}
+    </button>
+  );
+}
+
+/**
+ * A number picker: a big readout above a slider with − and + either side.
+ * The value is always stored in metric; `format` shows it in the chosen unit.
+ */
+function MeasurePicker({ value, min, max, onChange, format, unit, isRtl, label, ltrReadout }) {
+  const set = (v) => onChange(Math.max(min, Math.min(max, v)));
+  const pct = (value - min) / (max - min);
+  return (
+    <Card className="flex flex-col items-center gap-7 pt-9 pb-5">
+      <div className="flex items-baseline gap-2">
+        <span dir={ltrReadout ? "ltr" : undefined}
+          className="font-display font-extrabold text-[88px] leading-[0.85] tracking-[-0.05em] text-ink">{format(value)}</span>
+        {unit && <span className="text-xl font-bold text-muted">{unit}</span>}
+      </div>
+      <div className="w-full flex flex-col gap-1.5">
+        <div className="flex items-center gap-3">
+          <IconButton tone="soft" label={isRtl ? "کمتر" : "Less"} onClick={() => set(value - 1)} disabled={value <= min}
+            className="disabled:opacity-40">
+            <Minus className="w-5 h-5" strokeWidth={2} />
+          </IconButton>
+          <div className="relative flex-1 min-w-0 h-11 flex items-center">
+            <span aria-hidden="true" className="absolute inset-x-0 h-2 rounded-full bg-line overflow-hidden">
+              <span className="absolute inset-y-0 start-0 rounded-full bg-inv"
+                style={{ width: `calc(14px + (100% - 28px) * ${pct})` }} />
+            </span>
+            <input type="range" min={min} max={max} step={1} value={value} aria-label={label}
+              aria-valuetext={`${format(value)}${unit ? ` ${unit}` : ""}`}
+              onChange={(e) => set(Number(e.target.value))}
+              className={cx("relative w-full h-7 m-0 p-0 appearance-none bg-transparent cursor-pointer",
+                "[&::-webkit-slider-runnable-track]:h-7 [&::-webkit-slider-runnable-track]:bg-transparent",
+                "[&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-7 [&::-webkit-slider-thumb]:h-7 [&::-webkit-slider-thumb]:rounded-full",
+                "[&::-webkit-slider-thumb]:bg-inv [&::-webkit-slider-thumb]:border-4 [&::-webkit-slider-thumb]:border-solid [&::-webkit-slider-thumb]:border-card [&::-webkit-slider-thumb]:shadow-lift",
+                "[&::-moz-range-track]:bg-transparent [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:h-5 [&::-moz-range-thumb]:rounded-full",
+                "[&::-moz-range-thumb]:bg-inv [&::-moz-range-thumb]:border-4 [&::-moz-range-thumb]:border-solid [&::-moz-range-thumb]:border-card")} />
+          </div>
+          <IconButton tone="soft" label={isRtl ? "بیشتر" : "More"} onClick={() => set(value + 1)} disabled={value >= max}
+            className="disabled:opacity-40">
+            <Plus className="w-5 h-5" strokeWidth={2} />
+          </IconButton>
+        </div>
+        <div className="flex justify-between px-14 font-mono text-xs text-muted">
+          <span dir={ltrReadout ? "ltr" : undefined}>{format(min)}</span>
+          <span dir={ltrReadout ? "ltr" : undefined}>{format(max)}</span>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 export default function OnboardingWizard({ onNavigate }) {
   const [stepIndex, setStepIndex] = useState(0);
 
   const language = localStorage.getItem("language") || "en";
   const isRtl = language === "fa";
+  const mt = muscleTranslations[language];
+  const n = (v) => num(v, isRtl);
 
   const [muscleSide, setMuscleSide] = useState("front");
   const [heightUnit, setHeightUnit] = useState("cm");
@@ -55,12 +194,14 @@ export default function OnboardingWizard({ onNavigate }) {
       key: "goal",
       titleEn: "What is your main goal?",
       titleFa: "هدف اصلی شما چیست؟",
+      subtitleEn: "Pick one. You can change it any time.",
+      subtitleFa: "یکی را انتخاب کنید. هر زمان می‌توانید تغییرش دهید.",
       type: "single",
       options: [
-        { id: "Weight Loss", labelEn: "Weight Loss", labelFa: "کاهش وزن" },
-        { id: "Muscle Gain", labelEn: "Muscle Gain", labelFa: "افزایش عضله" },
-        { id: "Keep Fit", labelEn: "Keep Fit", labelFa: "تثبیت وزن" },
-        { id: "Max Strength", labelEn: "Max Strength", labelFa: "حداکثر قدرت" },
+        { id: "Weight Loss", labelEn: "Weight Loss", labelFa: "کاهش وزن", Icon: TrendingDown, descEn: "Keep strength, drop weight", descFa: "قدرت بماند، وزن کم شود" },
+        { id: "Muscle Gain", labelEn: "Muscle Gain", labelFa: "افزایش عضله", Icon: Dumbbell, descEn: "Size, with progressive overload", descFa: "حجم، با اضافه‌بار تدریجی" },
+        { id: "Keep Fit", labelEn: "Keep Fit", labelFa: "تثبیت وزن", Icon: HeartPulse, descEn: "Stay lean and keep moving", descFa: "روی فرم بمانید و فعال باشید" },
+        { id: "Max Strength", labelEn: "Max Strength", labelFa: "حداکثر قدرت", Icon: Lightning, descEn: "Chase numbers on the big lifts", descFa: "رکورد در حرکات اصلی" },
       ]
     },
     {
@@ -77,17 +218,17 @@ export default function OnboardingWizard({ onNavigate }) {
     },
     {
       key: "gender",
-      titleEn: "Select Your Gender",
+      titleEn: "Select your gender",
       titleFa: "جنسیت خود را انتخاب کنید",
       type: "gender",
       options: [
-        { id: "male", labelEn: "Male", labelFa: "مرد", icon: "👨‍💼" },
-        { id: "female", labelEn: "Female", labelFa: "زن", icon: "👩‍💼" }
+        { id: "male", labelEn: "Male", labelFa: "مرد", Icon: MaleIcon },
+        { id: "female", labelEn: "Female", labelFa: "زن", Icon: FemaleIcon }
       ]
     },
     {
       key: "focusAreas",
-      titleEn: "TARGET MUSCLE",
+      titleEn: "Target muscles",
       titleFa: "عضلات هدف",
       subtitleEn: "Select target muscle group",
       subtitleFa: "گروه عضلانی هدف را انتخاب کنید",
@@ -99,9 +240,9 @@ export default function OnboardingWizard({ onNavigate }) {
       titleFa: "سطح آمادگی جسمانی شما چیست؟",
       type: "single",
       options: [
-        { id: "beginner", labelEn: "Beginner", labelFa: "مبتدی" },
-        { id: "intermediate", labelEn: "Intermediate", labelFa: "متوسط" },
-        { id: "advanced", labelEn: "Advanced", labelFa: "حرفه‌ای" },
+        { id: "beginner", labelEn: "Beginner", labelFa: "مبتدی", descEn: "New to training, or back after a long break", descFa: "تازه‌کار، یا برگشته بعد از یک وقفه‌ی طولانی" },
+        { id: "intermediate", labelEn: "Intermediate", labelFa: "متوسط", descEn: "Training regularly for six months or more", descFa: "بیش از شش ماه تمرین منظم" },
+        { id: "advanced", labelEn: "Advanced", labelFa: "حرفه‌ای", descEn: "Years of structured training", descFa: "چند سال تمرین اصولی و برنامه‌دار" },
       ]
     },
     {
@@ -110,20 +251,20 @@ export default function OnboardingWizard({ onNavigate }) {
       titleFa: "محل تمرین مورد علاقه شما کجاست؟",
       type: "single",
       options: [
-        { id: "gym", labelEn: "Gym", labelFa: "باشگاه ورزشی", icon: <Building2 className="w-6 h-6" /> },
-        { id: "home", labelEn: "Home", labelFa: "خانه", icon: <Home className="w-6 h-6" /> },
-        { id: "outdoor", labelEn: "Outdoor Park", labelFa: "فضای باز / پارک", icon: <Activity className="w-6 h-6" /> },
+        { id: "gym", labelEn: "Gym", labelFa: "باشگاه ورزشی", Icon: Building2 },
+        { id: "home", labelEn: "Home", labelFa: "خانه", Icon: Home },
+        { id: "outdoor", labelEn: "Outdoor Park", labelFa: "فضای باز / پارک", Icon: Trees },
       ]
     },
     {
       key: "height",
-      titleEn: "WHAT'S YOUR HEIGHT ?",
+      titleEn: "What's your height?",
       titleFa: "قد شما چقدر است؟",
       type: "height-picker",
     },
     {
       key: "weight",
-      titleEn: "WHAT'S YOUR CURRENT WEIGHT ?",
+      titleEn: "What's your current weight?",
       titleFa: "وزن فعلی شما چقدر است؟",
       type: "weight-picker",
     },
@@ -133,38 +274,38 @@ export default function OnboardingWizard({ onNavigate }) {
       titleFa: "به چه تجهیزاتی دسترسی دارید؟",
       type: "single",
       options: [
-        { id: "full_gym", labelEn: "Full Gym Machines", labelFa: "تجهیزات کامل باشگاهی", icon: <Dumbbell className="w-6 h-6" /> },
-        { id: "dumbbells", labelEn: "Dumbbells & Barbells", labelFa: "دمبل و هالتر", icon: <Dumbbell className="w-6 h-6" /> },
-        { id: "bodyweight", labelEn: "Bodyweight Only", labelFa: "فقط وزن بدن (کالیستنیکس)", icon: <Activity className="w-6 h-6" /> },
+        { id: "full_gym", labelEn: "Full Gym Machines", labelFa: "تجهیزات کامل باشگاهی", Icon: TrainIcon },
+        { id: "dumbbells", labelEn: "Dumbbells & Barbells", labelFa: "دمبل و هالتر", Icon: Dumbbell },
+        { id: "bodyweight", labelEn: "Bodyweight Only", labelFa: "فقط وزن بدن (کالیستنیکس)", Icon: PersonStanding },
       ]
     },
     {
       key: "difficulty",
-      titleEn: "Preferred Workout Intensity",
+      titleEn: "Preferred workout intensity",
       titleFa: "شدت و سختی تمرینات مد نظر",
       type: "single",
       options: [
-        { id: "light", labelEn: "Light", labelFa: "سبک" },
-        { id: "moderate", labelEn: "Moderate", labelFa: "متوسط" },
-        { id: "intense", labelEn: "Intense", labelFa: "شدید" },
-        { id: "extreme", labelEn: "Extreme", labelFa: "فوق‌العاده شدید" },
+        { id: "light", labelEn: "Light", labelFa: "سبک", bars: 1 },
+        { id: "moderate", labelEn: "Moderate", labelFa: "متوسط", bars: 2 },
+        { id: "intense", labelEn: "Intense", labelFa: "شدید", bars: 3 },
+        { id: "extreme", labelEn: "Extreme", labelFa: "فوق‌العاده شدید", bars: 4 },
       ]
     },
     {
       key: "dietType",
-      titleEn: "Dietary Preference",
+      titleEn: "Dietary preference",
       titleFa: "رژیم غذایی مورد علاقه شما",
       type: "single",
       options: [
-        { id: "standard", labelEn: "Standard Diet", labelFa: "معمولی و همه‌چیزخوار", icon: <Utensils className="w-6 h-6" /> },
-        { id: "high_protein", labelEn: "High Protein", labelFa: "پر پروتئین (تناسب اندام)", icon: <Drumstick className="w-6 h-6" /> },
-        { id: "vegetarian", labelEn: "Vegetarian", labelFa: "گیاه‌خواری", icon: <Leaf className="w-6 h-6" /> },
-        { id: "keto", labelEn: "Keto / Low Carb", labelFa: "کتوژنیک / کم کربوهیدرات", icon: <WheatOff className="w-6 h-6" /> },
+        { id: "standard", labelEn: "Standard Diet", labelFa: "معمولی و همه‌چیزخوار", Icon: Utensils },
+        { id: "high_protein", labelEn: "High Protein", labelFa: "پر پروتئین (تناسب اندام)", Icon: Drumstick },
+        { id: "vegetarian", labelEn: "Vegetarian", labelFa: "گیاه‌خواری", Icon: Leaf },
+        { id: "keto", labelEn: "Keto / Low Carb", labelFa: "کتوژنیک / کم کربوهیدرات", Icon: WheatOff },
       ]
     },
     {
       key: "workoutProgram",
-      titleEn: "Select Your Workout Program",
+      titleEn: "Select your workout program",
       titleFa: "برنامه تمرینی خود را انتخاب کنید",
       subtitleEn: "Based on your goals, location and equipment, these programs are recommended:",
       subtitleFa: "بر اساس اهداف، محل تمرین و تجهیزات شما، این برنامه‌ها پیشنهاد شده‌اند:",
@@ -172,11 +313,77 @@ export default function OnboardingWizard({ onNavigate }) {
     },
     {
       key: "mealProgram",
-      titleEn: "Select Your Meal Program",
+      titleEn: "Select your meal program",
       titleFa: "برنامه تغذیه خود را انتخاب کنید",
       subtitleEn: "Based on your goal and diet type, these programs are recommended:",
       subtitleFa: "بر اساس هدف و نوع رژیم غذایی شما، این برنامه‌ها پیشنهاد شده‌اند:",
       type: "meal-program-picker",
+    }
+  ];
+
+  const workoutPrograms = [
+    {
+      id: "full_body",
+      recommended: true,
+      Icon: Dumbbell,
+      titleEn: "Full Body Plus - 4 Days",
+      titleFa: "فول بادی پلاس - ۴ روز در هفته",
+      descEn: "Full body strength with an extra conditioning day.",
+      descFa: "تمرینات استقامتی کامل بدن به همراه یک روز چابکی اضافه.",
+      badge1En: "Duration: 30 Days", badge1Fa: "مدت: ۳۰ روز",
+      badge2En: "Target Days/Week: 4 days", badge2Fa: "تمرین: ۴ روز در هفته"
+    },
+    {
+      id: "agility_power",
+      recommended: false,
+      Icon: Lightning,
+      titleEn: "Agility & Power - 4 Days",
+      titleFa: "چابکی و قدرت - ۴ روز در هفته",
+      descEn: "Enhance sports performance and reflex speed.",
+      descFa: "افزایش عملکرد ورزشی، توان انفجاری و سرعت رفلکس.",
+      badge1En: "Duration: 30 Days", badge1Fa: "مدت: ۳۰ روز",
+      badge2En: "Target Days/Week: 4 days", badge2Fa: "تمرین: ۴ روز در هفته"
+    },
+    {
+      id: "runner_conditioning",
+      recommended: false,
+      Icon: Footprints,
+      titleEn: "Runner Conditioning - 4 Days",
+      titleFa: "آمادگی و چابکی دونده - ۴ روز در هفته",
+      descEn: "Mix of long runs and HIIT for performance.",
+      descFa: "ترکیب دویدن‌های استقامتی و HIIT برای آمادگی بالا.",
+      badge1En: "Duration: 30 Days", badge1Fa: "مدت: ۳۰ روز",
+      badge2En: "Target Days/Week: 4 days", badge2Fa: "تمرین: ۴ روز در هفته"
+    }
+  ];
+
+  const mealPrograms = [
+    {
+      id: "maintain",
+      recommended: true,
+      Icon: Scale,
+      titleEn: "Maintain weight",
+      titleFa: "تثبیت وزن و تعادل نهایی",
+      protein: "30%", carbs: "45%", fat: "25%",
+      extraKcal: null,
+    },
+    {
+      id: "muscle_gain",
+      recommended: false,
+      Icon: Flame,
+      titleEn: "Muscle gain with minimal fat",
+      titleFa: "افزایش عضله با حداقل درصد چربی",
+      protein: "30%", carbs: "45%", fat: "25%",
+      extraKcal: 300,
+    },
+    {
+      id: "affordable",
+      recommended: false,
+      Icon: GraduationCap,
+      titleEn: "Affordable nutrition",
+      titleFa: "تغذیه اقتصادی و کاملاً در دسترس",
+      protein: "30%", carbs: "45%", fat: "25%",
+      extraKcal: 200,
     }
   ];
 
@@ -205,6 +412,12 @@ export default function OnboardingWizard({ onNavigate }) {
 
   const handleOptionSelect = (key, value) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
+  };
+
+  // A single choice moves on by itself after the pick has shown.
+  const choose = (key, value) => {
+    handleOptionSelect(key, value);
+    setTimeout(handleNext, 90);
   };
 
   const handleMuscleToggle = (muscle) => {
@@ -239,597 +452,277 @@ export default function OnboardingWizard({ onNavigate }) {
   const heightMeters = (formData.height || 174) / 100;
   const bmiValue = ((formData.weight || 76) / (heightMeters * heightMeters)).toFixed(1);
 
-  return (
-    <div
-      dir={isRtl ? "rtl" : "ltr"}
-      className="w-full md:max-w-lg mx-auto min-h-[100dvh] bg-black text-white flex flex-col justify-between overflow-x-hidden relative font-sans select-none"
-    >
-      
-      {/* Top Header with Aligned Dot-Dash Progress Indicator */}
-      <Header
-        onBack={handleBack}
-        isRtl={isRtl}
-        stepIndex={stepIndex}
-        totalSteps={totalSteps}
-      />
+  // Height and weight are stored in cm and kg; the unit switch changes only how they read.
+  const formatHeight = (cm) => {
+    if (heightUnit === "cm") return n(cm);
+    const inches = cm / 2.54;
+    let ft = Math.floor(inches / 12);
+    let inch = Math.round(inches - ft * 12);
+    if (inch === 12) { ft += 1; inch = 0; }
+    return `${n(ft)}′${n(inch)}″`;
+  };
+  const formatWeight = (kg) => n(weightUnit === "kg" ? kg : Math.round(kg * 2.20462));
+  const unitName = {
+    cm: isRtl ? "سانتی‌متر" : "cm", ft: isRtl ? "فوت" : "ft",
+    kg: isRtl ? "کیلوگرم" : "kg", lb: isRtl ? "پوند" : "lb",
+  };
 
-      {/* Ultra-Fast Snappy Animated Content Wrapper (0.12s) */}
+  // Each step starts at its top, however far the last one was scrolled.
+  const stepRef = useRef(null);
+  useEffect(() => {
+    stepRef.current?.parentElement?.scrollTo?.(0, 0);
+  }, [stepIndex]);
+
+  const label = (o) => (isRtl ? o.labelFa : o.labelEn);
+  const nextLabel = isRtl ? "ادامه" : "Next";
+  const type = currentStepData.type;
+  const key = currentStepData.key;
+
+  const footerLabel = {
+    "muscle-target": mt?.Next || "Next",
+    "height-picker": isRtl ? "ادامه و محاسبه" : "Let's Calculate",
+    "meal-program-picker": isRtl ? "ایجاد برنامه کامل تمرینی و تغذیه" : "Generate Complete Workout & Meal Plan",
+  }[type] || nextLabel;
+
+  const selectedCount = (formData.focusAreas || []).length;
+
+  return (
+    <FlowScreen isRtl={isRtl}>
+      <Header onBack={handleBack} isRtl={isRtl} stepIndex={stepIndex} totalSteps={totalSteps} />
+
       <AnimatePresence mode="wait">
         <motion.div
           key={stepIndex}
-          initial={{ opacity: 0, x: isRtl ? -8 : 8 }}
+          ref={stepRef}
+          initial={{ opacity: 0, x: isRtl ? -10 : 10 }}
           animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: isRtl ? 8 : -8 }}
-          transition={{ duration: 0.12, ease: "easeOut" }}
-          className="flex-grow flex flex-col justify-start px-4 pt-2 pb-8 relative z-10"
+          exit={{ opacity: 0, x: isRtl ? 10 : -10 }}
+          transition={{ duration: 0.14, ease: "easeOut" }}
+          className="flex-1 flex flex-col gap-3.5"
         >
-          
-          {/* Title Header */}
-          <div className={`mb-6 ${isRtl ? "text-right" : "text-left"}`}>
-            <h1 className="text-3xl font-black text-white tracking-tight uppercase" dir="ltr">
-              {isRtl ? currentStepData.titleFa : currentStepData.titleEn}
-            </h1>
-            {currentStepData.subtitleEn && (
-              <p className="text-xs text-neutral-400 font-semibold mt-1 leading-relaxed" dir={isRtl ? "rtl" : "ltr"}>
-                {isRtl ? currentStepData.subtitleFa : currentStepData.subtitleEn}
-              </p>
-            )}
-          </div>
+          <FlowTitle size={36} className="!mt-4 mb-2"
+            title={isRtl ? currentStepData.titleFa : currentStepData.titleEn}
+            lede={currentStepData.subtitleEn ? (isRtl ? currentStepData.subtitleFa : currentStepData.subtitleEn) : null} />
 
-          {/* SINGLE SELECT CARDS */}
-          {currentStepData.type === "single" && (
-            <div className="space-y-4">
+          {/* GOAL: the board's two-by-two cards */}
+          {type === "single" && key === "goal" && (
+            <div className="grid grid-cols-2 gap-2.5">
               {currentStepData.options.map((opt) => {
-                const isSelected = formData[currentStepData.key] === opt.id;
+                const on = formData.goal === opt.id;
                 return (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    onClick={() => {
-                      handleOptionSelect(currentStepData.key, opt.id);
-                      setTimeout(handleNext, 90);
-                    }}
-                    className={`w-full h-16 px-6 rounded-2xl border text-lg font-black transition-all duration-200 flex items-center justify-between relative overflow-hidden group active:scale-[0.99] ${
-                      isRtl ? "text-right flex-row-reverse" : "text-left flex-row"
-                    } ${
-                      isSelected
-                        ? "bg-gradient-to-r from-[#844783] to-[#9b4f9a] border-2 border-white text-white shadow-[0_0_25px_rgba(132,71,131,0.45)] scale-[1.01]"
-                        : "bg-[#141416] border-white/10 text-neutral-200 hover:border-[#844783]/50 hover:bg-[#1a141c] hover:shadow-[0_0_20px_rgba(132,71,131,0.15)]"
-                    }`}
-                  >
-                    <div className="flex items-center gap-4 z-10" dir={isRtl ? "rtl" : "ltr"}>
-                      {opt.icon && (
-                        <div className={`p-2.5 rounded-xl transition-all duration-200 ${isSelected ? "text-white bg-white/20" : "text-[#844783] bg-white/5 group-hover:bg-[#844783]/20"}`}>
-                          {opt.icon}
-                        </div>
-                      )}
-                      <span className="tracking-tight" dir={isRtl ? "rtl" : "ltr"}>
-                        {isRtl ? opt.labelFa : opt.labelEn}
-                      </span>
-                    </div>
-
-                    {isSelected && (
-                      <div className="w-7 h-7 rounded-full bg-white flex items-center justify-center text-[#844783] shrink-0 z-10 shadow-lg">
-                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4">
-                          <path d="M20 6L9 17L4 12" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                      </div>
-                    )}
-                  </button>
+                  <OptionTile key={opt.id} on={on} onClick={() => choose("goal", opt.id)} className="min-h-[140px]"
+                    top={<Well on={on} size={40}><opt.Icon className="w-5 h-5" strokeWidth={2} /></Well>}>
+                    <span className="flex flex-col gap-0.5 mt-4">
+                      <span className="text-[17px] font-bold leading-snug">{label(opt)}</span>
+                      <span className={cx("text-[13px] leading-snug", subTone(on))}>{isRtl ? opt.descFa : opt.descEn}</span>
+                    </span>
+                  </OptionTile>
                 );
               })}
             </div>
           )}
 
-          {/* GENDER SELECT CARDS */}
-          {currentStepData.type === "gender" && (
-            <div className="grid grid-cols-2 gap-4">
+          {/* FREQUENCY: big day counts */}
+          {type === "single" && key === "frequency" && (
+            <div className="grid grid-cols-2 gap-2.5">
               {currentStepData.options.map((opt) => {
-                const isSelected = formData.gender === opt.id;
+                const on = formData.frequency === opt.id;
                 return (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    onClick={() => {
-                      handleOptionSelect("gender", opt.id);
-                      setTimeout(handleNext, 90);
-                    }}
-                    className={`p-7 rounded-3xl border flex flex-col items-center justify-center gap-4 transition-all duration-200 active:scale-[0.98] ${
-                      isSelected
-                        ? "bg-gradient-to-br from-[#844783] to-[#9b4f9a] border-2 border-white text-white shadow-[0_0_25px_rgba(132,71,131,0.45)] scale-[1.02]"
-                        : "bg-[#141416] border-white/10 text-neutral-300 hover:border-[#844783]/50 hover:bg-[#1a141c]"
-                    }`}
-                  >
-                    <span className="text-6xl">{opt.icon}</span>
-                    <span className="text-lg font-black text-white" dir={isRtl ? "rtl" : "ltr"}>
-                      {isRtl ? opt.labelFa : opt.labelEn}
+                  <OptionTile key={opt.id} on={on} onClick={() => choose("frequency", opt.id)} ariaLabel={label(opt)}
+                    className="min-h-[120px] !justify-end">
+                    <span className="font-display font-extrabold text-[44px] leading-none tracking-[-0.04em]">
+                      {n(opt.id.replace("_", "–"))}
                     </span>
-                  </button>
+                    <span className={cx("mt-1.5 text-[13px]", subTone(on))}>{isRtl ? "روز در هفته" : "days a week"}</span>
+                  </OptionTile>
                 );
               })}
             </div>
           )}
 
-          {/* TARGET MUSCLE SELECTOR */}
-          {currentStepData.type === "muscle-target" && (
-            <div className="space-y-2.5 flex flex-col items-center w-full">
-              
-              <div className="flex bg-[#141416] p-1 rounded-full border border-white/10 w-full max-w-[260px] mb-1 mx-auto">
-                <button
-                  type="button"
-                  onClick={() => setMuscleSide("front")}
-                  className={`flex-1 py-1.5 rounded-full text-xs font-black transition-all duration-200 ${
-                    muscleSide === "front"
-                      ? "bg-[#844783] text-white shadow-lg shadow-[#844783]/40"
-                      : "text-gray-400 hover:text-white"
-                  }`}
-                >
-                  {muscleTranslations[language]?.Front}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMuscleSide("back")}
-                  className={`flex-1 py-1.5 rounded-full text-xs font-black transition-all duration-200 ${
-                    muscleSide === "back"
-                      ? "bg-[#844783] text-white shadow-lg shadow-[#844783]/40"
-                      : "text-gray-400 hover:text-white"
-                  }`}
-                >
-                  {muscleTranslations[language]?.Back}
-                </button>
-              </div>
-
-              <div className="w-full max-w-[260px] mx-auto space-y-1.5">
-                {activeMuscles.map((muscle) => {
-                  const isSelected = (formData.focusAreas || []).includes(muscle);
-                  const label = muscleTranslations[language]?.[muscle] || muscle;
-                  return (
-                    <button
-                      key={muscle}
-                      type="button"
-                      onClick={() => handleMuscleToggle(muscle)}
-                      className={`w-full h-10 px-3.5 rounded-xl border flex items-center justify-between transition-all duration-200 ${
-                        isRtl ? "text-right flex-row-reverse" : "text-left flex-row"
-                      } ${
-                        isSelected
-                          ? "bg-gradient-to-r from-[#844783] to-[#9b4f9a] border-white text-white shadow-md"
-                          : "bg-[#141416] border-white/10 text-neutral-300 hover:border-[#844783]/40"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <div className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 transition-colors ${
-                          isSelected ? "bg-white border-white text-[#844783]" : "border-neutral-500"
-                        }`}>
-                          {isSelected && (
-                            <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4">
-                              <path d="M20 6L9 17L4 12" strokeLinecap="round" strokeLinejoin="round" />
-                            </svg>
-                          )}
-                        </div>
-                        <span className="text-sm font-black tracking-tight">{label}</span>
-                      </div>
-                    </button>
-                  );
-                })}
-
-                <button
-                  type="button"
-                  onClick={toggleAllActive}
-                  className={`w-full h-10 px-3.5 rounded-xl border flex items-center justify-between transition-all duration-200 ${
-                    isRtl ? "text-right flex-row-reverse" : "text-left flex-row"
-                  } ${
-                    allActiveSelected
-                      ? "bg-gradient-to-r from-[#844783] to-[#9b4f9a] border-white text-white shadow-md"
-                      : "bg-[#141416] border-white/10 text-neutral-300 hover:border-[#844783]/40"
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5">
-                    <div className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 transition-colors ${
-                      allActiveSelected ? "bg-white border-white text-[#844783]" : "border-neutral-500"
-                    }`}>
-                      {allActiveSelected && (
-                        <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4">
-                          <path d="M20 6L9 17L4 12" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                      )}
-                    </div>
-                    <span className="text-sm font-black tracking-tight">
-                      {muscleTranslations[language]?.All}
-                    </span>
-                  </div>
-                </button>
-              </div>
-
-              <div className="pt-2 w-full">
-                <button
-                  type="button"
-                  onClick={handleNext}
-                  className="w-full h-12 bg-[#844783] hover:bg-[#965595] text-white font-black rounded-full transition-all text-sm flex items-center justify-center shadow-lg shadow-[#844783]/20 active:scale-[0.98]"
-                >
-                  <span>{muscleTranslations[language]?.Next || "Next"}</span>
-                </button>
-              </div>
-
+          {/* EVERY OTHER SINGLE CHOICE: full-width rows */}
+          {type === "single" && key !== "goal" && key !== "frequency" && (
+            <div className="flex flex-col gap-2.5">
+              {currentStepData.options.map((opt) => {
+                const on = formData[key] === opt.id;
+                const lead = opt.bars ? <IntensityBars level={opt.bars} on={on} />
+                  : opt.Icon ? <Well on={on}><opt.Icon className="w-5 h-5" strokeWidth={2} /></Well> : null;
+                return (
+                  <OptionRow key={opt.id} on={on} onClick={() => choose(key, opt.id)} lead={lead}
+                    label={label(opt)} desc={isRtl ? opt.descFa : opt.descEn} />
+                );
+              })}
             </div>
           )}
 
-          {/* HEIGHT PICKER */}
-          {currentStepData.type === "height-picker" && (
-            <div className="space-y-6 flex flex-col justify-between flex-grow">
-              
-              <div className="flex justify-center mt-2">
-                <div className="flex bg-[#141416] p-1.5 rounded-full border border-white/10 w-48 shadow-inner">
-                  <button
-                    type="button"
-                    onClick={() => setHeightUnit("cm")}
-                    className={`flex-1 py-2.5 rounded-full text-sm font-black transition-all duration-200 ${
-                      heightUnit === "cm"
-                        ? "bg-[#844783] text-white shadow-lg shadow-[#844783]/40"
-                        : "text-gray-400 hover:text-white"
-                    }`}
-                  >
-                    cm
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setHeightUnit("ft")}
-                    className={`flex-1 py-2.5 rounded-full text-sm font-black transition-all duration-200 ${
-                      heightUnit === "ft"
-                        ? "bg-[#844783] text-white shadow-lg shadow-[#844783]/40"
-                        : "text-gray-400 hover:text-white"
-                    }`}
-                  >
-                    ft
-                  </button>
-                </div>
-              </div>
+          {/* GENDER */}
+          {type === "gender" && (
+            <div className="grid grid-cols-2 gap-2.5">
+              {currentStepData.options.map((opt) => {
+                const on = formData.gender === opt.id;
+                return (
+                  <OptionTile key={opt.id} on={on} onClick={() => choose("gender", opt.id)}
+                    className="min-h-[184px] !items-center !justify-center gap-4"
+                    top={<Well on={on} size={64}><opt.Icon className="w-8 h-8" /></Well>}>
+                    <span className="text-xl font-bold">{label(opt)}</span>
+                  </OptionTile>
+                );
+              })}
+            </div>
+          )}
 
-              <div className="flex items-center justify-around px-4 py-8 relative my-auto">
-                <div className="flex items-baseline gap-1" dir="ltr">
-                  <span className="text-6xl font-black text-[#844783] tracking-tighter">
-                    {formData.height}
+          {/* TARGET MUSCLES */}
+          {type === "muscle-target" && (
+            <>
+              <Segmented value={muscleSide} onChange={setMuscleSide}
+                options={[{ id: "front", label: mt?.Front }, { id: "back", label: mt?.Back }]} />
+              <Card className="flex flex-col gap-3.5">
+                <div className="flex items-center justify-between gap-3">
+                  <Label>{muscleSide === "front" ? mt?.Front : mt?.Back}</Label>
+                  <span className="text-[13px] text-muted">
+                    {isRtl
+                      ? `${n(selectedCount)} از ${n(allInitialMuscles.length)} انتخاب شده`
+                      : `${selectedCount} of ${allInitialMuscles.length} selected`}
                   </span>
-                  <span className="text-2xl font-black text-[#844783]">{heightUnit}</span>
                 </div>
-
-                <div className="relative flex items-center justify-center h-64 w-24 bg-[#141416]/80 rounded-3xl border border-white/10 p-2 overflow-hidden shadow-inner">
-                  <div className="absolute right-0 w-8 h-1 bg-[#844783] rounded-l-full z-20 shadow-[0_0_12px_#844783]" />
-                  <input
-                    type="range"
-                    min="130"
-                    max="220"
-                    value={formData.height}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, height: Number(e.target.value) }))}
-                    className="accent-[#844783] h-56 w-12 cursor-pointer z-10 opacity-70"
-                    style={{ writingMode: "bt-lr", appearance: "slider-vertical" }}
-                  />
+                <div className="flex flex-wrap gap-2">
+                  {activeMuscles.map((muscle) => {
+                    const on = (formData.focusAreas || []).includes(muscle);
+                    return (
+                      <Chip key={muscle} active={on} onCard onClick={() => handleMuscleToggle(muscle)}
+                        className="!h-11 !px-4 !text-[15px] !font-semibold">
+                        {on && <Check className="w-4 h-4 -ms-0.5" strokeWidth={2.6} />}
+                        {mt?.[muscle] || muscle}
+                      </Chip>
+                    );
+                  })}
                 </div>
-              </div>
-
-              <div className="pt-4 mt-auto">
-                <button
-                  type="button"
-                  onClick={handleNext}
-                  className="w-full h-14 bg-[#844783] hover:bg-[#965595] text-white font-black rounded-full transition-all text-sm flex items-center justify-center shadow-lg shadow-[#844783]/20 active:scale-[0.98]"
-                >
-                  <span>{isRtl ? "ادامه و محاسبه" : "Let's Calculate"}</span>
+                <button type="button" aria-pressed={allActiveSelected} onClick={toggleAllActive}
+                  className="h-12 -mx-1 px-1 flex items-center gap-3 border-0 border-t border-solid border-hair bg-transparent cursor-pointer text-start text-ink">
+                  <span className={cx("w-[26px] h-[26px] shrink-0 rounded-full flex items-center justify-center",
+                    allActiveSelected ? "bg-jet text-accent dark:bg-accent dark:text-on-accent" : "ring-2 ring-inset ring-faint")}>
+                    {allActiveSelected && <CheckCheck className="w-[15px] h-[15px]" strokeWidth={2.6} />}
+                  </span>
+                  <span className="text-[15px] font-semibold">{mt?.All}</span>
                 </button>
-              </div>
-
-            </div>
+              </Card>
+            </>
           )}
 
-          {/* WEIGHT PICKER */}
-          {currentStepData.type === "weight-picker" && (
-            <div className="space-y-6 flex flex-col justify-between flex-grow">
-              
-              <div className="flex justify-center mt-2">
-                <div className="flex bg-[#141416] p-1.5 rounded-full border border-white/10 w-48 shadow-inner">
-                  <button
-                    type="button"
-                    onClick={() => setWeightUnit("kg")}
-                    className={`flex-1 py-2.5 rounded-full text-sm font-black transition-all duration-200 ${
-                      weightUnit === "kg"
-                        ? "bg-[#844783] text-white shadow-lg shadow-[#844783]/40"
-                        : "text-gray-400 hover:text-white"
-                    }`}
-                  >
-                    kg
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setWeightUnit("lb")}
-                    className={`flex-1 py-2.5 rounded-full text-sm font-black transition-all duration-200 ${
-                      weightUnit === "lb"
-                        ? "bg-[#844783] text-white shadow-lg shadow-[#844783]/40"
-                        : "text-gray-400 hover:text-white"
-                    }`}
-                  >
-                    lb
-                  </button>
-                </div>
-              </div>
+          {/* HEIGHT */}
+          {type === "height-picker" && (
+            <>
+              <Segmented value={heightUnit} onChange={setHeightUnit} className="self-center w-52"
+                options={[{ id: "cm", label: unitName.cm }, { id: "ft", label: unitName.ft }]} />
+              <MeasurePicker value={formData.height} min={130} max={220} isRtl={isRtl}
+                onChange={(v) => setFormData((prev) => ({ ...prev, height: v }))}
+                format={formatHeight} unit={heightUnit === "cm" ? unitName.cm : null} ltrReadout={heightUnit === "ft"}
+                label={isRtl ? "قد" : "Height"} />
+            </>
+          )}
 
-              <div className="text-center my-2" dir="ltr">
-                <span className="text-6xl font-black text-[#844783] tracking-tighter">
-                  {formData.weight}
-                </span>
-                <span className="text-2xl font-black text-[#844783] ml-1.5">{weightUnit}</span>
-              </div>
-
-              <div className="px-4 relative py-2">
-                <div className="relative flex items-center justify-center">
-                  <div className="absolute top-0 bottom-0 w-1 bg-[#844783] rounded-full z-20 shadow-[0_0_12px_#844783]" />
-                  <input
-                    type="range"
-                    min="40"
-                    max="150"
-                    value={formData.weight}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, weight: Number(e.target.value) }))}
-                    className="w-full accent-[#844783] h-4 bg-neutral-900 rounded-lg cursor-pointer border border-white/10"
-                  />
-                </div>
-
-                <div className="flex justify-between text-xs font-bold text-gray-500 mt-2 px-1" dir="ltr">
-                  <span>40 kg</span>
-                  <span>65 kg</span>
-                  <span>90 kg</span>
-                  <span>120 kg</span>
-                  <span>150 kg</span>
-                </div>
-              </div>
-
-              <div className="p-4 rounded-3xl bg-[#141416] border border-white/10 flex items-start gap-4 shadow-sm text-left rtl:text-right">
-                <div className="w-12 h-12 rounded-2xl bg-[#844783]/20 border border-[#844783]/40 flex items-center justify-center text-[#844783] shrink-0">
-                  <Scan className="w-6 h-6" />
-                </div>
-                <div className="flex-grow">
-                  <div className="flex justify-between items-center">
-                    <h3 className="text-sm font-black text-white">
-                      {isRtl ? `شاخص BMI فعلی شما - ${bmiValue}` : `Your Current BMI - ${bmiValue}`}
-                    </h3>
-                    <ChevronDown className="w-4 h-4 text-gray-400" />
+          {/* WEIGHT */}
+          {type === "weight-picker" && (
+            <>
+              <Segmented value={weightUnit} onChange={setWeightUnit} className="self-center w-52"
+                options={[{ id: "kg", label: unitName.kg }, { id: "lb", label: unitName.lb }]} />
+              <MeasurePicker value={formData.weight} min={40} max={150} isRtl={isRtl}
+                onChange={(v) => setFormData((prev) => ({ ...prev, weight: v }))}
+                format={formatWeight} unit={unitName[weightUnit]} label={isRtl ? "وزن" : "Weight"} />
+              <Card className="flex items-start gap-3.5">
+                <IconWell tone="sunk" size={44}><Scan className="w-5 h-5" strokeWidth={2} /></IconWell>
+                <div className="flex-1 min-w-0 flex flex-col gap-1">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="text-[15px] font-bold">{isRtl ? "شاخص BMI فعلی شما" : "Your current BMI"}</span>
+                    <span className="font-display font-extrabold text-[28px] leading-none tracking-[-0.03em]">{n(bmiValue)}</span>
                   </div>
-                  <p className="text-xs text-neutral-400 font-medium leading-relaxed mt-1">
+                  <p className="m-0 text-[13px] leading-snug text-muted">
                     {isRtl
                       ? "تنها به چند جلسه تمرینی عالی برای رسیدن به تناسب اندام ایده‌آل نیاز دارید!"
                       : "You just need a few more sweaty exercises to see a fitter you!"}
                   </p>
                 </div>
-              </div>
+              </Card>
+            </>
+          )}
 
-              <div className="pt-4 mt-auto">
-                <button
-                  type="button"
-                  onClick={handleNext}
-                  className="w-full h-14 bg-[#844783] hover:bg-[#965595] text-white font-black rounded-full transition-all text-sm flex items-center justify-center shadow-lg shadow-[#844783]/20 active:scale-[0.98]"
-                >
-                  <span>{isRtl ? "ادامه" : "Next"}</span>
-                </button>
-              </div>
-
+          {/* WORKOUT PROGRAM */}
+          {type === "workout-program-picker" && (
+            <div className="flex flex-col gap-2.5">
+              {workoutPrograms.map((prog) => {
+                const on = formData.workoutProgram === prog.id;
+                return (
+                  <button key={prog.id} type="button" aria-pressed={on} onClick={() => handleOptionSelect("workoutProgram", prog.id)}
+                    className={cx("w-full rounded-3xl p-4 flex flex-col gap-3.5", pressable, optionTone(on))}>
+                    <span className="w-full flex items-start gap-3.5">
+                      <Well on={on}><prog.Icon className="w-5 h-5" strokeWidth={2} /></Well>
+                      <span className="flex-1 min-w-0 flex flex-col gap-1">
+                        <span className="text-[17px] font-bold leading-snug">{isRtl ? prog.titleFa : prog.titleEn}</span>
+                        <span className={cx("text-[13px] leading-snug", subTone(on))}>{isRtl ? prog.descFa : prog.descEn}</span>
+                      </span>
+                      <Tick on={on} />
+                    </span>
+                    <span className="flex flex-wrap gap-1.5">
+                      {prog.recommended && <RecommendedTag on={on} isRtl={isRtl} />}
+                      <span className={cx(tagCls, tagTone(on))}>{isRtl ? prog.badge1Fa : prog.badge1En}</span>
+                      <span className={cx(tagCls, tagTone(on))}>{isRtl ? prog.badge2Fa : prog.badge2En}</span>
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           )}
 
-          {/* WORKOUT PROGRAM PICKER */}
-          {currentStepData.type === "workout-program-picker" && (
-            <div className="space-y-4 flex flex-col justify-between flex-grow">
-              
-              <div className="space-y-3.5">
-                {[
-                  {
-                    id: "full_body",
-                    recommended: true,
-                    icon: <Dumbbell className="w-6 h-6 text-emerald-400" />,
-                    titleEn: "Full Body Plus - 4 Days",
-                    titleFa: "فول بادی پلاس - ۴ روز در هفته",
-                    descEn: "Full body strength with an extra conditioning day.",
-                    descFa: "تمرینات استقامتی کامل بدن به همراه یک روز چابکی اضافه.",
-                    badge1En: "Duration: 30 Days", badge1Fa: "مدت: ۳۰ روز",
-                    badge2En: "Target Days/Week: 4 days", badge2Fa: "تمرین: ۴ روز در هفته"
-                  },
-                  {
-                    id: "agility_power",
-                    recommended: false,
-                    icon: <Lightning className="w-6 h-6 text-amber-400" />,
-                    titleEn: "Agility & Power - 4 Days",
-                    titleFa: "چابکی و قدرت - ۴ روز در هفته",
-                    descEn: "Enhance sports performance and reflex speed.",
-                    descFa: "افزایش عملکرد ورزشی، توان انفجاری و سرعت رفلکس.",
-                    badge1En: "Duration: 30 Days", badge1Fa: "مدت: ۳۰ روز",
-                    badge2En: "Target Days/Week: 4 days", badge2Fa: "تمرین: ۴ روز در هفته"
-                  },
-                  {
-                    id: "runner_conditioning",
-                    recommended: false,
-                    icon: <Footprints className="w-6 h-6 text-purple-400" />,
-                    titleEn: "Runner Conditioning - 4 Days",
-                    titleFa: "آمادگی و چابکی دونده - ۴ روز در هفته",
-                    descEn: "Mix of long runs and HIIT for performance.",
-                    descFa: "ترکیب دویدن‌های استقامتی و HIIT برای آمادگی بالا.",
-                    badge1En: "Duration: 30 Days", badge1Fa: "مدت: ۳۰ روز",
-                    badge2En: "Target Days/Week: 4 days", badge2Fa: "تمرین: ۴ روز در هفته"
-                  }
-                ].map((prog) => {
-                  const isSelected = formData.workoutProgram === prog.id;
-                  return (
-                    <div
-                      key={prog.id}
-                      onClick={() => handleOptionSelect("workoutProgram", prog.id)}
-                      className={`w-full p-5 rounded-3xl border transition-all duration-200 cursor-pointer relative overflow-hidden group ${
-                        isSelected
-                          ? "bg-gradient-to-br from-[#844783]/90 via-[#703b6f] to-[#4a2449] border-2 border-white text-white shadow-[0_0_30px_rgba(132,71,131,0.5)] scale-[1.01]"
-                          : "bg-[#141416] border-white/10 text-neutral-300 hover:border-[#844783]/50 hover:bg-[#1a141c]"
-                      }`}
-                    >
-                      {prog.recommended && (
-                        <div className="absolute top-3 right-3 rtl:right-auto rtl:left-3 bg-gradient-to-r from-amber-400 to-orange-500 text-black text-[10px] font-black uppercase px-3 py-1 rounded-full shadow-md flex items-center gap-1 z-20">
-                          <Star className="w-3 h-3 fill-black text-black" />
-                          <span>RECOMMENDED</span>
-                        </div>
-                      )}
-
-                      <div className="flex items-start gap-4 mb-3">
-                        <div className={`p-3 rounded-2xl shrink-0 ${isSelected ? "bg-white/20 text-white" : "bg-white/5"}`}>
-                          {prog.icon}
-                        </div>
-                        <div className="flex-grow pr-16 rtl:pr-0 rtl:pl-16">
-                          <h3 className="text-lg font-black text-white leading-snug">
-                            {isRtl ? prog.titleFa : prog.titleEn}
-                          </h3>
-                          <p className="text-xs text-neutral-300 font-medium leading-relaxed mt-1">
-                            {isRtl ? prog.descFa : prog.descEn}
-                          </p>
-                        </div>
-
-                        {isSelected && (
-                          <div className="w-6 h-6 rounded-full bg-white flex items-center justify-center text-[#844783] shrink-0 shadow-lg">
-                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4">
-                              <path d="M20 6L9 17L4 12" strokeLinecap="round" strokeLinejoin="round" />
-                            </svg>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="flex items-center gap-2 pt-2 border-t border-white/10 flex-wrap" dir="ltr">
-                        <span className="bg-white/10 border border-white/15 text-[11px] font-bold px-3 py-1 rounded-xl text-neutral-200">
-                          {isRtl ? prog.badge1Fa : prog.badge1En}
+          {/* MEAL PROGRAM */}
+          {type === "meal-program-picker" && (
+            <div className="flex flex-col gap-2.5">
+              {mealPrograms.map((prog) => {
+                const on = formData.mealProgram === prog.id;
+                const pct = (p) => (isRtl ? num(p, true).replace("%", "٪") : p);
+                return (
+                  <button key={prog.id} type="button" aria-pressed={on} onClick={() => handleOptionSelect("mealProgram", prog.id)}
+                    className={cx("w-full rounded-3xl p-4 flex flex-col gap-3.5", pressable, optionTone(on))}>
+                    <span className="w-full flex items-center gap-3.5">
+                      <Well on={on}><prog.Icon className="w-5 h-5" strokeWidth={2} /></Well>
+                      <span className="flex-1 min-w-0 text-[17px] font-bold leading-snug">{isRtl ? prog.titleFa : prog.titleEn}</span>
+                      <Tick on={on} />
+                    </span>
+                    <span className="flex flex-wrap gap-1.5">
+                      {prog.recommended && <RecommendedTag on={on} isRtl={isRtl} />}
+                      <span className={cx(tagCls, tagTone(on))}>{isRtl ? "پروتئین" : "Protein"} {pct(prog.protein)}</span>
+                      <span className={cx(tagCls, tagTone(on))}>{isRtl ? "کربوهیدرات" : "Carbs"} {pct(prog.carbs)}</span>
+                      <span className={cx(tagCls, tagTone(on))}>{isRtl ? "چربی" : "Fat"} {pct(prog.fat)}</span>
+                      {prog.extraKcal && (
+                        <span className={cx(tagCls, on ? "bg-on-inv text-inv" : "bg-inv text-on-inv")}>
+                          +{n(prog.extraKcal)} {isRtl ? "کالری" : "kcal"}
                         </span>
-                        <span className="bg-white/10 border border-white/15 text-[11px] font-bold px-3 py-1 rounded-xl text-neutral-200">
-                          {isRtl ? prog.badge2Fa : prog.badge2En}
-                        </span>
-                      </div>
-
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div className="pt-4 mt-auto">
-                <button
-                  type="button"
-                  onClick={handleNext}
-                  className="w-full h-14 bg-[#844783] hover:bg-[#965595] text-white font-black rounded-full transition-all text-sm flex items-center justify-center shadow-lg shadow-[#844783]/20 active:scale-[0.98]"
-                >
-                  <span>{isRtl ? "ادامه" : "Next"}</span>
-                </button>
-              </div>
-
-            </div>
-          )}
-
-          {/* MEAL PROGRAM PICKER */}
-          {currentStepData.type === "meal-program-picker" && (
-            <div className="space-y-4 flex flex-col justify-between flex-grow">
-              
-              <div className="space-y-3.5">
-                {[
-                  {
-                    id: "maintain",
-                    recommended: true,
-                    icon: <Scale className="w-6 h-6 text-amber-400" />,
-                    titleEn: "Maintain weight",
-                    titleFa: "تثبیت وزن و تعادل نهایی",
-                    protein: "30%", carbs: "45%", fat: "25%",
-                    extraKcal: null,
-                  },
-                  {
-                    id: "muscle_gain",
-                    recommended: false,
-                    icon: <Flame className="w-6 h-6 text-purple-400" />,
-                    titleEn: "Muscle gain with minimal fat",
-                    titleFa: "افزایش عضله با حداقل درصد چربی",
-                    protein: "30%", carbs: "45%", fat: "25%",
-                    extraKcal: "+300 KCAL",
-                  },
-                  {
-                    id: "affordable",
-                    recommended: false,
-                    icon: <GraduationCap className="w-6 h-6 text-cyan-400" />,
-                    titleEn: "Affordable nutrition",
-                    titleFa: "تغذیه اقتصادی و کاملاً در دسترس",
-                    protein: "30%", carbs: "45%", fat: "25%",
-                    extraKcal: "+200 KCAL",
-                  }
-                ].map((prog) => {
-                  const isSelected = formData.mealProgram === prog.id;
-                  return (
-                    <div
-                      key={prog.id}
-                      onClick={() => handleOptionSelect("mealProgram", prog.id)}
-                      className={`w-full p-5 rounded-3xl border transition-all duration-200 cursor-pointer relative overflow-hidden group ${
-                        isSelected
-                          ? "bg-gradient-to-br from-[#844783]/90 via-[#703b6f] to-[#4a2449] border-2 border-white text-white shadow-[0_0_30px_rgba(132,71,131,0.5)] scale-[1.01]"
-                          : "bg-[#141416] border-white/10 text-neutral-300 hover:border-[#844783]/50 hover:bg-[#1a141c]"
-                      }`}
-                    >
-                      {prog.recommended && (
-                        <div className="absolute top-3 right-3 rtl:right-auto rtl:left-3 bg-gradient-to-r from-amber-400 to-orange-500 text-black text-[10px] font-black uppercase px-3 py-1 rounded-full shadow-md flex items-center gap-1 z-20">
-                          <Star className="w-3 h-3 fill-black text-black" />
-                          <span>RECOMMENDED</span>
-                        </div>
                       )}
-
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-3.5">
-                          <div className={`p-3 rounded-2xl shrink-0 ${isSelected ? "bg-white/20 text-white" : "bg-white/5"}`}>
-                            {prog.icon}
-                          </div>
-                          <h3 className="text-lg font-black text-white leading-snug">
-                            {isRtl ? prog.titleFa : prog.titleEn}
-                          </h3>
-                        </div>
-
-                        {isSelected && (
-                          <div className="w-6 h-6 rounded-full bg-white flex items-center justify-center text-[#844783] shrink-0 shadow-lg">
-                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4">
-                              <path d="M20 6L9 17L4 12" strokeLinecap="round" strokeLinejoin="round" />
-                            </svg>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="flex items-center justify-between pt-2 border-t border-white/10">
-                        <div className="flex items-center gap-2 flex-wrap" dir="ltr">
-                          <span className="bg-white/10 border border-white/15 text-[11px] font-bold px-3 py-1 rounded-xl text-neutral-200">
-                            Protein: {prog.protein}
-                          </span>
-                          <span className="bg-white/10 border border-white/15 text-[11px] font-bold px-3 py-1 rounded-xl text-neutral-200">
-                            Carbs: {prog.carbs}
-                          </span>
-                          <span className="bg-white/10 border border-white/15 text-[11px] font-bold px-3 py-1 rounded-xl text-neutral-200">
-                            Fat: {prog.fat}
-                          </span>
-                        </div>
-
-                        {prog.extraKcal && (
-                          <span className="text-emerald-400 font-black text-xs bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-1 rounded-full shrink-0">
-                            {prog.extraKcal}
-                          </span>
-                        )}
-                      </div>
-
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div className="pt-4 mt-auto">
-                <button
-                  type="button"
-                  onClick={handleNext}
-                  className="w-full h-14 bg-gradient-to-r from-[#844783] to-[#a356a2] hover:from-[#965595] hover:to-[#b461b3] text-white font-black rounded-full transition-all text-base flex items-center justify-center gap-2 shadow-xl shadow-[#844783]/30 active:scale-[0.98]"
-                >
-                  <Sparkles className="w-5 h-5 text-amber-300 fill-amber-300" />
-                  <span>{isRtl ? "ایجاد برنامه کامل تمرینی و تغذیه" : "Generate Complete Workout & Meal Plan"}</span>
-                </button>
-              </div>
-
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           )}
 
+          <FlowFooter>
+            <CtaButton isRtl={isRtl} onClick={handleNext}
+              className={type === "meal-program-picker" ? "!h-auto min-h-[56px] py-2 !text-[15px]" : ""}>
+              {type === "meal-program-picker"
+                ? <span className="block whitespace-normal leading-tight">{footerLabel}</span>
+                : footerLabel}
+            </CtaButton>
+          </FlowFooter>
         </motion.div>
       </AnimatePresence>
-    </div>
+    </FlowScreen>
+  );
+}
+
+function RecommendedTag({ on, isRtl }) {
+  return (
+    <span className={cx(tagCls, "!font-bold", on ? "bg-accent text-on-accent dark:bg-jet dark:text-accent" : "bg-accent text-on-accent")}>
+      <Star className="w-3 h-3 fill-current" strokeWidth={2} />
+      {isRtl ? "پیشنهادی" : "Recommended"}
+    </span>
   );
 }
