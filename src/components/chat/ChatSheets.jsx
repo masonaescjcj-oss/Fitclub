@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import {
-  Archive, BellOff, CheckCheck, CheckCircle2, Clock, Copy, CornerUpLeft, FileAudio, Forward, Languages, Pencil, Pin, Plus, Star, Trash2,
+  Archive, BellOff, CheckCheck, CheckCircle2, Clock, Copy, CornerUpLeft, FileAudio, Forward, Languages, Pencil, Pin, Plus, Star, Trash2, X,
 } from "lucide-react";
-import { BASE_REACTIONS, PREMIUM_REACTIONS, ME, isMine } from "../../lib/chat/chatModel";
+import { BASE_REACTIONS, CHECKLIST_MAX, PREMIUM_REACTIONS, ME, isMine } from "../../lib/chat/chatModel";
 import { Avatar } from "./ChatBits";
 import { Button, Field, Label, Sheet as KitSheet, Toggle, cx, num } from "../ui/kit";
 
@@ -175,6 +175,84 @@ export function PollSheet({ isRtl, t, onCreate, onClose }) {
           <span className="text-[15px] font-semibold">{t.multipleAnswers}</span>
           <Toggle checked={multiple} onChange={setMultiple} label={t.multipleAnswers} />
         </div>
+      </div>
+    </Sheet>
+  );
+}
+
+/**
+ * A checklist message, as in Telegram: a title, up to 30 tasks, and whether
+ * the others in the chat may tick tasks or add their own. `shared` is false
+ * in Saved Messages, where there are no others to ask about.
+ */
+export function ChecklistSheet({ isRtl, t, shared = true, onCreate, onClose }) {
+  const [title, setTitle] = useState("");
+  const [tasks, setTasks] = useState([""]);
+  const [othersCanMark, setMark] = useState(true);
+  const [othersCanAdd, setAdd] = useState(true);
+  const filled = tasks.map((x) => x.trim()).filter(Boolean);
+  const valid = title.trim() && filled.length > 0;
+  const left = CHECKLIST_MAX - tasks.length;
+  const setTask = (i, v) => setTasks((all) => all.map((x, k) => (k === i ? v : x)));
+  const addRow = () => { if (tasks.length < CHECKLIST_MAX) setTasks((all) => [...all, ""]); };
+
+  return (
+    <Sheet title={t.newChecklist} isRtl={isRtl} t={t} onClose={onClose} tall
+      footer={
+        <>
+          <Button tone="card" className="flex-1" onClick={onClose}>{t.cancel}</Button>
+          <Button tone="ink" className="flex-1" disabled={!valid}
+            onClick={() => onCreate({ title: title.trim(), tasks: filled, othersCanMark: shared && othersCanMark, othersCanAdd: shared && othersCanAdd })}>
+            {t.createChecklist}
+          </Button>
+        </>
+      }>
+      <div className="px-5 pt-1 flex flex-col gap-3">
+        <Field autoFocus value={title} maxLength={120} onChange={(e) => setTitle(e.target.value)}
+          placeholder={t.checklistTitle} aria-label={t.checklistTitle} dir="auto" />
+
+        <Label as="h3" className="m-0 mt-1 px-1">{t.checklist}</Label>
+        <div className="rounded-3xl bg-card px-2 py-1">
+          {tasks.map((task, i) => (
+            <div key={i} className="flex items-center gap-1 border-t border-hair first:border-t-0">
+              <input value={task} maxLength={200} dir="auto"
+                onChange={(e) => setTask(i, e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addRow(); } }}
+                placeholder={t.task} aria-label={`${t.task} ${num(i + 1, isRtl)}`}
+                className="flex-1 min-w-0 h-12 px-3 border-0 bg-transparent text-[15px] text-ink !outline-none placeholder:text-muted" />
+              {tasks.length > 1 && (
+                <button type="button" onClick={() => setTasks((all) => all.filter((_, k) => k !== i))} aria-label={t.removeTask}
+                  className="w-10 h-10 shrink-0 rounded-full flex items-center justify-center bg-transparent border-0 text-muted cursor-pointer active:bg-sunk">
+                  <X className="w-4 h-4" strokeWidth={2.2} />
+                </button>
+              )}
+            </div>
+          ))}
+          {tasks.length < CHECKLIST_MAX && (
+            <button type="button" onClick={addRow}
+              className="w-full h-12 flex items-center gap-2.5 px-3 border-0 border-t border-hair bg-transparent text-[15px] font-semibold text-ink cursor-pointer text-start">
+              <span className="w-6 h-6 rounded-full bg-jet text-accent flex items-center justify-center shrink-0"><Plus className="w-4 h-4" strokeWidth={2.6} /></span>
+              {t.addATask}
+            </button>
+          )}
+        </div>
+        <p className="m-0 px-1 text-[13px] text-muted">{t.tasksLeft(Math.max(left, 0))}</p>
+
+        {shared && (
+          <>
+            <Label as="h3" className="m-0 mt-1 px-1">{t.checklistSettings}</Label>
+            <div className="rounded-3xl bg-card">
+              <div className="min-h-[56px] flex items-center justify-between gap-3 px-4">
+                <span className="text-[15px] font-semibold">{t.othersCanMark}</span>
+                <Toggle checked={othersCanMark} onChange={setMark} label={t.othersCanMark} />
+              </div>
+              <div className="min-h-[56px] flex items-center justify-between gap-3 px-4 border-t border-hair">
+                <span className="text-[15px] font-semibold">{t.othersCanAdd}</span>
+                <Toggle checked={othersCanAdd} onChange={setAdd} label={t.othersCanAdd} />
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </Sheet>
   );

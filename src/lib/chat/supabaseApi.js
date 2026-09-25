@@ -21,7 +21,7 @@ export function rowToMessage(r) {
   return {
     id: r.id, clientId: r.client_id || null, chatId: r.chat_id, senderId: r.sender_id, kind: r.kind,
     text: r.text || "", textFa: r.text_fa || "", replyTo: r.reply_to || null,
-    media: r.media || null, poll: r.poll || null, voice: r.voice || null,
+    media: r.media || null, poll: r.poll || null, voice: r.voice || null, checklist: r.checklist || null,
     at: iso(r.created_at), status: "sent", reactions: r.reactions || {}, deleted: !!r.deleted,
     editedAt: iso(r.edited_at), silent: !!r.silent, views: 0,
   };
@@ -154,6 +154,9 @@ export function createSupabaseApi({ me, client = supabase }) {
     remove: (id) => rpc("delete_message", { p_message: id }),
     react: (id, emoji) => rpc("react", { p_message: id, p_emoji: emoji }),
     vote: (id, option) => rpc("vote", { p_message: id, p_option: Number(option) }),
+    /** A checklist message: tick or untick one task, or add one (supabase/migrations/0007). */
+    markTask: (id, itemId, done) => rpc("checklist_mark", { p_message: id, p_item: itemId, p_done: !!done }),
+    addTask: (id, text) => rpc("checklist_add", { p_message: id, p_text: text }),
     read: (id) => rpc("mark_read", { p_chat: id }),
 
     /** Puts a photo (a JPEG blob, already shrunk) in the chat's private folder; returns where. */

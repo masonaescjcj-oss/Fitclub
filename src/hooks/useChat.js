@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ME, buildChannelChat, buildGroupChat, createChat, createMessage, createdSystemMessage, findPrivateChatWith,
   makeInviteLink, membershipMessage, messengerNotifications, sortChats, toggleReaction, totalUnread, uniqueUsername, unreadCount,
-  unreadMentions, visibleMessages, votePoll,
+  unreadMentions, visibleMessages, votePoll, markTask, addTask,
 } from "../lib/chat/chatModel";
 import { CUSTOM, DEMO_WORLD, DIRECTORY, REVEALED, directoryMessages, findUser, loadChat, registerCustomUsers, saveChat, takenUsernames } from "../lib/chat/chatStore";
 import { BOT_CHAT_ID, BOT_ID, findBuddy } from "../lib/buddy/buddyModel";
@@ -254,7 +254,11 @@ export default function useChat(lang = "en") {
       if (client) {
         // The server is the source of truth: its echo (by clientId) replaces the optimistic copy.
         const { text, kind, replyTo, media, poll, voice, silent, clientId } = message;
-        client.send(chatId, { text, kind, replyTo, media, poll, voice, silent, clientId })
+        // A checklist travels as its title, tasks and settings; the server numbers the tasks.
+        const checklist = message.checklist
+          ? { title: message.checklist.title, othersCanMark: message.checklist.othersCanMark, othersCanAdd: message.checklist.othersCanAdd, items: message.checklist.items.map((i) => i.text) }
+          : undefined;
+        client.send(chatId, { text, kind, replyTo, media, poll, voice, silent, clientId, checklist })
           .then((saved) => upsertMessage(toLocalMessage(saved, latest.current.__myId)))
           .catch(() => patchMessage(message.id, (m) => ({ ...m, status: "failed" })));
         return message;
@@ -352,6 +356,32 @@ export default function useChat(lang = "en") {
       patchMessage(id, (m) => votePoll(m, optionIndex));
       const m = latest.current.messages.find((x) => x.id === id);
       if (m?.remote && apiRef.current) apiRef.current.vote(id, optionIndex).catch(() => {});
+    },
+
+    /**
+     * Ticks or unticks one task of a checklist message, at once. In a server
+     * chat the server's answer replaces it; if it refuses, the task goes back.
+     */
+    markTask: (id, itemId, done) => {
+      const before = latest.current.messages.find((x) => x.id === id);
+      if (!before) return Promise.resolve(false);
+      patchMessage(id, (m) => markTask(m, itemId, done));
+      const client = before.remote ? apiRef.current : null;
+      if (!client?.markTask) return Promise.resolve(true);
+      return client.markTask(id, itemId, done)
+        .then((saved) => { upsertMessage(toLocalMessage(saved, latest.current.__myId)); return true; })
+        .catch((e) => { patchMessage(id, () => before); throw e; });
+    },
+    /** Adds a task to a checklist message; the same round trip as markTask. */
+    addTask: (id, text) => {
+      const before = latest.current.messages.find((x) => x.id === id);
+      if (!before) return Promise.resolve(false);
+      patchMessage(id, (m) => addTask(m, text));
+      const client = before.remote ? apiRef.current : null;
+      if (!client?.addTask) return Promise.resolve(true);
+      return client.addTask(id, text)
+        .then((saved) => { upsertMessage(toLocalMessage(saved, latest.current.__myId)); return true; })
+        .catch((e) => { patchMessage(id, () => before); throw e; });
     },
 
     forwardMessages: (ids, toChatId) =>

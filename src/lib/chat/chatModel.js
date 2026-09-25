@@ -11,7 +11,7 @@ export const ME = "me";
 export const CHAT_TYPES = ["private", "group", "channel", "bot"];
 
 /** Message kinds the renderer knows how to draw. */
-export const KINDS = ["text", "photo", "voice", "sticker", "poll", "file", "system"];
+export const KINDS = ["text", "photo", "voice", "sticker", "poll", "file", "system", "challenge", "checklist"];
 
 /* ──────────────────────────── factories ──────────────────────────── */
 
@@ -91,6 +91,7 @@ export function createMessage(patch = {}) {
     poll: null,
     voice: null,
     challenge: null,    // progress snapshot for a challenge card
+    checklist: null,    // { title, othersCanMark, othersCanAdd, items: [{ id, text, addedBy, doneBy, doneAt }] }
     views: 0,
     ...patch,
   };
@@ -305,6 +306,53 @@ export const reactionList = (message) =>
     .map(([emoji, users]) => ({ emoji, count: users.length, mine: users.includes(ME) }))
     .sort((a, b) => b.count - a.count);
 
+/* ──────────────────────────── checklists ──────────────────────────── */
+// The same rules as the server (supabase/migrations/0007): a checklist holds
+// up to 30 tasks; the sender, or anyone when "others can mark" is on, ticks
+// a task; only the person who ticked it, or the sender, unticks it; the
+// sender, or anyone when "others can add" is on, adds tasks.
+
+export const CHECKLIST_MAX = 30;
+
+/** A new checklist from the sheet: a title, the tasks' text, both settings. */
+export function buildChecklist({ title = "", tasks = [], othersCanMark = true, othersCanAdd = true }, userId = ME) {
+  const items = tasks.map((x) => String(x || "").trim().slice(0, 200)).filter(Boolean).slice(0, CHECKLIST_MAX)
+    .map((text, i) => ({ id: `t${i + 1}`, text, addedBy: userId, doneBy: null, doneAt: null }));
+  return { title: String(title).trim().slice(0, 120), othersCanMark: !!othersCanMark, othersCanAdd: !!othersCanAdd, items };
+}
+
+export const checklistDone = (list) => (list?.items || []).filter((i) => i.doneBy).length;
+
+/** Whether `userId` may tick (done) or untick (not done) a task. */
+export function canMarkTask(message, item, done, userId = ME) {
+  const list = message?.checklist;
+  if (!list || message.deleted || !item) return false;
+  const owner = message.senderId === userId;
+  if (done) return !item.doneBy && (owner || !!list.othersCanMark);
+  return !!item.doneBy && (owner || item.doneBy === userId);
+}
+
+export const canAddTask = (message, userId = ME) =>
+  !!message?.checklist && !message.deleted && (message.checklist.items || []).length < CHECKLIST_MAX
+  && (message.senderId === userId || !!message.checklist.othersCanAdd);
+
+/** The message with one task ticked or unticked by `userId`; unchanged when not allowed. */
+export function markTask(message, itemId, done, userId = ME, at = new Date().toISOString()) {
+  const item = message?.checklist?.items?.find((i) => i.id === itemId);
+  if (!canMarkTask(message, item, done, userId)) return message;
+  const items = message.checklist.items.map((i) => (i.id === itemId ? { ...i, doneBy: done ? userId : null, doneAt: done ? at : null } : i));
+  return { ...message, checklist: { ...message.checklist, items } };
+}
+
+/** The message with a task added by `userId`; unchanged when not allowed or empty. */
+export function addTask(message, text, userId = ME) {
+  const clean = String(text || "").trim().slice(0, 200);
+  if (!clean || !canAddTask(message, userId)) return message;
+  const next = (message.checklist.items || []).reduce((m, i) => Math.max(m, Number(String(i.id).replace(/\D/g, "")) || 0), 0) + 1;
+  const items = [...message.checklist.items, { id: `t${next}`, text: clean, addedBy: userId, doneBy: null, doneAt: null }];
+  return { ...message, checklist: { ...message.checklist, items } };
+}
+
 /* ──────────────────────────── polls ──────────────────────────── */
 
 export function votePoll(message, optionIndex, userId = ME) {
@@ -382,6 +430,7 @@ export function previewOf(message, isRtl, t) {
     case "voice": return `🎤 ${t.voiceMessage}`;
     case "sticker": return `${message.media?.emoji || "🪄"} ${t.sticker}`;
     case "poll": return `📊 ${message.poll?.question || t.poll}`;
+    case "checklist": return `☑️ ${message.checklist?.title || t.checklist}`;
     case "file": return `📎 ${message.media?.name || t.file}`;
     case "challenge": return (isRtl && message.textFa) || message.text;
     case "system": return (isRtl && message.textFa) || message.text;

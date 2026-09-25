@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Check, CheckCheck, Eye, FileText, Flame, Forward, Languages, Pin, Play, Target } from "lucide-react";
+import { Check, CheckCheck, Eye, FileText, Flame, Forward, Languages, Pin, Play, Plus, Target } from "lucide-react";
 import {
-  ME, hasVoted, isMine, pollTotals, reactionList, timeOf,
+  ME, canAddTask, canMarkTask, checklistDone, hasVoted, isMine, pollTotals, reactionList, timeOf,
 } from "../../lib/chat/chatModel";
 import { findUser } from "../../lib/chat/chatStore";
 import { Avatar, senderName } from "./ChatBits";
@@ -97,6 +97,76 @@ function Poll({ message, out, isRtl, t, onVote }) {
           );
         })}
       </div>
+    </div>
+  );
+}
+
+/**
+ * A checklist message, as in Telegram: the title, each task with a round
+ * tick (and who ticked it), how many are done, and "Add a task" when the
+ * sender allows it. A tap the rules don't allow says why.
+ */
+function ChecklistCard({ message, out, isRtl, t, onMark, onAdd, onRefused }) {
+  const list = message.checklist;
+  const [adding, setAdding] = useState(false);
+  const [draft, setDraft] = useState("");
+  const done = checklistDone(list);
+  const total = (list.items || []).length;
+  const soft = out ? "text-on-inv/60" : "text-muted";
+  const submit = () => { const v = draft.trim(); if (v) onAdd?.(v); setDraft(""); setAdding(false); };
+
+  return (
+    <div className="flex flex-col w-[260px] max-w-full pt-0.5">
+      {list.title && <p className="m-0 text-[16px] font-bold leading-snug" dir="auto">{list.title}</p>}
+      <Label className={cx("mt-0.5 mb-1", out && "!text-on-inv/60")}>{t.checklist}</Label>
+      <ul className="m-0 p-0 list-none">
+        {(list.items || []).map((item) => {
+          const ticked = !!item.doneBy;
+          const allowed = canMarkTask(message, item, !ticked);
+          const who = ticked ? findUser(item.doneBy) : null;
+          return (
+            <li key={item.id} className={cx("flex items-start gap-2.5 py-2 border-t first:border-t-0", out ? "border-on-inv/15" : "border-hair")}>
+              <button type="button" role="checkbox" aria-checked={ticked} aria-label={item.text}
+                onClick={(e) => { e.stopPropagation(); if (allowed) onMark?.(item.id, !ticked); else onRefused?.(); }}
+                className="w-7 h-7 -ms-0.5 shrink-0 flex items-center justify-center bg-transparent border-0 p-0 cursor-pointer">
+                <span className={cx("w-[22px] h-[22px] rounded-full flex items-center justify-center",
+                  ticked ? (out ? "bg-accent text-on-accent" : "bg-jet text-accent") : cx("ring-2 ring-inset", out ? "ring-on-inv/50" : "ring-faint"))}>
+                  {ticked && <Check className="w-3.5 h-3.5" strokeWidth={3} />}
+                </span>
+              </button>
+              <span className="flex-1 min-w-0 flex flex-col gap-0.5 pt-0.5">
+                <span dir="auto" className={cx("text-[15px] leading-snug break-words", ticked && cx("line-through", out ? "decoration-on-inv/40" : "decoration-faint"))}>{item.text}</span>
+                {ticked && (
+                  <span className={cx("flex items-center gap-1.5 text-[12px]", soft)}>
+                    <Avatar user={who} size={16} showStatus={false} />
+                    <span className="truncate">{t.taskDoneBy(item.doneBy === ME ? t.you : senderName(item.doneBy, isRtl))}</span>
+                  </span>
+                )}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+      {canAddTask(message) && (adding ? (
+        <div className={cx("flex items-center gap-2 py-1.5 border-t", out ? "border-on-inv/15" : "border-hair")}>
+          <input autoFocus value={draft} maxLength={200} dir="auto" placeholder={t.task} aria-label={t.addATask}
+            onClick={(e) => e.stopPropagation()}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") submit(); if (e.key === "Escape") setAdding(false); }}
+            onBlur={submit}
+            className={cx("flex-1 min-w-0 h-9 px-2 rounded-lg border-0 text-[15px] !outline-none", out ? "bg-on-inv/10 text-on-inv placeholder:text-on-inv/50" : "bg-sunk text-ink placeholder:text-muted")} />
+        </div>
+      ) : (
+        <button type="button" onClick={(e) => { e.stopPropagation(); setAdding(true); }}
+          className={cx("flex items-center gap-2.5 py-2 border-0 border-t bg-transparent text-[15px] font-semibold cursor-pointer text-start",
+            out ? "border-on-inv/15 text-on-inv" : "border-hair text-ink")}>
+          <span className={cx("w-[22px] h-[22px] rounded-full flex items-center justify-center shrink-0", out ? "bg-on-inv/15" : "bg-sunk")}>
+            <Plus className="w-3.5 h-3.5" strokeWidth={2.6} />
+          </span>
+          {t.addATask}
+        </button>
+      ))}
+      <p className={cx("m-0 pt-1.5 text-center text-[13px] font-medium", soft)}>{t.checklistProgress(done, total)}</p>
     </div>
   );
 }
@@ -197,7 +267,7 @@ const photoTone = (id) => PHOTO_TONES[[...String(id)].reduce((h, ch) => (h + ch.
 
 export default function MessageBubble({
   message, chat, replyTarget, grouped, tail = true, isRtl, t, selected, selectionMode, translateAll,
-  onSelect, onLongPress, onReact, onVote, onJumpToReply, onButton, onMention,
+  onSelect, onLongPress, onReact, onVote, onJumpToReply, onButton, onMention, onMarkTask, onAddTask, onRefused,
 }) {
   const shown = (isRtl && message.textFa) || message.text;
   const mine = isMine(message);
@@ -315,6 +385,10 @@ export default function MessageBubble({
                 <Challenge message={message} out={out} isRtl={isRtl} t={t} />
               ) : message.kind === "poll" ? (
                 <Poll message={message} out={out} isRtl={isRtl} t={t} onVote={onVote} />
+              ) : message.kind === "checklist" && message.checklist ? (
+                <ChecklistCard message={message} out={out} isRtl={isRtl} t={t}
+                  onMark={(itemId, done) => onMarkTask?.(message.id, itemId, done)}
+                  onAdd={(text) => onAddTask?.(message.id, text)} onRefused={onRefused} />
               ) : message.kind === "voice" ? (
                 <Voice message={message} out={out} isRtl={isRtl} />
               ) : barePhoto ? (

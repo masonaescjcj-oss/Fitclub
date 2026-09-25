@@ -39,7 +39,10 @@ export function toLocalMessage(m, myId) {
   const swap = (id) => (id === myId ? ME : id);
   const reactions = Object.fromEntries(Object.entries(m.reactions || {}).map(([e, who]) => [e, who.map(swap)]));
   const poll = m.poll ? { ...m.poll, options: m.poll.options.map((o) => ({ ...o, votes: (o.votes || []).map(swap) })) } : null;
-  return { ...m, senderId: swap(m.senderId), reactions, poll, remote: true };
+  const checklist = m.checklist
+    ? { ...m.checklist, items: (m.checklist.items || []).map((i) => ({ ...i, addedBy: swap(i.addedBy), doneBy: i.doneBy ? swap(i.doneBy) : null })) }
+    : null;
+  return { ...m, senderId: swap(m.senderId), reactions, poll, checklist, remote: true };
 }
 export const toWireId = (id, myId) => (id === ME ? myId : id);
 

@@ -4,7 +4,7 @@ import {
   ArrowLeft, ArrowRight, Ban, Bell, BellOff, ChevronDown, Clock, Forward, Languages, Pin, Search, Trash2, X,
 } from "lucide-react";
 import {
-  ME, groupByDay, isGroupedWith, relativeTime, scheduledMessages,
+  ME, buildChecklist, groupByDay, isGroupedWith, relativeTime, scheduledMessages,
 } from "../../lib/chat/chatModel";
 import { DEMO_WORLD, findUser } from "../../lib/chat/chatStore";
 import { Avatar, NameBadges } from "./ChatBits";
@@ -12,7 +12,7 @@ import MessageBubble from "./MessageBubble";
 import Composer from "./Composer";
 import { Button, Empty, IconButton, Label, cx, num } from "../ui/kit";
 import {
-  ForwardSheet, MessageActionsSheet, PollSheet, ScheduleSheet,
+  ChecklistSheet, ForwardSheet, MessageActionsSheet, PollSheet, ScheduleSheet,
 } from "./ChatSheets";
 
 const WAVEFORM = () => Array.from({ length: 22 }, () => 20 + Math.random() * 80);
@@ -140,6 +140,7 @@ export default function ChatView({ store, chat, isRtl, t, onBack, onOpenProfile,
 
   const attach = (kind) => {
     if (kind === "poll") { setSheet("poll"); return; }
+    if (kind === "checklist") { setSheet("checklist"); return; }
     if (kind === "photo" && !DEMO_WORLD) { photoInput.current?.click(); return; }
     if (kind === "photo") {
       store.send(chat.id, { kind: "photo", media: { emoji: "🏋️" } });
@@ -279,6 +280,9 @@ export default function ChatView({ store, chat, isRtl, t, onBack, onOpenProfile,
                 onSelect={toggleSelect}
                 onLongPress={(m) => (selectionMode ? toggleSelect(m.id) : setActionsFor(m))}
                 onReact={store.react}
+                onMarkTask={(id, itemId, done) => store.markTask(id, itemId, done).catch((e) => setToast(e?.code === "not_allowed" || e?.code === "not_yours" ? t.checklistNotAllowed : t.checklistFailed))}
+                onAddTask={(id, text) => store.addTask(id, text).catch((e) => setToast(e?.code === "not_allowed" ? t.checklistNotAllowed : t.checklistFailed))}
+                onRefused={() => setToast(t.checklistNotAllowed)}
                 onVote={(i2) => store.vote(row.id, i2)}
                 onJumpToReply={(id) => jump(id)}
                 onButton={onBotAction}
@@ -341,9 +345,9 @@ export default function ChatView({ store, chat, isRtl, t, onBack, onOpenProfile,
             onAttach={attach}
             onCancelContext={() => { setReplyTo(null); setEditing(null); store.setDraft(chat.id, ""); }}
             onOpenSchedule={() => setSheet("schedule")}
-            // A real account sends what really exists: photos and polls; no pretend voice notes,
+            // A real account sends what really exists: photos, polls and checklists; no pretend voice notes,
             // files or scheduled sends, which a server chat would deliver at once.
-            kinds={DEMO_WORLD ? undefined : ["photo", "poll"]}
+            kinds={DEMO_WORLD ? undefined : ["photo", "poll", "checklist"]}
             voice={DEMO_WORLD}
             schedule={DEMO_WORLD || !chat.remote}
           />
@@ -412,6 +416,18 @@ export default function ChatView({ store, chat, isRtl, t, onBack, onOpenProfile,
                 kind: "poll",
                 poll: { ...poll, quiz: false, options: poll.options.map((text) => ({ text, votes: [] })) },
               });
+              setSheet(null);
+            }}
+            onClose={() => setSheet(null)} />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {sheet === "checklist" && (
+          <ChecklistSheet isRtl={isRtl} t={t} shared={chat.id !== "saved"}
+            onCreate={(draft) => {
+              const checklist = buildChecklist(draft);
+              store.send(chat.id, { kind: "checklist", text: checklist.title, checklist });
               setSheet(null);
             }}
             onClose={() => setSheet(null)} />
