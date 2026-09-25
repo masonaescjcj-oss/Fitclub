@@ -18,7 +18,10 @@
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "server": "node server/index.js",
-    "server:test": "node server/test.js"
+    "server:test": "node server/test.js",
+    "test:unit": "node tests/run.mjs",
+    "lint": "eslint --max-warnings=0 --ext .js,.jsx src",
+    "check": "npm run lint && npm run test:unit && npm run server:test"
   },
   "eslintConfig": {
     "extends": [
