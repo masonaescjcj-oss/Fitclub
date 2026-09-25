@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChecklistProvider } from "../lib/checklistContext";
+import { ChecklistProvider, useChecklistStore } from "../lib/checklistContext";
 import { NutritionProvider } from "../lib/nutrition/nutritionContext";
 import { ChatProvider, useChatStore } from "../lib/chat/chatContext";
 import { TrainingProvider, useTrainingStore } from "../lib/training/trainingContext";
 import { CoachProvider } from "../lib/coach/coachContext";
 import { useNutritionStore } from "../lib/nutrition/nutritionContext";
 import { useTrainingT } from "../lib/training/trainingI18n";
+import { appAlerts, unreadAppAlerts } from "../lib/notifications";
 import { clearShareFromLocation, readShareFromLocation } from "../lib/training/programModel";
 import { clearJoinFromLocation, readJoinFromLocation } from "../lib/chat/search";
 import { ImportSheet } from "../components/training/TrainingSheets";
@@ -68,6 +69,7 @@ function MainAppShell({ onNavigate }) {
   const chat = useChatStore();
   const training = useTrainingStore();
   const nutrition = useNutritionStore();
+  const checklist = useChecklistStore();
   const tt = useTrainingT((localStorage.getItem("language") || "en") === "fa");
   const [flash, setFlash] = useState("");
   useEffect(() => { if (shareCode) clearShareFromLocation(); }, [shareCode]);
@@ -87,7 +89,8 @@ function MainAppShell({ onNavigate }) {
   // settings) and hides it inside a conversation, so the shell's bar steps
   // aside on the whole Club tab.
   const immersive = activeTab === "club" && !subPage;
-  const alerts = chat.unreadMentionTotal + chat.notifications.filter((n) => n.unread && n.kind === "system").length;
+  const alerts = chat.unreadMentionTotal + chat.notifications.filter((n) => n.unread && n.kind === "system").length
+    + unreadAppAlerts(appAlerts({ training, checklist, nutrition }));
 
   const language = localStorage.getItem("language") || "en";
   const isRtl = language === "fa";

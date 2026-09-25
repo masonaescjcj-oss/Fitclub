@@ -1,9 +1,15 @@
-import React, { useState } from "react";
-import { AtSign, CheckCheck, Dumbbell, Flame, Sparkles, Users } from "lucide-react";
+import React, { useMemo, useState } from "react";
+import {
+  AtSign, BellOff, CheckCheck, Droplets, Drumstick, Dumbbell, Flame, Hourglass, Play, Scale, Timer, Trophy, Users,
+} from "lucide-react";
 import { Avatar, Button, Chip, IconWell, Label, Screen, TopBar, cx, num } from "../../components/ui/kit";
 import { useChatStore } from "../../lib/chat/chatContext";
 import { findUser } from "../../lib/chat/chatStore";
 import { relativeTime } from "../../lib/chat/chatModel";
+import { useTrainingStore } from "../../lib/training/trainingContext";
+import { useChecklistStore } from "../../lib/checklistContext";
+import { useNutritionStore } from "../../lib/nutrition/nutritionContext";
+import { appAlerts, loadReadIds, saveReadIds, unreadAppAlerts, withReadState } from "../../lib/notifications";
 
 const REL = {
   en: { justNow: "now", minShort: "m", hourShort: "h", dayShort: "d" },
@@ -16,6 +22,7 @@ const COPY = {
     messages: "Messages", unreadMentions: "unread mentions", unread: "Unread", reply: "Reply",
     mentioned: (who, where) => <><b className="font-bold">{who}</b> mentioned you in <b className="font-bold">{where}</b></>,
     emptyMessages: "When someone mentions you in a group or you join a community, it shows up here.",
+    emptyApp: "You're all caught up. Reminders from your training, checklists and food diary show up here.",
     markAll: "Mark all read",
   },
   fa: {
@@ -23,26 +30,17 @@ const COPY = {
     messages: "پیام‌ها", unreadMentions: "منشن خوانده‌نشده", unread: "خوانده‌نشده", reply: "پاسخ",
     mentioned: (who, where) => <><b className="font-bold">{who}</b> در <b className="font-bold">{where}</b> از شما نام برد</>,
     emptyMessages: "وقتی کسی شما را در گروهی نام ببرد یا به کامیونیتی بپیوندید، اینجا می‌بینید.",
+    emptyApp: "همه‌چیز خوانده شده. یادآوری‌های تمرین، چک‌لیست و دفتر غذا اینجا می‌آیند.",
     markAll: "خواندن همه",
   },
 };
 
-// App alerts are still local, so which ones were read is kept on this device.
-const READ_KEY = "fitclub.inbox.read";
-function loadRead() {
-  try {
-    return new Set(JSON.parse(window.localStorage.getItem(READ_KEY) || "[]"));
-  } catch {
-    return new Set();
-  }
-}
-function saveRead(ids) {
-  try {
-    window.localStorage.setItem(READ_KEY, JSON.stringify([...ids]));
-  } catch {
-    // Still read for this visit.
-  }
-}
+// App alerts are derived from the training, checklist and diary stores (see
+// lib/notifications); which ones were read is kept on this device.
+const ALERT_ICONS = {
+  dumbbell: Dumbbell, play: Play, trophy: Trophy, flame: Flame, hourglass: Hourglass, timer: Timer,
+  drumstick: Drumstick, droplets: Droplets, scale: Scale,
+};
 
 const UnreadDot = ({ label }) => (
   <span role="img" aria-label={label} className="w-[9px] h-[9px] mt-[5px] shrink-0 rounded-full bg-inv dark:bg-accent" />
@@ -124,21 +122,22 @@ export default function NotificationsPage({ onBack, isRtl, onOpenChat }) {
   const c = COPY[isRtl ? "fa" : "en"];
   const store = useChatStore();
   const [filter, setFilter] = useState("all");
-  const [readIds, setReadIds] = useState(loadRead);
-  const alerts = [
-    { id: "workout", titleEn: "Workout reminder", titleFa: "یادآوری تمرین امروز", bodyEn: "Your Day 1 Full Body Plus workout is waiting. Stay consistent!", bodyFa: "تمرین امروز شما آماده است. زنجیره موفقیت خود را حفظ کنید!", timeEn: "10 mins ago", timeFa: "۱۰ دقیقه پیش", read: false, Icon: Dumbbell, tone: "sunk" },
-    { id: "streak", titleEn: "Streak milestone reached", titleFa: "رکورد استریک جدید", bodyEn: "You achieved a 14-day workout streak. +100 bonus XP awarded!", bodyFa: "شما ۱۴ روز تمرین متوالی را ثبت کردید. ۱۰۰ امتیاز اضافه دریافت شد!", timeEn: "2 hours ago", timeFa: "۲ ساعت پیش", read: false, Icon: Flame, tone: "accent" },
-    { id: "plan", titleEn: "AI plan updated v2.0", titleFa: "برنامه هوشمند به‌روزرسانی شد", bodyEn: "Your custom macros have been recalibrated based on your new weight.", bodyFa: "ماکروهای رژیم شما بر اساس وزن جدید بازسنجی شدند.", timeEn: "Yesterday", timeFa: "دیروز", read: true, Icon: Sparkles, tone: "coach" },
-  ];
-  const notifications = alerts.map((n) => ({ ...n, read: n.read || readIds.has(n.id) }));
+  const training = useTrainingStore();
+  const checklist = useChecklistStore();
+  const nutrition = useNutritionStore();
+  const [readIds, setReadIds] = useState(loadReadIds);
+  const alerts = useMemo(() => appAlerts({ training, checklist, nutrition }), [training, checklist, nutrition]);
+  const notifications = withReadState(alerts, readIds);
+  const appUnread = unreadAppAlerts(alerts, readIds);
+  const rel = REL[isRtl ? "fa" : "en"];
   const markAppRead = (ids) => {
     const next = new Set([...readIds, ...ids]);
     setReadIds(next);
-    saveRead(next);
+    saveReadIds(next);
   };
   // Mentions and joins are read by marking their chats read, as opening them would.
   const unreadChats = [...new Set(store.notifications.filter((n) => n.unread).map((n) => n.chatId))];
-  const anyUnread = unreadChats.length > 0 || notifications.some((n) => !n.read);
+  const anyUnread = unreadChats.length > 0 || appUnread > 0;
   const markAllRead = () => {
     unreadChats.forEach((id) => store.markRead(id));
     markAppRead(notifications.map((n) => n.id));
@@ -147,7 +146,7 @@ export default function NotificationsPage({ onBack, isRtl, onOpenChat }) {
   const filters = [
     { id: "all", label: c.all },
     { id: "mentions", label: c.mentions, count: store.unreadMentionTotal },
-    { id: "app", label: c.app, count: notifications.filter((x) => !x.read).length },
+    { id: "app", label: c.app, count: appUnread },
   ];
 
   return (
@@ -175,21 +174,31 @@ export default function NotificationsPage({ onBack, isRtl, onOpenChat }) {
       {filter !== "mentions" && (
         <section className="flex flex-col gap-3" aria-labelledby="inbox-app">
           <Label as="h2" id="inbox-app" className="m-0 mt-1.5">{c.app}</Label>
-          <ul className="m-0 p-0 py-1 list-none rounded-3xl bg-card divide-y divide-hair">
-            {notifications.map(({ Icon, ...n }) => (
-              <li key={n.id} className="flex gap-3 px-4 py-3.5" onClick={() => !n.read && markAppRead([n.id])}>
-                <IconWell tone={n.tone} size={44} square><Icon className="w-5 h-5" strokeWidth={2} /></IconWell>
-                <div className="flex-1 min-w-0 flex flex-col gap-0.5">
-                  <div className="flex gap-2 items-start">
-                    <span className={cx("flex-1 min-w-0 text-[15px] font-bold leading-snug", n.read && "text-ink/80")}>{isRtl ? n.titleFa : n.titleEn}</span>
-                    <span className="text-xs text-muted whitespace-nowrap">{isRtl ? n.timeFa : n.timeEn}</span>
-                    {!n.read && <UnreadDot label={c.unread} />}
-                  </div>
-                  <p className="m-0 text-sm leading-snug text-muted">{isRtl ? n.bodyFa : n.bodyEn}</p>
-                </div>
-              </li>
-            ))}
-          </ul>
+          {notifications.length === 0 && (
+            <p className="m-0 p-4 rounded-3xl bg-card text-sm leading-relaxed text-muted flex gap-3 items-start">
+              <BellOff className="w-5 h-5 shrink-0 text-faint" strokeWidth={2} />{c.emptyApp}
+            </p>
+          )}
+          {notifications.length > 0 && (
+            <ul className="m-0 p-0 py-1 list-none rounded-3xl bg-card divide-y divide-hair">
+              {notifications.map((n) => {
+                const Icon = ALERT_ICONS[n.icon] || Dumbbell;
+                return (
+                  <li key={n.id} className="flex gap-3 px-4 py-3.5" onClick={() => !n.read && markAppRead([n.id])}>
+                    <IconWell tone={n.tone} size={44} square><Icon className="w-5 h-5" strokeWidth={2} /></IconWell>
+                    <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+                      <div className="flex gap-2 items-start">
+                        <span className={cx("flex-1 min-w-0 text-[15px] font-bold leading-snug", n.read && "text-ink/80")}>{isRtl ? n.titleFa : n.titleEn}</span>
+                        <span className="text-xs text-muted whitespace-nowrap" dir={isRtl ? undefined : "ltr"}>{num(relativeTime(n.at, rel), isRtl)}</span>
+                        {!n.read && <UnreadDot label={c.unread} />}
+                      </div>
+                      <p className="m-0 text-sm leading-snug text-muted">{isRtl ? n.bodyFa : n.bodyEn}</p>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </section>
       )}
     </Screen>

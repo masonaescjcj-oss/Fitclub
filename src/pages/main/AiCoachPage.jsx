@@ -2,7 +2,7 @@ import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
 import {
-  AlertTriangle, ArrowUp, ChevronLeft, ChevronRight, Eye, EyeOff, KeyRound, ListChecks, SlidersHorizontal, Square, Trash2,
+  AlertTriangle, ArrowUp, ChevronLeft, ChevronRight, Eye, EyeOff, KeyRound, ListChecks, ShieldCheck, SlidersHorizontal, Square, Trash2,
 } from "lucide-react";
 import {
   Button, Card, IconButton, IconWell, Label, List, Row, Screen, Sheet, Toggle, Field, cx, num,
@@ -181,6 +181,10 @@ function SettingsSheet({ open, coach, isRtl, t, onClose }) {
   const [show, setShow] = useState(false);
   const bad = key.trim() && !looksLikeKey(key);
   const save = () => { coach.setApiKey(key); onClose(); };
+  // With FitClub's server behind the coach a key of your own is optional. A
+  // build that forces the server would ignore one, so the field goes away.
+  const keyField = !coach.proxyForced;
+  const keyLabel = coach.proxyAvailable ? t.ownKey : t.apiKey;
   return (
     <Sheet open={open} title={t.settings} isRtl={isRtl} onClose={onClose} closeLabel={t.close}
       footer={
@@ -189,17 +193,33 @@ function SettingsSheet({ open, coach, isRtl, t, onClose }) {
           <Button tone="ink" className="flex-1" onClick={save} disabled={!!bad}>{t.save}</Button>
         </>
       }>
-      <Field label={t.apiKey} aria-label={t.apiKey} value={key} onChange={(e) => setKey(e.target.value)}
-        type={show ? "text" : "password"} dir="ltr" autoComplete="off" spellCheck={false} placeholder={t.apiKeyPh}
-        inputClass="font-mono text-[15px] focus-visible:outline-none"
-        error={bad ? t.apiKeyBad : undefined} hint={t.apiKeyHint}
-        prefix={<KeyRound className="w-[18px] h-[18px] text-muted" strokeWidth={2} />}
-        suffix={
-          <button type="button" onClick={() => setShow((v) => !v)} aria-label={show ? t.hideKey : t.showKey}
-            className="w-10 h-10 -me-2 rounded-full flex items-center justify-center bg-transparent border-0 text-muted cursor-pointer active:bg-sunk">
-            {show ? <EyeOff className="w-[18px] h-[18px]" strokeWidth={2} /> : <Eye className="w-[18px] h-[18px]" strokeWidth={2} />}
-          </button>
-        } />
+      {coach.proxyAvailable && (
+        <Card className="flex items-center gap-3.5">
+          {coach.viaProxy ? (
+            <IconWell tone="coach" size={36}><ShieldCheck className="w-[18px] h-[18px]" strokeWidth={2} /></IconWell>
+          ) : (
+            <IconWell tone="sunk" size={36}><KeyRound className="w-[18px] h-[18px]" strokeWidth={2} /></IconWell>
+          )}
+          <span className="flex-1 min-w-0 flex flex-col gap-0.5">
+            <span className="text-[15px] font-semibold leading-snug">{coach.viaProxy ? t.proxyOn : t.ownKeyOn}</span>
+            <span className="text-[13px] leading-snug text-muted">{coach.viaProxy ? t.proxyHint : t.ownKeyOnHint}</span>
+          </span>
+        </Card>
+      )}
+
+      {keyField && (
+        <Field label={keyLabel} aria-label={keyLabel} value={key} onChange={(e) => setKey(e.target.value)}
+          type={show ? "text" : "password"} dir="ltr" autoComplete="off" spellCheck={false} placeholder={t.apiKeyPh}
+          inputClass="font-mono text-[15px] focus-visible:outline-none"
+          error={bad ? t.apiKeyBad : undefined} hint={coach.proxyAvailable ? t.ownKeyHint : t.apiKeyHint}
+          prefix={<KeyRound className="w-[18px] h-[18px] text-muted" strokeWidth={2} />}
+          suffix={
+            <button type="button" onClick={() => setShow((v) => !v)} aria-label={show ? t.hideKey : t.showKey}
+              className="w-10 h-10 -me-2 rounded-full flex items-center justify-center bg-transparent border-0 text-muted cursor-pointer active:bg-sunk">
+              {show ? <EyeOff className="w-[18px] h-[18px]" strokeWidth={2} /> : <Eye className="w-[18px] h-[18px]" strokeWidth={2} />}
+            </button>
+          } />
+      )}
 
       <Card className="flex flex-col gap-2.5">
         <div className="flex items-center gap-3.5">
@@ -287,7 +307,9 @@ export default function AiCoachPage({ isRtl }) {
 
   const ask = (q) => { if (!coach.streaming) coach.send(q); };
 
-  const errorText = coach.error ? t.errors[coach.error] || t.errors.unknown : null;
+  // Through FitClub's server an auth failure is the sign-in, not a key.
+  const errorKey = coach.error === "auth" && coach.viaProxy ? "authProxy" : coach.error;
+  const errorText = coach.error ? t.errors[errorKey] || t.errors.unknown : null;
   const welcome = { id: "welcome", role: "assistant", source: "system", text: t.welcome(coach.name), at: coach.messages[0]?.at || new Date().toISOString() };
 
   const dock = (
@@ -382,7 +404,7 @@ export default function AiCoachPage({ isRtl }) {
           <IconWell tone="alert" size={32}><AlertTriangle className="w-4 h-4" strokeWidth={2} /></IconWell>
           <div className="flex-1 min-w-0 flex flex-col items-start pt-1.5">
             <span className="text-sm font-medium leading-snug text-alert">{errorText}</span>
-            {coach.error === "auth" && (
+            {coach.error === "auth" && !coach.proxyForced && (
               <button type="button" onClick={() => { coach.dismissError(); openSettings(); }}
                 className="h-10 -mb-1.5 p-0 bg-transparent border-0 cursor-pointer text-sm font-semibold text-alert underline underline-offset-[3px]">
                 {t.openSettings}

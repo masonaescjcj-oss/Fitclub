@@ -4,9 +4,12 @@ import './index.css';
 import App from './App';
 import { applyTheme, loadTheme } from './lib/theme';
 import { applyAccent, loadAccent } from './lib/accent';
+import { loadExerciseCatalog } from './lib/training/catalog';
 
 applyTheme(loadTheme());
 applyAccent(loadAccent());
+// Merges public/exercises/catalog.json (the liftmanual library) when it has been imported; silent without it.
+loadExerciseCatalog();
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(

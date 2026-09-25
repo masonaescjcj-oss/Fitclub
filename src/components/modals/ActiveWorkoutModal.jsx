@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, ArrowRight, Check, ChevronDown, Clock, Dumbbell, Flag, Flame, Minus, Plus, Timer, Trophy, X } from "lucide-react";
-import ExerciseGraphic from "../ExerciseGraphic";
+import ExerciseMedia from "../training/ExerciseMedia";
 import { CtaButton, Label, Ring, cx, num } from "../ui/kit";
-import { exerciseName, findExercise, unitOf } from "../../lib/training/exercises";
+import { equipmentLabel, exerciseName, findExercise, unitOf } from "../../lib/training/exercises";
 import { estimateCalories, lastPerformance, sessionSetsDone, sessionVolume } from "../../lib/training/programModel";
 import { useTrainingT } from "../../lib/training/trainingI18n";
 
@@ -290,7 +290,7 @@ function Current({ t, n, sep, isRtl, index, count, current, exercise, last, onPa
 
   const target = sets[0]?.reps;
   const meta = [
-    exercise?.equipment,
+    equipmentLabel(exercise, isRtl),
     target ? `${n(sets.length)} × ${n(target)}${mode !== "reps" ? ` ${unit}` : ""}` : null,
     current.restSec ? t.restFor(n(current.restSec)) : null,
   ].filter(Boolean);
@@ -313,7 +313,7 @@ function Current({ t, n, sep, isRtl, index, count, current, exercise, last, onPa
           {current.note && <span className="mt-1 text-[13px] text-muted">{current.note}</span>}
         </div>
         <span className="mt-1 w-16 h-16 rounded-2xl overflow-hidden shrink-0 ring-1 ring-line">
-          <ExerciseGraphic exerciseId={current.exerciseId} name={exercise?.nameEn} />
+          <ExerciseMedia exerciseId={current.exerciseId} name={exercise?.nameEn} />
         </span>
       </div>
 

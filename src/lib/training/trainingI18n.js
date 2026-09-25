@@ -59,6 +59,12 @@ const en = {
   restFor: (v) => `${v} s rest`, minimise: "Minimise", increase: "Increase", decrease: "Decrease",
   completedTitle: "Workout complete", prFrom: (v) => `up from ${v}`, days: "Days", recoveryDay: "Recovery day",
   noActiveTitle: "No active program", browsePrograms: "Browse programs", muscle: "Muscle", more: "More", leftWord: "left",
+
+  muscleGroup: "Muscle group", equipment: "Equipment", anyEquipment: "Any",
+  exerciseCount: (v, raw) => `${v} ${raw === 1 ? "exercise" : "exercises"}`, clearFilters: "Clear filters",
+  showMore: (v) => `Show ${v} more`, noMatches: "No exercises match", noMatchesBody: "Try another muscle, equipment or search.",
+  instructions: "Instructions", benefits: "Benefits", musclesWorked: "Muscles worked",
+  variations: "Variations & alternatives", viewOnLiftmanual: "View on liftmanual",
 };
 
 const fa = {
@@ -122,6 +128,12 @@ const fa = {
   restFor: (v) => `${v} ثانیه استراحت`, minimise: "کوچک کردن", increase: "افزایش", decrease: "کاهش",
   completedTitle: "تمرین کامل شد", prFrom: (v) => `قبلی ${v}`, days: "روزها", recoveryDay: "روز ریکاوری",
   noActiveTitle: "برنامه‌ی فعالی نیست", browsePrograms: "دیدن برنامه‌ها", muscle: "عضله", more: "بیشتر", leftWord: "مانده",
+
+  muscleGroup: "گروه عضلانی", equipment: "تجهیزات", anyEquipment: "همه",
+  exerciseCount: (v) => `${v} حرکت`, clearFilters: "پاک کردن فیلترها",
+  showMore: (v) => `${v} حرکت دیگر`, noMatches: "حرکتی پیدا نشد", noMatchesBody: "عضله، تجهیزات یا جست‌وجوی دیگری را امتحان کنید.",
+  instructions: "روش اجرا", benefits: "فواید", musclesWorked: "عضلات درگیر",
+  variations: "حرکات مشابه و جایگزین", viewOnLiftmanual: "دیدن در liftmanual",
 };
 
 export const useTrainingT = (isRtl) => (isRtl ? fa : en);

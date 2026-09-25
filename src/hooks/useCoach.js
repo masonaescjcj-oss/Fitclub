@@ -4,7 +4,7 @@ import { useTrainingStore } from "../lib/training/trainingContext";
 import { useChecklistStore } from "../lib/checklistContext";
 import { loadSession } from "../lib/session";
 import { buildCoachSnapshot, coachSystemBlocks, demoReply, suggestionChips } from "../lib/coach/context";
-import { classifyError, looksLikeKey, streamCoachReply } from "../lib/coach/claudeClient";
+import { classifyError, coachMode, proxyAvailable, proxyForced, streamCoachReply } from "../lib/coach/claudeClient";
 import { createMessage, loadCoach, saveCoach, toApiMessages } from "../lib/coach/coachStore";
 
 /** Reveals an offline reply a few words at a time, so it reads like a stream. */
@@ -59,7 +59,10 @@ export default function useCoach(isRtl) {
   );
 
   const chips = useMemo(() => suggestionChips(snapshot, isRtl), [snapshot, isRtl]);
-  const live = looksLikeKey(state.apiKey);
+  // "proxy" talks through FitClub's server, "key" with the athlete's own key,
+  // "demo" builds replies offline. Either of the first two is a live coach.
+  const mode = coachMode(state.apiKey);
+  const live = mode !== "demo";
 
   const patchMessage = useCallback((id, fn) => {
     setState((s) => ({ ...s, messages: s.messages.map((m) => (m.id === id ? fn(m) : m)) }));
@@ -120,7 +123,7 @@ export default function useCoach(isRtl) {
 
   return {
     messages: state.messages, apiKey: state.apiKey, include: state.include,
-    snapshot, chips, live, streaming, error, name,
+    snapshot, chips, live, mode, viaProxy: mode === "proxy", proxyAvailable, proxyForced, streaming, error, name,
     send, stop, ...api,
   };
 }

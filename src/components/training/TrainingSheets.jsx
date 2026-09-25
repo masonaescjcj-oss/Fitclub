@@ -3,7 +3,7 @@ import { ArrowDown, ArrowUp, BadgeCheck, Check, Copy, Dumbbell, Link2, Plus, Sal
 import {
   Button, Card, Chip, CtaButton, Field, IconButton, IconWell, Label, List, Row, Segmented, Sheet as KitSheet, Tag, Toggle, cx, initials, num,
 } from "../ui/kit";
-import { MUSCLES, exerciseName, findExercise, searchExercises } from "../../lib/training/exercises";
+import { MUSCLES, equipmentLabel, exerciseName, findExercise, searchExercises } from "../../lib/training/exercises";
 import {
   PROGRAM_COLORS, createDay, createProgramExercise, decodeShare, encodeShare, expandMealPlan, shareLink,
 } from "../../lib/training/programModel";
@@ -54,10 +54,14 @@ export function ProgramMark({ name, active = true, size = 48 }) {
 
 /* ──────────────────────────── exercise picker ──────────────────────────── */
 
+const PICK_PAGE = 60;
+
 function ExercisePicker({ isRtl, t, onPick, onClose }) {
   const [q, setQ] = useState("");
   const [muscle, setMuscle] = useState(null);
+  const [limit, setLimit] = useState(PICK_PAGE);
   const list = useMemo(() => searchExercises(q, muscle), [q, muscle]);
+  useEffect(() => { setLimit(PICK_PAGE); }, [q, muscle]);
   return (
     <Sheet title={t.addExercise} isRtl={isRtl} t={t} onClose={onClose} tall>
       <Field autoFocus type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={t.searchExercises}
@@ -71,11 +75,14 @@ function ExercisePicker({ isRtl, t, onPick, onClose }) {
         ))}
       </div>
       <List>
-        {list.map((e) => (
-          <Row key={e.id} onClick={() => onPick(e)} title={isRtl ? e.nameFa : e.nameEn} subtitle={e.equipment}
+        {list.slice(0, limit).map((e) => (
+          <Row key={e.id} onClick={() => onPick(e)} title={exerciseName(e, isRtl)} subtitle={equipmentLabel(e, isRtl)}
             right={<Plus className="w-5 h-5 text-ink" strokeWidth={2} />} />
         ))}
       </List>
+      {list.length > limit && (
+        <Button tone="card" block onClick={() => setLimit((v) => v + PICK_PAGE)}>{t.showMore(num(Math.min(PICK_PAGE, list.length - limit), isRtl))}</Button>
+      )}
     </Sheet>
   );
 }

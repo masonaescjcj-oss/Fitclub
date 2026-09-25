@@ -1,9 +1,9 @@
 import React, { useMemo, useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import {
-  Copy, Download, Dumbbell, History, Moon, MoreHorizontal, Pencil, Play, Plus, Search, Share2, Trash2, TrendingDown, TrendingUp, Trophy,
+  Copy, Download, Dumbbell, ExternalLink, History, Moon, MoreHorizontal, Pencil, Play, Plus, Search, Share2, Trash2, TrendingDown, TrendingUp, Trophy,
 } from "lucide-react";
-import ExerciseGraphic from "../../components/ExerciseGraphic";
+import ExerciseMedia from "../../components/training/ExerciseMedia";
 import ActiveWorkoutModal from "../../components/modals/ActiveWorkoutModal";
 import {
   AuthorChip, ImportSheet, ProgramBuilderSheet, ProgramMark, ShareSheet, Sheet,
@@ -12,7 +12,11 @@ import {
   Button, Card, Chip, CtaButton, Empty, Field, IconButton, IconWell, Label, List, PageHead, Row, Screen, SectionHead,
   Segmented, Tag, Toast, cx, num,
 } from "../../components/ui/kit";
-import { MUSCLES, exerciseName, findExercise, searchExercises } from "../../lib/training/exercises";
+import {
+  equipmentLabel, exerciseName, findBySlug, findExercise, muscleLabel, searchExercises,
+} from "../../lib/training/exercises";
+import { LM_EQUIPMENT, LM_MUSCLES, findEquipment, findMuscle, lmLabel, liftmanualUrl, slugify } from "../../lib/training/liftmanual";
+import { useExerciseCatalog } from "../../lib/training/useExerciseCatalog";
 import {
   bestSetIn, compactProgram, exerciseBests, exerciseTrend, lastPerformance, sessionSetsDone, sessionVolume,
 } from "../../lib/training/programModel";
@@ -108,6 +112,8 @@ export default function WorkoutPage({ isRtl, onOpen }) {
   const t = useTrainingT(isRtl);
   const store = useTrainingStore();
   const nutrition = useNutritionStore();
+  // Redraws Train (the library, the sheets, the live workout) once the liftmanual catalog lands.
+  useExerciseCatalog();
   const [segment, setSegment] = useState("plan");
   const [live, setLive] = useState(!!store.draft);
   const [builder, setBuilder] = useState(undefined); // undefined closed | null new | program edit
@@ -217,7 +223,9 @@ export default function WorkoutPage({ isRtl, onOpen }) {
         </>
       )}
 
-      {segment === "exercises" && <Library isRtl={isRtl} t={t} n={n} sep={sep} sessions={store.sessions} onOpen={setTrendFor} />}
+      {segment === "exercises" && (
+        <Library isRtl={isRtl} t={t} n={n} sep={sep} sessions={store.sessions} onOpen={setTrendFor} />
+      )}
 
       {segment === "progress" && <Progress isRtl={isRtl} t={t} n={n} sep={sep} store={store} onOpen={onOpen} />}
 
@@ -277,7 +285,10 @@ export default function WorkoutPage({ isRtl, onOpen }) {
         )}
       </AnimatePresence>
       <AnimatePresence>
-        {trendFor && <TrendSheet exerciseId={trendFor} sessions={store.sessions} isRtl={isRtl} t={t} n={n} sep={sep} onClose={() => setTrendFor(null)} />}
+        {trendFor && (
+          <TrendSheet key={trendFor} exerciseId={trendFor} sessions={store.sessions} isRtl={isRtl} t={t} n={n} sep={sep}
+            onOpenExercise={setTrendFor} onClose={() => setTrendFor(null)} />
+        )}
       </AnimatePresence>
 
       {toast && <Toast>{toast}</Toast>}
@@ -477,56 +488,112 @@ function PlanView({ t, n, sep, isRtl, store, plan, programName, onStart, onShare
 
 /* ─────────────────────────────── exercises ─────────────────────────────── */
 
-function Library({ isRtl, t, n, sep, sessions, onOpen }) {
-  const [q, setQ] = useState("");
-  const [muscle, setMuscle] = useState(null);
-  const list = useMemo(() => searchExercises(q, muscle), [q, muscle]);
-  const muscleName = (id) => { const m = MUSCLES.find((x) => x.id === id); return m ? (isRtl ? m.fa : m.en) : ""; };
+const PAGE = 40;
+
+/** One labelled, sideways-scrolling row of liftmanual filter chips; tapping the active chip clears it. */
+function FilterRow({ label, all, options, value, onChange, isRtl }) {
   return (
-    <>
-      <Field type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={t.searchExercises} aria-label={t.searchExercises}
-        prefix={<Search className="w-[18px] h-[18px] text-muted" strokeWidth={2} />} />
+    <div role="group" aria-label={label} className="flex flex-col gap-2">
+      <Label>{label}</Label>
       <div className="-mx-5 px-5 flex gap-2 overflow-x-auto scrollbar-hide">
-        {[{ id: null, en: t.allMuscles, fa: t.allMuscles }, ...MUSCLES].map((m) => (
-          <Chip key={String(m.id)} active={muscle === m.id} onClick={() => setMuscle(m.id)}>{isRtl ? m.fa : m.en}</Chip>
+        <Chip active={value === null} onClick={() => onChange(null)}>{all}</Chip>
+        {options.map((o) => (
+          <Chip key={o.slug} active={value === o.slug} onClick={() => onChange(value === o.slug ? null : o.slug)}>{lmLabel(o, isRtl)}</Chip>
         ))}
       </div>
+    </div>
+  );
+}
+
+function Library({ isRtl, t, n, sep, sessions, onOpen }) {
+  const [q, setQ] = useState("");
+  const [muscle, setMuscle] = useState(null); // liftmanual muscle slug
+  const [gear, setGear] = useState(null);     // liftmanual equipment slug
+  const [limit, setLimit] = useState(PAGE);
+  // Not memoised: Train re-renders when the catalog lands, and a filter over the list is cheap.
+  const list = searchExercises(q, null, { lmMuscle: muscle, equipment: gear });
+  const filtered = !!(q.trim() || muscle || gear);
+  const refine = (fn) => (value) => { fn(value); setLimit(PAGE); };
+  const clear = () => { setQ(""); setMuscle(null); setGear(null); setLimit(PAGE); };
+  const shown = list.slice(0, limit);
+  return (
+    <>
+      <Field type="search" value={q} onChange={(e) => refine(setQ)(e.target.value)} placeholder={t.searchExercises} aria-label={t.searchExercises}
+        prefix={<Search className="w-[18px] h-[18px] text-muted" strokeWidth={2} />} />
+      <FilterRow label={t.muscleGroup} all={t.allMuscles} options={LM_MUSCLES} value={muscle} onChange={refine(setMuscle)} isRtl={isRtl} />
+      <FilterRow label={t.equipment} all={t.anyEquipment} options={LM_EQUIPMENT} value={gear} onChange={refine(setGear)} isRtl={isRtl} />
+      <SectionHead title={t.exerciseCount(n(list.length), list.length)} action={filtered ? t.clearFilters : null} onAction={clear} />
       {list.length === 0 ? (
-        <Card><Empty icon={<Search className="w-6 h-6" strokeWidth={2} />} title={t.searchExercises} /></Card>
+        <Card>
+          <Empty icon={<Search className="w-6 h-6" strokeWidth={2} />} title={t.noMatches} body={t.noMatchesBody}
+            action={filtered ? <Button tone="soft" size="sm" onClick={clear}>{t.clearFilters}</Button> : null} />
+        </Card>
       ) : (
-        <List>
-          {list.map((e) => {
-            const best = exerciseBests(sessions, e.id);
-            return (
-              <Row key={e.id} onClick={() => onOpen(e.id)} isRtl={isRtl} chevron
-                icon={<span className="w-11 h-11 rounded-[14px] overflow-hidden shrink-0"><ExerciseGraphic exerciseId={e.id} name={e.nameEn} /></span>}
-                title={isRtl ? e.nameFa : e.nameEn}
-                subtitle={`${muscleName(e.muscle)}${sep}${e.equipment}`}
-                right={best.maxWeight > 0 ? (
-                  <span className="flex flex-col items-end gap-0.5">
-                    <span className="font-mono text-[10px] uppercase tracking-label text-muted">{t.e1rm}</span>
-                    <span className="text-[15px] font-bold text-ink tabular-nums">{n(Math.round(best.bestE1rm))} {t.kg}</span>
-                  </span>
-                ) : null} />
-            );
-          })}
-        </List>
+        <>
+          <List>
+            {shown.map((e) => {
+              const best = exerciseBests(sessions, e.id);
+              return (
+                <Row key={e.id} onClick={() => onOpen(e.id)} isRtl={isRtl} chevron
+                  icon={<span className="w-11 h-11 rounded-[14px] overflow-hidden shrink-0"><ExerciseMedia exerciseId={e.id} name={e.nameEn} thumb /></span>}
+                  title={exerciseName(e, isRtl)}
+                  subtitle={[muscleLabel(e, isRtl), equipmentLabel(e, isRtl)].filter(Boolean).join(sep)}
+                  right={best.maxWeight > 0 ? (
+                    <span className="flex flex-col items-end gap-0.5">
+                      <span className="font-mono text-[10px] uppercase tracking-label text-muted">{t.e1rm}</span>
+                      <span className="text-[15px] font-bold text-ink tabular-nums">{n(Math.round(best.bestE1rm))} {t.kg}</span>
+                    </span>
+                  ) : null} />
+              );
+            })}
+          </List>
+          {list.length > limit && (
+            <Button tone="card" block onClick={() => setLimit((v) => v + PAGE)}>{t.showMore(n(Math.min(PAGE, list.length - limit)))}</Button>
+          )}
+        </>
       )}
     </>
   );
 }
 
-function TrendSheet({ exerciseId, sessions, isRtl, t, n, sep, onClose }) {
+/** A localized list from the catalog: Persian when it has one, else English (drawn left to right). */
+function pickLang(loc, isRtl) {
+  if (isRtl && loc?.fa?.length) return { items: loc.fa, ltr: false };
+  return { items: loc?.en || [], ltr: isRtl };
+}
+
+const humanize = (slug) => slug.replace(/-/g, " ").replace(/^./, (c) => c.toUpperCase());
+
+function TrendSheet({ exerciseId, sessions, isRtl, t, n, sep, onClose, onOpenExercise }) {
   const ex = findExercise(exerciseId);
   const points = exerciseTrend(sessions, exerciseId);
   const best = exerciseBests(sessions, exerciseId);
   const last = lastPerformance(sessions, exerciseId);
   const max = Math.max(...points.map((p) => p.e1rm), 1);
   const sparse = points.length > 6;
+  const hasMedia = !!ex?.media;
+
+  const steps = pickLang(ex?.steps, isRtl);
+  const benefits = pickLang(ex?.benefits, isRtl);
+  const about = isRtl ? ex?.description?.fa || ex?.description?.en : ex?.description?.en;
+  const aboutLtr = isRtl && !ex?.description?.fa;
+  const muscles = (ex?.muscles || []).map(findMuscle).filter(Boolean);
+  const gear = (ex?.equipmentSlugs || []).map(findEquipment).filter(Boolean);
+  const variations = (ex?.variations || []).filter((s) => slugify(s) === s).map((slug) => ({ slug, ex: findBySlug(slug) }));
+  const link = ex?.source || (ex?.slug ? liftmanualUrl(ex.slug) : null);
+  const stepNo = (i) => (steps.ltr ? i + 1 : n(i + 1));
+
   return (
     <Sheet title={exerciseName(exerciseId, isRtl)} isRtl={isRtl} t={t} onClose={onClose}>
+      {hasMedia && (
+        <Card pad={false} className="overflow-hidden aspect-[4/3] shrink-0">
+          <ExerciseMedia exerciseId={exerciseId} name={ex?.nameEn} />
+        </Card>
+      )}
       <div className="flex items-stretch gap-2.5">
-        <span className="w-[88px] h-[88px] rounded-3xl overflow-hidden shrink-0"><ExerciseGraphic exerciseId={exerciseId} name={ex?.nameEn} /></span>
+        {!hasMedia && (
+          <span className="w-[88px] h-[88px] rounded-3xl overflow-hidden shrink-0"><ExerciseMedia exerciseId={exerciseId} name={ex?.nameEn} /></span>
+        )}
         {[[t.topSet, best.maxWeight], [t.e1rm, Math.round(best.bestE1rm)]].map(([label, value]) => (
           <Card key={label} className="flex-1 min-w-0 flex flex-col justify-between gap-2">
             <Label className="truncate">{label}</Label>
@@ -536,6 +603,20 @@ function TrendSheet({ exerciseId, sessions, isRtl, t, n, sep, onClose }) {
           </Card>
         ))}
       </div>
+
+      {(muscles.length > 0 || gear.length > 0) && (
+        <Card className="flex flex-col gap-3">
+          {[[t.muscleGroup, muscles], [t.equipment, gear]].filter(([, items]) => items.length).map(([label, items]) => (
+            <div key={label} className="flex flex-col gap-2">
+              <Label>{label}</Label>
+              <div className="flex flex-wrap gap-1.5">
+                {items.map((m) => <Tag key={m.slug}>{lmLabel(m, isRtl)}</Tag>)}
+              </div>
+            </div>
+          ))}
+        </Card>
+      )}
+
       {points.length >= 2 ? (
         <Card className="flex flex-col gap-3">
           <Label>{t.trend}{sep}{t.e1rm}</Label>
@@ -549,13 +630,83 @@ function TrendSheet({ exerciseId, sessions, isRtl, t, n, sep, onClose }) {
           }))} />
         </Card>
       ) : (
-        <p className="m-0 py-6 text-center text-sm text-muted">{t.noTrend}</p>
+        <p className="m-0 py-4 text-center text-sm text-muted">{t.noTrend}</p>
       )}
       {last && (
         <p className="m-0 text-[13px] text-muted">
           <span className="font-semibold text-ink">{t.lastTime}: </span>
           {last.map((s) => `${n(s.weight || 0)} × ${n(s.reps)}`).join(sep)}
         </p>
+      )}
+
+      {about && <p dir={aboutLtr ? "ltr" : undefined} className="m-0 text-[15px] leading-[1.45] text-muted">{about}</p>}
+
+      {steps.items.length > 0 && (
+        <Card className="flex flex-col gap-3">
+          <Label>{t.instructions}</Label>
+          <ol dir={steps.ltr ? "ltr" : undefined} className="m-0 p-0 list-none flex flex-col gap-3">
+            {steps.items.map((step, i) => (
+              <li key={i} className="flex items-start gap-3">
+                <span className="mt-px w-6 h-6 rounded-full bg-inv text-on-inv text-xs font-bold flex items-center justify-center shrink-0 tabular-nums">{stepNo(i)}</span>
+                <span className="flex-1 min-w-0 text-[15px] leading-[1.45] text-ink">{step}</span>
+              </li>
+            ))}
+          </ol>
+        </Card>
+      )}
+
+      {benefits.items.length > 0 && (
+        <Card className="flex flex-col gap-3">
+          <Label>{t.benefits}</Label>
+          <ul dir={benefits.ltr ? "ltr" : undefined} className="m-0 p-0 list-none flex flex-col gap-2">
+            {benefits.items.map((b, i) => (
+              <li key={i} className="flex items-start gap-2.5 text-[15px] leading-[1.45] text-ink">
+                <span aria-hidden="true" className="mt-[9px] w-1.5 h-1.5 rounded-full bg-ink/40 shrink-0" />{b}
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+
+      {ex?.musclesWorked?.length > 0 && (
+        <Card className="flex flex-col gap-2.5">
+          <Label>{t.musclesWorked}</Label>
+          <div dir={isRtl ? "ltr" : undefined} className="flex flex-wrap gap-1.5">
+            {ex.musclesWorked.map((m) => <Tag key={m}>{m}</Tag>)}
+          </div>
+        </Card>
+      )}
+
+      {variations.length > 0 && (
+        <section className="flex flex-col gap-2.5">
+          <SectionHead title={t.variations} className="mt-0" />
+          {variations.some((v) => v.ex) && (
+            <List>
+              {variations.filter((v) => v.ex).map(({ ex: v }) => (
+                <Row key={v.id} isRtl={isRtl} chevron onClick={() => onOpenExercise(v.id)}
+                  icon={<span className="w-10 h-10 rounded-xl overflow-hidden shrink-0"><ExerciseMedia exerciseId={v.id} name={v.nameEn} thumb /></span>}
+                  title={exerciseName(v, isRtl)} subtitle={muscleLabel(v, isRtl)} />
+              ))}
+            </List>
+          )}
+          {variations.some((v) => !v.ex) && (
+            <div dir={isRtl ? "ltr" : undefined} className="flex flex-wrap gap-1.5">
+              {variations.filter((v) => !v.ex).map(({ slug }) => (
+                <a key={slug} href={liftmanualUrl(slug)} target="_blank" rel="noopener noreferrer"
+                  className="h-8 px-3 rounded-full inline-flex items-center gap-1.5 text-xs font-medium bg-card text-ink no-underline">
+                  {humanize(slug)}<ExternalLink aria-hidden="true" className="w-3 h-3 text-muted" strokeWidth={2} />
+                </a>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {link && (
+        <a href={link} target="_blank" rel="noopener noreferrer"
+          className="h-12 px-5 rounded-full inline-flex items-center justify-center gap-2 bg-card text-ink text-[15px] font-semibold no-underline select-none transition-transform active:scale-[0.98]">
+          <ExternalLink aria-hidden="true" className="w-[18px] h-[18px]" strokeWidth={2} />{t.viewOnLiftmanual}
+        </a>
       )}
     </Sheet>
   );
