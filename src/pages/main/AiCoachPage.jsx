@@ -2,7 +2,7 @@ import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
 import {
-  AlertTriangle, ArrowUp, ChevronLeft, ChevronRight, Eye, EyeOff, KeyRound, ListChecks, ShieldCheck, SlidersHorizontal, Square, Trash2,
+  AlertTriangle, ArrowUp, ChevronLeft, ChevronRight, Eye, EyeOff, KeyRound, ListChecks, ShieldCheck, SlidersHorizontal, Square, Trash2, X,
 } from "lucide-react";
 import {
   Button, Card, IconButton, IconWell, Label, List, Row, Screen, Sheet, Toggle, Field, cx, num,
@@ -19,8 +19,10 @@ import { COACH_MODEL, looksLikeKey } from "../../lib/coach/claudeClient";
 const timeOf = (iso, isRtl) =>
   new Date(iso).toLocaleTimeString(isRtl ? "fa-IR" : undefined, { hour: "2-digit", minute: "2-digit" });
 
-// Where the composer dock sits: the tab bar's bottom inset, its 64 px, and a 12 px gap.
-const DOCK_BOTTOM = "calc(max(env(safe-area-inset-bottom), 16px) + 64px + 12px)";
+// The coach opens full screen, without the tab bar: the composer sits on the
+// bottom inset, and the page starts right under the top one.
+const DOCK_BOTTOM = "max(env(safe-area-inset-bottom), 12px)";
+const PAGE_TOP = "calc(env(safe-area-inset-top) + 6px)";
 
 /* ──────────────────────────── tiny markdown ──────────────────────────── */
 
@@ -264,7 +266,7 @@ function SettingsSheet({ open, coach, isRtl, t, onClose }) {
 
 /* ──────────────────────────── page ──────────────────────────── */
 
-export default function AiCoachPage({ isRtl }) {
+export default function AiCoachPage({ isRtl, onClose }) {
   const t = useCoachT(isRtl);
   const coach = useCoachStore();
   const [input, setInput] = useState("");
@@ -369,8 +371,17 @@ export default function AiCoachPage({ isRtl }) {
   );
 
   return (
-    <Screen isRtl={isRtl} tabbed style={dockH ? { paddingBottom: dockH + 24 } : undefined}>
-      <header className="flex items-center gap-3 pt-3">
+    <Screen isRtl={isRtl} tabbed style={{ paddingTop: PAGE_TOP, ...(dockH ? { paddingBottom: dockH + 24 } : {}) }}>
+      {/* Full screen, the way a native sheet closes: one round X, top centre. */}
+      {onClose && (
+        <div className="flex justify-center">
+          <button type="button" onClick={onClose} aria-label={t.close} title={t.close}
+            className="w-10 h-10 rounded-full bg-card text-ink flex items-center justify-center border-0 p-0 cursor-pointer transition-transform active:scale-95">
+            <X className="w-5 h-5" strokeWidth={2.2} />
+          </button>
+        </div>
+      )}
+      <header className="flex items-center gap-3">
         <span className="w-[50px] h-[50px] shrink-0 rounded-full bg-coach text-on-accent flex items-center justify-center ring-4 ring-coach/35">
           <CoachIcon size={24} />
         </span>

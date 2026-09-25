@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { motion } from "framer-motion";
 import { Archive, Loader2, MessageCircle, MoreHorizontal, PenSquare, Pin, Plus, Search, VolumeX, X } from "lucide-react";
 import { ME, lastMessage, previewOf, relativeTime } from "../../lib/chat/chatModel";
@@ -50,6 +51,21 @@ function StoryBubble({ user, seen, mine, label, name, onClick }) {
       </button>
       <span className={cx("max-w-full truncate text-xs leading-tight", seen || mine ? "text-muted" : "text-ink font-semibold")}>{name}</span>
     </li>
+  );
+}
+
+/** The stories folded into the header, Telegram's way: up to three faces, overlapping. */
+function StoryStack({ faces, label, onClick }) {
+  return (
+    <button type="button" onClick={onClick} aria-label={label} aria-expanded={false}
+      className="shrink-0 flex items-center border-0 p-0 bg-transparent cursor-pointer transition-transform active:scale-95">
+      {faces.map(({ user, seen }, i) => (
+        <span key={user.id} style={{ zIndex: faces.length - i }}
+          className={cx("relative rounded-full bg-canvas p-[2px]", i > 0 && "-ms-3", seen ? "ring-[1.5px] ring-faint" : "ring-2 ring-ink")}>
+          <Avatar user={user} size={26} showStatus={false} />
+        </span>
+      ))}
+    </button>
   );
 }
 
@@ -286,9 +302,59 @@ export default function ChatList({ store, isRtl, t, onOpen, onOpenAt, onMenu, on
   const firstName = (u) => (isRtl ? u.nameFa || u.name : u.name).split(" ")[0];
   const closeSearch = () => { setQuery(""); setSearchOpen(false); };
 
+  // Stories start folded into the header, the way Telegram keeps the list
+  // clear. Pulling the list down at the top opens the rail; scrolling past
+  // it folds it back without moving the chats on screen.
+  const [storiesOpen, setStoriesOpen] = useState(false);
+  const railRef = useRef(null);
+  const seenIds = store.seenStories || [];
+  const faces = stories.slice(0, 3).map((s) => ({ user: findUser(s.userId), seen: seenIds.includes(s.id) })).filter((f) => f.user);
+  const openStories = () => { window.scrollTo(0, 0); setStoriesOpen(true); };
+
+  useEffect(() => {
+    if (searching || storiesOpen) return undefined;
+    let startY = null;
+    const atTop = () => window.scrollY <= 0;
+    const onStart = (e) => { startY = atTop() ? e.touches[0].clientY : null; };
+    const onMove = (e) => { if (startY !== null && e.touches[0].clientY - startY > 48) { startY = null; setStoriesOpen(true); } };
+    const onEnd = () => { startY = null; };
+    const onWheel = (e) => { if (atTop() && e.deltaY < -24) setStoriesOpen(true); };
+    // The pull opens the stories instead of the browser's pull-to-refresh.
+    const root = document.documentElement;
+    const overscroll = root.style.overscrollBehaviorY;
+    root.style.overscrollBehaviorY = "contain";
+    window.addEventListener("touchstart", onStart, { passive: true });
+    window.addEventListener("touchmove", onMove, { passive: true });
+    window.addEventListener("touchend", onEnd, { passive: true });
+    window.addEventListener("wheel", onWheel, { passive: true });
+    return () => {
+      root.style.overscrollBehaviorY = overscroll;
+      window.removeEventListener("touchstart", onStart);
+      window.removeEventListener("touchmove", onMove);
+      window.removeEventListener("touchend", onEnd);
+      window.removeEventListener("wheel", onWheel);
+    };
+  }, [searching, storiesOpen]);
+
+  useEffect(() => {
+    if (!storiesOpen) return undefined;
+    const onScroll = () => {
+      const h = railRef.current?.offsetHeight || 0;
+      if (h && window.scrollY > h + 8) {
+        // The rail sat above what is on screen: remove it and take its height
+        // off the scroll in the same frame, so nothing on screen moves.
+        const y = window.scrollY;
+        flushSync(() => setStoriesOpen(false));
+        window.scrollTo(0, y - h);
+      }
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [storiesOpen]);
+
   return (
     <div dir={isRtl ? "rtl" : "ltr"} className="ui w-full min-h-[100dvh] pb-32">
-      {/* Navigation bar: Edit · title · new story · compose */}
+      {/* Navigation bar: Edit · stories and title · compose */}
       <header className="sticky top-0 z-20 px-5 pb-2 bg-canvas" style={{ paddingTop: HEAD_TOP }}>
         <div className="h-11 grid grid-cols-[1fr_auto_1fr] items-center gap-2">
           <button type="button" onClick={() => setEditing((v) => !v)} aria-pressed={editing}
@@ -303,21 +369,40 @@ export default function ChatList({ store, isRtl, t, onOpen, onOpenAt, onMenu, on
               </span>
             ) : (
               <>
+                {!storiesOpen && !searching && faces.length > 0 && (
+                  <StoryStack faces={faces} label={t.showStories} onClick={openStories} />
+                )}
                 <span className="font-display font-extrabold text-[26px] leading-none tracking-[-0.035em] text-ink truncate">{t.chats}</span>
                 <NameBadges premium size={17} />
               </>
             )}
           </h1>
           <div className="justify-self-end flex items-center gap-2">
-            <IconButton label={t.addStory} tone="card" onClick={onAddStory}>
-              <Plus className="w-5 h-5" strokeWidth={2.2} />
-            </IconButton>
             <IconButton label={t.newChat} tone="jet" onClick={onCompose}>
               <PenSquare className="w-[19px] h-[19px]" strokeWidth={2} />
             </IconButton>
           </div>
         </div>
       </header>
+
+      {/* Stories rail, opened by a pull at the top or a tap on the header's faces */}
+      {!searching && storiesOpen && (
+        <motion.div ref={railRef} initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
+          transition={{ duration: 0.22, ease: "easeOut" }} className="overflow-hidden">
+          <ul aria-label={t.storiesLabel} className="m-0 px-5 pt-1.5 pb-1 list-none flex gap-2.5 overflow-x-auto scrollbar-hide">
+            <StoryBubble mine user={findUser(ME)} label={t.myStory} name={t.myStory} onClick={onAddStory} />
+            {stories.map((s) => {
+              const u = findUser(s.userId);
+              const seen = seenIds.includes(s.id);
+              return (
+                <StoryBubble key={s.id} user={u} seen={seen} name={firstName(u)}
+                  label={`${t.storyOf}: ${isRtl ? u.nameFa || u.name : u.name}${seen ? `, ${t.storySeenLabel}` : ""}`}
+                  onClick={() => onOpenStory(s)} />
+              );
+            })}
+          </ul>
+        </motion.div>
+      )}
 
       <div className="px-5 pt-1.5 pb-3 flex flex-col gap-3">
         {/* Search — by name, @username or a pasted link */}
@@ -340,22 +425,6 @@ export default function ChatList({ store, isRtl, t, onOpen, onOpenAt, onMenu, on
           )}
         </div>
       </div>
-
-      {/* Stories rail */}
-      {!searching && (
-        <ul aria-label={t.storiesLabel} className="m-0 px-5 pt-1 pb-3 list-none flex gap-2.5 overflow-x-auto scrollbar-hide">
-          <StoryBubble mine user={findUser(ME)} label={t.myStory} name={t.myStory} onClick={onAddStory} />
-          {stories.map((s) => {
-            const u = findUser(s.userId);
-            const seen = (store.seenStories || []).includes(s.id);
-            return (
-              <StoryBubble key={s.id} user={u} seen={seen} name={firstName(u)}
-                label={`${t.storyOf}: ${isRtl ? u.nameFa || u.name : u.name}${seen ? `, ${t.storySeenLabel}` : ""}`}
-                onClick={() => onOpenStory(s)} />
-            );
-          })}
-        </ul>
-      )}
 
       {/* Folder tabs, pinned under the navigation bar */}
       {!searching && (

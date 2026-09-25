@@ -39,6 +39,9 @@ import RecipeExplorePage from "./sub/RecipeExplorePage";
 import DietGuidePage from "./sub/DietGuidePage";
 
 
+// Tabs that open full screen, without the shell's tab bar.
+const FULL_SCREEN_TABS = ["club", "coach"];
+
 export default function MainAppLayout({ onNavigate }) {
   const isRtl = (localStorage.getItem("language") || "en") === "fa";
   return (
@@ -84,13 +87,15 @@ function MainAppShell({ onNavigate }) {
   useEffect(() => { if (joinCode) { clearJoinFromLocation(); setSubPage(null); setActiveTab("club"); } }, [joinCode]);
   useEffect(() => { if (!flash) return undefined; const id = setTimeout(() => setFlash(""), 1800); return () => clearTimeout(id); }, [flash]);
 
-  // The messenger keeps its Telegram layout in the app's colours and is a
-  // place of its own: it draws its own bottom bar (chats, contacts,
-  // settings, and a round button back), so the shell's bar steps aside on
-  // the whole Club tab. Back returns to the tab the athlete came from.
-  const immersive = activeTab === "club" && !subPage;
+  // Two tabs open full screen, without the shell's bar. The messenger keeps
+  // its Telegram layout in the app's colours and draws its own bottom bar
+  // (chats, contacts, settings, and a round button back); the coach closes
+  // with an X at the top. Either way out returns to the tab the athlete
+  // came from.
+  const immersive = FULL_SCREEN_TABS.includes(activeTab) && !subPage;
   const homeTab = useRef("today");
-  useEffect(() => { if (activeTab !== "club") homeTab.current = activeTab; }, [activeTab]);
+  useEffect(() => { if (!FULL_SCREEN_TABS.includes(activeTab)) homeTab.current = activeTab; }, [activeTab]);
+  const goHome = () => setActiveTab(homeTab.current);
   const alerts = chat.unreadMentionTotal + chat.notifications.filter((n) => n.unread && n.kind === "system").length
     + unreadAppAlerts(appAlerts({ training, checklist, nutrition }));
 
@@ -150,8 +155,8 @@ function MainAppShell({ onNavigate }) {
               {activeTab === "today" && <TodayPage isRtl={isRtl} alerts={alerts} onOpen={handleSubNavigate} onTab={setActiveTab} />}
               {activeTab === "train" && <WorkoutPage isRtl={isRtl} onOpen={handleSubNavigate} />}
               {activeTab === "fuel" && <DietPage isRtl={isRtl} onGoToRecipe={() => setSubPage("recipeExplore")} onGoToGuide={() => setSubPage("dietGuide")} />}
-              {activeTab === "coach" && <AiCoachPage isRtl={isRtl} />}
-              {activeTab === "club" && <CommunityPage isRtl={isRtl} onExit={() => setActiveTab(homeTab.current)} joinCode={joinCode} onJoinHandled={() => setJoinCode(null)}
+              {activeTab === "coach" && <AiCoachPage isRtl={isRtl} onClose={goHome} />}
+              {activeTab === "club" && <CommunityPage isRtl={isRtl} onExit={goHome} joinCode={joinCode} onJoinHandled={() => setJoinCode(null)}
                 openTarget={openTarget} onOpenHandled={() => setOpenTarget(null)} />}
             </>
           )}
