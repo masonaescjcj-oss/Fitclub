@@ -222,6 +222,7 @@ export function IconButton({ label, tone = "card", size = 44, className = "", ch
     accent: "bg-accent text-on-accent",
     jet: "bg-jet text-accent dark:ring-1 dark:ring-inset dark:ring-line",
     ghost: "bg-transparent text-ink",
+    danger: "bg-card text-alert",
   };
   return (
     <button type="button" aria-label={label} title={label} {...rest} style={{ width: size, height: size }}
