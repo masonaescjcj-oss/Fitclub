@@ -29,7 +29,7 @@ the `REACT_APP_` pair. If `ANTHROPIC_API_KEY` is missing, it answers
 Recommended, in `vercel.json` (owned by someone else, so not added here):
 
 ```json
-{ "functions": { "api/coach.js": { "supportsCancellation": true, "maxDuration": 60 } } }
+{ "functions": { "api/coach.js": { "supportsCancellation": true } } }
 ```
 
 `supportsCancellation` stops the Claude request, and its cost, when the athlete
@@ -92,7 +92,7 @@ and a cold start resets the count.
 پیشنهاد برای `vercel.json` (فایلش مال کس دیگری است، برای همین این‌جا اضافه نشد):
 
 ```json
-{ "functions": { "api/coach.js": { "supportsCancellation": true, "maxDuration": 60 } } }
+{ "functions": { "api/coach.js": { "supportsCancellation": true } } }
 ```
 
 با `supportsCancellation`، وقتی ورزشکار «توقف» را می‌زند یا تب را می‌بندد،
