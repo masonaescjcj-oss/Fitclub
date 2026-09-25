@@ -132,7 +132,8 @@ function MainAppShell({ onNavigate }) {
           {subPage === "history" && <HistoryPage onBack={() => setSubPage(null)} isRtl={isRtl} />}
           {subPage === "tutorials" && <TutorialsPage onBack={() => setSubPage(null)} isRtl={isRtl} />}
           {subPage === "notifications" && <NotificationsPage onBack={() => setSubPage(null)} isRtl={isRtl}
-            onOpenChat={(chatId, messageId) => { setOpenTarget({ chatId, messageId }); setSubPage(null); setActiveTab("club"); }} />}
+            onOpenChat={(chatId, messageId) => { setOpenTarget({ chatId, messageId }); setSubPage(null); setActiveTab("club"); }}
+            onGo={(target) => { if (target.tab) { setSubPage(null); setActiveTab(target.tab); } else setSubPage(target.sub); }} />}
           {subPage === "workoutReport" && <WorkoutReportPage onBack={() => setSubPage(null)} isRtl={isRtl} />}
           {subPage === "team" && <TeamPage onBack={() => setSubPage(null)} isRtl={isRtl} />}
           {subPage === "wallet" && <WalletPage onBack={() => setSubPage(null)} isRtl={isRtl} />}

@@ -343,9 +343,10 @@ export function splitSteps(value) {
   if (isBlank(value)) return [];
   if (Array.isArray(value)) return value.flatMap(splitSteps);
   let s = String(value).replace(/\r/g, "");
-  if (!/[\n|]/.test(s) && /(^|\s)\d{1,2}[.)]\s/.test(s)) s = s.replace(/\s+(?=\d{1,2}[.)]\s)/g, "\n");
+  // Latin, Persian and Arabic-Indic digits all count as step numbers.
+  if (!/[\n|]/.test(s) && /(^|\s)[0-9۰-۹٠-٩]{1,2}[.)]\s/.test(s)) s = s.replace(/\s+(?=[0-9۰-۹٠-٩]{1,2}[.)]\s)/g, "\n");
   return s.split(/\s*[\n|]\s*/)
-    .map((line) => line.replace(/^\s*(?:step\s*)?\d{1,2}\s*[.):-]\s*/i, "").replace(/^[-•*]\s+/, "").trim())
+    .map((line) => line.replace(/^\s*(?:step\s*|مرحله\s*)?[0-9۰-۹٠-٩]{1,2}\s*[.):\-–]\s*/i, "").replace(/^[-•*]\s+/, "").trim())
     .filter(Boolean);
 }
 

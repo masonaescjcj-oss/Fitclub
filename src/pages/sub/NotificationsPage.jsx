@@ -23,7 +23,7 @@ const COPY = {
     mentioned: (who, where) => <><b className="font-bold">{who}</b> mentioned you in <b className="font-bold">{where}</b></>,
     emptyMessages: "When someone mentions you in a group or you join a community, it shows up here.",
     emptyApp: "You're all caught up. Reminders from your training, checklists and food diary show up here.",
-    markAll: "Mark all read",
+    markAll: "Read all",
   },
   fa: {
     title: "اعلان‌ها", filter: "فیلتر", all: "همه", mentions: "منشن‌ها", app: "اپ",
@@ -118,7 +118,14 @@ function MessengerAlerts({ isRtl, onOpenChat, onlyMentions }) {
   );
 }
 
-export default function NotificationsPage({ onBack, isRtl, onOpenChat }) {
+// Where tapping an app alert takes the athlete.
+const ALERT_TARGET = {
+  training: { tab: "train" },
+  nutrition: { tab: "fuel" },
+  checklist: { sub: "checklist" },
+};
+
+export default function NotificationsPage({ onBack, isRtl, onOpenChat, onGo }) {
   const c = COPY[isRtl ? "fa" : "en"];
   const store = useChatStore();
   const [filter, setFilter] = useState("all");
@@ -184,7 +191,14 @@ export default function NotificationsPage({ onBack, isRtl, onOpenChat }) {
               {notifications.map((n) => {
                 const Icon = ALERT_ICONS[n.icon] || Dumbbell;
                 return (
-                  <li key={n.id} className="flex gap-3 px-4 py-3.5" onClick={() => !n.read && markAppRead([n.id])}>
+                  <li key={n.id} className="list-none">
+                    <button type="button"
+                      onClick={() => {
+                        if (!n.read) markAppRead([n.id]);
+                        const target = n.kind === "streak" ? { sub: "streakDetail" } : ALERT_TARGET[n.source];
+                        if (target) onGo?.(target);
+                      }}
+                      className="w-full flex gap-3 px-4 py-3.5 text-start bg-transparent border-0 cursor-pointer active:bg-sunk transition-colors">
                     <IconWell tone={n.tone} size={44} square><Icon className="w-5 h-5" strokeWidth={2} /></IconWell>
                     <div className="flex-1 min-w-0 flex flex-col gap-0.5">
                       <div className="flex gap-2 items-start">
@@ -194,6 +208,7 @@ export default function NotificationsPage({ onBack, isRtl, onOpenChat }) {
                       </div>
                       <p className="m-0 text-sm leading-snug text-muted">{isRtl ? n.bodyFa : n.bodyEn}</p>
                     </div>
+                    </button>
                   </li>
                 );
               })}
