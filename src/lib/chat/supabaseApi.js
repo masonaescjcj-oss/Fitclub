@@ -12,6 +12,7 @@ import { saveProfile } from "../backend/account";
 import { ApiError } from "./api";
 
 export const SUPABASE_SERVER = "supabase";
+export const CHAT_MEDIA_BUCKET = "fitclub-chat-media";
 
 const iso = (ts) => (ts ? new Date(ts).toISOString() : null);
 
@@ -154,6 +155,20 @@ export function createSupabaseApi({ me, client = supabase }) {
     react: (id, emoji) => rpc("react", { p_message: id, p_emoji: emoji }),
     vote: (id, option) => rpc("vote", { p_message: id, p_option: Number(option) }),
     read: (id) => rpc("mark_read", { p_chat: id }),
+
+    /** Puts a photo (a JPEG blob, already shrunk) in the chat's private folder; returns where. */
+    async uploadPhoto(chatId, blob) {
+      const path = `${chatId}/${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}.jpg`;
+      const { error } = await client.storage.from(CHAT_MEDIA_BUCKET).upload(path, blob, { contentType: "image/jpeg", cacheControl: "31536000" });
+      if (error) throw toApiError(error);
+      return { path };
+    },
+    /** A link to one of this chat's photos, good for an hour. */
+    async photoUrl(path) {
+      const { data, error } = await client.storage.from(CHAT_MEDIA_BUCKET).createSignedUrl(path, 3600);
+      if (error) throw toApiError(error);
+      return data.signedUrl;
+    },
     async typing(chatId) {
       if (signal) await signal.send({ type: "broadcast", event: "typing", payload: { chatId, userId: me } });
       return { ok: true };

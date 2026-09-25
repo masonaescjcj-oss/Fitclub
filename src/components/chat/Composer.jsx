@@ -51,6 +51,8 @@ function ContextStrip({ mode, message, chat, isRtl, t, onCancel }) {
 export default function Composer({
   chat, draft, replyTo, editing, isRtl, t, members = [],
   onChangeDraft, onSend, onAttach, onCancelContext, onOpenSchedule,
+  // What this chat can really send: the attachment kinds, voice notes, scheduling.
+  kinds = ATTACHMENTS.map((a) => a.id), voice = true, schedule = true,
 }) {
   const [panel, setPanel] = useState(null); // "emoji" | "stickers" | "attach"
   const [sendMenu, setSendMenu] = useState(false);
@@ -128,7 +130,7 @@ export default function Composer({
           >
             {panel === "attach" ? (
               <div className="grid grid-cols-4 gap-2 px-3 py-4">
-                {ATTACHMENTS.map((a) => {
+                {ATTACHMENTS.filter((a) => kinds.includes(a.id)).map((a) => {
                   const Icon = a.icon;
                   return (
                     <button key={a.id} type="button"
@@ -199,6 +201,11 @@ export default function Composer({
               className="w-10 h-10 my-1 rounded-full flex items-center justify-center shrink-0 bg-accent text-on-accent border-0 cursor-pointer active:scale-95 transition-transform">
               <ArrowUp className="w-5 h-5" strokeWidth={2.6} />
             </button>
+          ) : !voice ? (
+            <button type="button" disabled aria-label={t.send}
+              className="w-10 h-10 my-1 rounded-full flex items-center justify-center shrink-0 bg-accent text-on-accent border-0 opacity-40 cursor-not-allowed">
+              <ArrowUp className="w-5 h-5" strokeWidth={2.6} />
+            </button>
           ) : (
             <button type="button" onClick={() => onAttach("voice")} aria-label={t.voiceMessage}
               className="w-10 h-10 my-1 rounded-full flex items-center justify-center shrink-0 bg-jet text-accent border-0 cursor-pointer active:scale-95 transition-transform dark:ring-1 dark:ring-inset dark:ring-line">
@@ -220,12 +227,12 @@ export default function Composer({
                     {t.sendSilently} <VolumeX className="w-5 h-5 text-muted" strokeWidth={2} />
                   </button>
                 </li>
-                <li className="list-none">
+                {schedule && <li className="list-none">
                   <button type="button" onClick={() => { setSendMenu(false); onOpenSchedule(); }}
                     className="w-full h-12 flex items-center justify-between gap-3 px-4 text-[15px] font-medium text-ink text-start bg-transparent border-0 cursor-pointer active:bg-sunk">
                     {t.schedule} <Clock className="w-5 h-5 text-muted" strokeWidth={2} />
                   </button>
-                </li>
+                </li>}
               </motion.ul>
             </>
           )}

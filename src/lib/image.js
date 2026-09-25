@@ -41,3 +41,27 @@ export function toDataUrl(blob) {
     r.readAsDataURL(blob);
   });
 }
+
+/**
+ * `file` shrunk to fit `max` px on its long side (never enlarged), as a JPEG
+ * blob with its size: how a photo travels in a chat.
+ */
+export async function fitJpeg(file, max = 1600, quality = 0.82) {
+  const img = await loadImage(file);
+  const w0 = img.naturalWidth, h0 = img.naturalHeight;
+  if (!w0 || !h0) throw new Error("empty image");
+  const scale = Math.min(1, max / Math.max(w0, h0));
+  const width = Math.round(w0 * scale), height = Math.round(h0 * scale);
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, width, height);
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(img, 0, 0, width, height);
+  const blob = await new Promise((resolve, reject) => {
+    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("encode failed"))), "image/jpeg", quality);
+  });
+  return { blob, width, height };
+}

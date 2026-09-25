@@ -6,7 +6,7 @@ import {
 import {
   ME, groupByDay, isGroupedWith, relativeTime, scheduledMessages,
 } from "../../lib/chat/chatModel";
-import { findUser } from "../../lib/chat/chatStore";
+import { DEMO_WORLD, findUser } from "../../lib/chat/chatStore";
 import { Avatar, NameBadges } from "./ChatBits";
 import MessageBubble from "./MessageBubble";
 import Composer from "./Composer";
@@ -33,6 +33,8 @@ export default function ChatView({ store, chat, isRtl, t, onBack, onOpenProfile,
   const [searchOpen, setSearchOpen] = useState(false); // the header's own search button
   const [nearEnd, setNearEnd] = useState(true);
   const endRef = useRef(null);
+  // Real photos: the device's picker, then the chat's private folder.
+  const photoInput = useRef(null);
   const bubbleRefs = useRef({});
 
   // Search opens from the profile (the `searching` prop) or from the header here.
@@ -138,6 +140,7 @@ export default function ChatView({ store, chat, isRtl, t, onBack, onOpenProfile,
 
   const attach = (kind) => {
     if (kind === "poll") { setSheet("poll"); return; }
+    if (kind === "photo" && !DEMO_WORLD) { photoInput.current?.click(); return; }
     if (kind === "photo") {
       store.send(chat.id, { kind: "photo", media: { emoji: "🏋️" } });
     } else if (kind === "file") {
@@ -338,8 +341,19 @@ export default function ChatView({ store, chat, isRtl, t, onBack, onOpenProfile,
             onAttach={attach}
             onCancelContext={() => { setReplyTo(null); setEditing(null); store.setDraft(chat.id, ""); }}
             onOpenSchedule={() => setSheet("schedule")}
+            // A real account sends what really exists: photos and polls; no pretend voice notes,
+            // files or scheduled sends, which a server chat would deliver at once.
+            kinds={DEMO_WORLD ? undefined : ["photo", "poll"]}
+            voice={DEMO_WORLD}
+            schedule={DEMO_WORLD || !chat.remote}
           />
         )}
+        <input ref={photoInput} type="file" accept="image/*" className="hidden" aria-hidden="true" tabIndex={-1}
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            e.target.value = "";
+            if (file) store.sendPhoto(chat.id, file).catch(() => setToast(t.photoFailed));
+          }} />
       </div>
 
       {/* The end of the page, below the footer, so scrolling here shows the last message above the composer. */}
@@ -368,7 +382,7 @@ export default function ChatView({ store, chat, isRtl, t, onBack, onOpenProfile,
               setToast(t.copied); setActionsFor(null);
             }}
             onTranslate={actionsFor.translation ? () => { store.toggleTranslate(actionsFor.id); setActionsFor(null); } : null}
-            onTranscribe={actionsFor.kind === "voice" && !actionsFor.voice?.transcript
+            onTranscribe={DEMO_WORLD && actionsFor.kind === "voice" && !actionsFor.voice?.transcript
               ? () => { store.transcribeVoice(actionsFor.id); setActionsFor(null); }
               : null}
             onPin={() => { store.pinMessage(chat.id, actionsFor.id); setActionsFor(null); }}

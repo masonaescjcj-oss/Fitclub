@@ -11,6 +11,8 @@ import { scheduleChannelLife, scheduleGreeting, scheduleReply } from "../lib/cha
 import { createApi, loadServerConfig, saveServerConfig, toLocalChat, toLocalMessage, toWireId } from "../lib/chat/api";
 import { SUPABASE_SERVER, createSupabaseApi } from "../lib/chat/supabaseApi";
 import { TRANSCRIPTS } from "../lib/chat/extras";
+import { setPhotoResolver } from "../lib/chat/photos";
+import { fitJpeg, toDataUrl } from "../lib/image";
 import { uid } from "../lib/chat/chatModel";
 
 /**
@@ -168,6 +170,7 @@ export default function useChat(lang = "en") {
     if (!server || !server.token) { apiRef.current = null; return undefined; }
     const client = server.kind === SUPABASE_SERVER ? createSupabaseApi({ me: server.token }) : createApi(server);
     apiRef.current = client;
+    if (client.photoUrl) setPhotoResolver((path) => client.photoUrl(path));
     let closed = false;
     setServer((sv) => ({ ...sv, status: "connecting" }));
     syncNow().catch(() => setServer((sv) => (sv ? { ...sv, status: "error" } : sv)));
@@ -282,6 +285,34 @@ export default function useChat(lang = "en") {
         timers.current.push(cancel);
       }
       return message;
+    },
+
+    /**
+     * A real photo. In a server chat it goes to the chat's private folder
+     * first (the sender sees it at once, from the device); in Saved Messages
+     * it stays on this device, smaller.
+     */
+    sendPhoto: async (chatId, file) => {
+      const chat = latest.current.chats.find((c) => c.id === chatId);
+      const client = chat?.remote && apiRef.current?.uploadPhoto ? apiRef.current : null;
+      if (!client) {
+        const { blob, width, height } = await fitJpeg(file, 1024, 0.72);
+        const src = await toDataUrl(blob);
+        setState((s) => ({ ...s, messages: [...s.messages, createMessage({ chatId, senderId: ME, status: "sent", kind: "photo", media: { src, width, height } })] }));
+        return;
+      }
+      const { blob, width, height } = await fitJpeg(file, 1600, 0.82);
+      const preview = URL.createObjectURL(blob);
+      const message = createMessage({ chatId, senderId: ME, status: "sending", kind: "photo", media: { preview, width, height }, clientId: uid(), remote: true });
+      setState((s) => ({ ...s, messages: [...s.messages, message] }));
+      try {
+        const { path } = await client.uploadPhoto(chatId, blob);
+        const saved = await client.send(chatId, { kind: "photo", text: "", media: { path, width, height }, clientId: message.clientId });
+        const local = toLocalMessage(saved, latest.current.__myId);
+        upsertMessage({ ...local, media: { ...local.media, preview } });
+      } catch {
+        patchMessage(message.id, (m) => ({ ...m, status: "failed" }));
+      }
     },
 
     editMessage: (id, text) => {

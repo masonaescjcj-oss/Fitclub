@@ -5,7 +5,7 @@ import {
   Search, Settings, Share2, ShieldCheck, Target, Trash2, Trophy, UserCheck, UserMinus, UserPlus, Users, VenetianMask,
 } from "lucide-react";
 import { ME, chatLink, lastMessage, previewOf, relativeTime } from "../../lib/chat/chatModel";
-import { PEOPLE, findUser } from "../../lib/chat/chatStore";
+import { DEMO_WORLD, PEOPLE, findUser } from "../../lib/chat/chatStore";
 import { Bar, Button, Card as KitCard, IconWell, List, Row, Tag, cx, num } from "../ui/kit";
 import { Avatar, NameBadges } from "./ChatBits";
 import { ActionRow, Card, ChatPreviewCard, CopyGlyph, Hero, InfoRow, LinkCard, SectionHeader } from "./ProfileBits";
@@ -76,7 +76,7 @@ export default function PeerProfileScreen({
 
   // One person is one admin, so the pill says it in the singular.
   const roleOf = (id) => (id === chat.createdBy ? t.ownerLabel : chat.admins.includes(id) ? (isRtl ? "مدیر" : "admin") : "");
-  const onEdit = user ? (isContact ? onEditContact : !match ? () => onToast(t.uiOnlyNote) : null) : (iAdmin ? onEditInfo : null);
+  const onEdit = user ? (isContact ? onEditContact : !match && DEMO_WORLD ? () => onToast(t.uiOnlyNote) : null) : (iAdmin ? onEditInfo : null);
   const TypeIcon = chat.isPublic ? Globe : Lock;
 
   return (

@@ -26,8 +26,8 @@ await db.exec(`
   create table auth.users (id uuid primary key, email text);
   create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
   create schema storage;
-  create table storage.buckets (id text primary key, name text, public boolean);
-  create table storage.objects (id uuid primary key default gen_random_uuid(), bucket_id text, name text);
+  create table storage.buckets (id text primary key, name text, public boolean, file_size_limit bigint, allowed_mime_types text[]);
+  create table storage.objects (id uuid primary key default gen_random_uuid(), bucket_id text, name text, owner uuid default auth.uid());
   alter table storage.objects enable row level security;
   create function storage.foldername(name text) returns text[] language sql immutable as $$ select (string_to_array(name, '/'))[1:array_length(string_to_array(name, '/'), 1) - 1] $$;
   grant usage on schema public, auth, storage to anon, authenticated;
@@ -163,6 +163,20 @@ check("…with a system message for everyone", (await rpc(B, "history", g.id, nu
 const oldLink = r.value.inviteLink;
 r = await rpc(A, "update_chat", g.id, { revokeLink: true });
 check("a fresh invite link replaces the old one", r.value.inviteLink !== oldLink);
+
+// ── photos in a chat ──
+await db.exec("grant select, insert, update, delete on storage.objects to authenticated; grant select on storage.objects to anon;");
+const bucket = (await db.query("select public, file_size_limit, allowed_mime_types from storage.buckets where id = 'fitclub-chat-media'")).rows[0];
+check("chat photos live in a private bucket, images only, 5 MB at most", bucket && bucket.public === false && Number(bucket.file_size_limit) === 5242880 && bucket.allowed_mime_types.includes("image/jpeg"), bucket);
+check("Anna adds a photo to the group", (await as(A, `insert into storage.objects (bucket_id, name) values ('fitclub-chat-media', '${g.id}/p1.jpg')`)).ok);
+check("Ben, a member, sees it", (await as(B, "select name from storage.objects where bucket_id = 'fitclub-chat-media'")).rows.length === 1);
+check("Cara, removed from the group, doesn't", (await as(C, "select name from storage.objects where bucket_id = 'fitclub-chat-media'")).rows.length === 0);
+check("Dan, outside it, can't add one", !(await as(D, `insert into storage.objects (bucket_id, name) values ('fitclub-chat-media', '${g.id}/p2.jpg')`)).ok);
+check("…nor into a made-up folder", !(await as(A, `insert into storage.objects (bucket_id, name) values ('fitclub-chat-media', 'not-a-chat/p3.jpg')`)).ok);
+const bDel = await as(B, "delete from storage.objects where bucket_id = 'fitclub-chat-media' and name like '%/p1.jpg'");
+check("Ben can't take Anna's photo down", bDel.ok && bDel.rows.length === 0 && (await db.query("select count(*)::int n from storage.objects where bucket_id = 'fitclub-chat-media'")).rows[0].n === 1);
+await as(A, "delete from storage.objects where bucket_id = 'fitclub-chat-media' and name like '%/p1.jpg'");
+check("Anna can", (await db.query("select count(*)::int n from storage.objects where bucket_id = 'fitclub-chat-media'")).rows[0].n === 0);
 
 // ── invite links and joining ──
 const peek = await rpc(D, "resolve", r.value.inviteLink);

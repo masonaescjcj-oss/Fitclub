@@ -33,8 +33,8 @@ const SUPABASE_STUB = `
   create function auth.uid() returns uuid language sql stable as
     $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
   create schema storage;
-  create table storage.buckets (id text primary key, name text, public boolean);
-  create table storage.objects (id uuid primary key default gen_random_uuid(), bucket_id text, name text);
+  create table storage.buckets (id text primary key, name text, public boolean, file_size_limit bigint, allowed_mime_types text[]);
+  create table storage.objects (id uuid primary key default gen_random_uuid(), bucket_id text, name text, owner uuid default auth.uid());
   alter table storage.objects enable row level security;
   create function storage.foldername(name text) returns text[] language sql immutable as
     $$ select (string_to_array(name, '/'))[1:array_length(string_to_array(name, '/'), 1) - 1] $$;
@@ -59,7 +59,7 @@ const FINGERPRINT = `
     (select count(*) from pg_policy where polrelid = 'public.profiles'::regclass) as public_profile_policies,
     (select count(*) from pg_trigger where tgrelid = 'public.profiles'::regclass and not tgisinternal) as public_profile_triggers,
     (select string_agg(polname, ',' order by polname) from pg_policy where polrelid = 'storage.objects'::regclass and polname not like 'fitclub:%') as other_storage_policies,
-    (select string_agg(id, ',' order by id) from storage.buckets where id <> 'fitclub-avatars') as other_buckets,
+    (select string_agg(id, ',' order by id) from storage.buckets where id not like 'fitclub-%') as other_buckets,
     (select relrowsecurity from pg_class where oid = 'public.profiles'::regclass) as public_profiles_rls
 `;
 

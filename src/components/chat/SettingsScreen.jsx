@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { AnimatePresence as AP } from "framer-motion";
 import { GIFTS, PREF_TOGGLES, SETTINGS_ROWS } from "../../lib/chat/extras";
+import { DEMO_WORLD } from "../../lib/chat/chatStore";
 import { useTheme } from "../../lib/theme";
 import { Button, Card, Field, IconWell, Label, List, Row, Screen, Sheet, Toggle, cx, num } from "../ui/kit";
 import { Avatar } from "./ChatBits";
@@ -59,7 +60,7 @@ function DetailSheet({ id, me, store, theme, isRtl, t, onClose }) {
   const L = (en, fa) => (isRtl ? fa : en);
 
   const FACTS = {
-    account: [[t.mobile, <span dir="ltr">{me.phone}</span>], [t.usernameLabel, <span dir="ltr">@{me.username}</span>], [t.bio, me.bio]],
+    account: [...(me.phone ? [[t.mobile, <span dir="ltr">{me.phone}</span>]] : []), [t.usernameLabel, <span dir="ltr">@{me.username}</span>], ...(me.bio ? [[t.bio, me.bio]] : [])],
     privacy: [
       [L("Last Seen", "آخرین بازدید"), L("Everybody", "همه")],
       [L("Profile Photo", "عکس پروفایل"), L("Everybody", "همه")],
@@ -67,9 +68,9 @@ function DetailSheet({ id, me, store, theme, isRtl, t, onClose }) {
       [L("Two-Step Verification", "تأیید دومرحله‌ای"), L("On", "روشن")],
     ],
     chatSettings: [
-      [L("Wallpaper", "تصویر زمینه"), L("FitClub pattern", "طرح فیت‌کلاب")],
+      ...(DEMO_WORLD ? [[L("Wallpaper", "تصویر زمینه"), L("FitClub pattern", "طرح فیت‌کلاب")]] : []),
       [t.nightMode, theme === "dark" ? L("On", "روشن") : L("Off", "خاموش")],
-      [L("Message Size", "اندازه پیام"), num(14, isRtl)],
+      ...(DEMO_WORLD ? [[L("Message Size", "اندازه پیام"), num(14, isRtl)]] : []),
     ],
     folders: [[t.all, ""], [t.unreadFolder, ""], [t.family, ""], [t.gym, ""], [t.work, ""], [t.people, ""]],
     devices: [[t.thisDevice, t.webSession]],
@@ -92,7 +93,7 @@ function DetailSheet({ id, me, store, theme, isRtl, t, onClose }) {
           ))}
         </List>
       )}
-      <p className="m-0 px-1 text-[13px] leading-snug text-muted">{t.uiOnlyNote}</p>
+      {DEMO_WORLD && <p className="m-0 px-1 text-[13px] leading-snug text-muted">{t.uiOnlyNote}</p>}
     </Sheet>
   );
 }
@@ -145,6 +146,10 @@ function GiftPicker({ me, isRtl, t, onPick, onClose }) {
     </Sheet>
   );
 }
+
+// A real account sees only settings that are true and do something; the
+// demo keeps Telegram's full list, its privacy facts and its UI-only toggles.
+const SHOWN_ROWS = DEMO_WORLD ? SETTINGS_ROWS : SETTINGS_ROWS.filter((r) => ["account", "chatSettings", "folders", "devices"].includes(r.id));
 
 /** A small dot for the server's state: accent on ink when online. */
 function StatusDot({ status }) {
@@ -257,7 +262,7 @@ export default function SettingsScreen({ store, name, isRtl, t, onGoProfile, onT
 
       {/* Main rows */}
       <List>
-        {SETTINGS_ROWS.map((row) => (
+        {SHOWN_ROWS.map((row) => (
           <Row key={row.id} isRtl={isRtl} chevron icon={well(ROW_ICONS[row.id] || User)}
             title={t[row.id === "notifications" ? "notificationsRow" : row.label] || t[row.label]}
             subtitle={t[row.sub]}
@@ -284,7 +289,8 @@ export default function SettingsScreen({ store, name, isRtl, t, onGoProfile, onT
         )}
       </List>
 
-      {/* Premium block */}
+      {/* Premium block: simulated (stars, gifts), so only in the demo */}
+      {DEMO_WORLD && (
       <List>
         <Row isRtl={isRtl} chevron icon={well(Crown, "inv")} title={t.premiumTitle} onClick={() => setSheet("premium")} />
         <Row isRtl={isRtl} chevron icon={well(Star)} title={t.stars}
@@ -292,13 +298,18 @@ export default function SettingsScreen({ store, name, isRtl, t, onGoProfile, onT
         <Row isRtl={isRtl} chevron icon={well(Store)} title={t.business} onClick={() => onToast(t.uiOnlyNote)} />
         <Row isRtl={isRtl} chevron icon={well(Gift)} title={t.sendGift} onClick={() => setSheet("gift")} />
       </List>
+      )}
 
-      {/* Help */}
-      <Label as="h2" className="m-0 mt-2 px-1">{t.help}</Label>
-      <List>
-        <Row isRtl={isRtl} chevron icon={well(MessagesSquare)} title={t.askQuestion} onClick={() => onToast(t.uiOnlyNote)} />
-        <Row isRtl={isRtl} chevron icon={well(HelpCircle)} title={t.faq} onClick={() => onToast(t.uiOnlyNote)} />
-      </List>
+      {/* Help: a notice only, so only in the demo until support exists */}
+      {DEMO_WORLD && (
+        <>
+          <Label as="h2" className="m-0 mt-2 px-1">{t.help}</Label>
+          <List>
+            <Row isRtl={isRtl} chevron icon={well(MessagesSquare)} title={t.askQuestion} onClick={() => onToast(t.uiOnlyNote)} />
+            <Row isRtl={isRtl} chevron icon={well(HelpCircle)} title={t.faq} onClick={() => onToast(t.uiOnlyNote)} />
+          </List>
+        </>
+      )}
 
       <AnimatePresence>
         {detail && (

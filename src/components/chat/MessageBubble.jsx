@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Check, CheckCheck, Eye, FileText, Flame, Forward, Languages, Pin, Play, Target } from "lucide-react";
 import {
@@ -8,6 +8,7 @@ import { findUser } from "../../lib/chat/chatStore";
 import { Avatar, senderName } from "./ChatBits";
 import { Bar, Label, cx, num } from "../ui/kit";
 import { splitMentions } from "../../lib/chat/mentions";
+import { photoUrl } from "../../lib/chat/photos";
 
 // One message in the conversation, Telegram's layout in Ink & Volt: white
 // bubbles for others, ink bubbles for mine, radius 20 with a 6 px corner on
@@ -166,6 +167,30 @@ function Challenge({ message, out, isRtl, t }) {
   );
 }
 
+/**
+ * A real photo: from the device while it is being sent (or kept in Saved
+ * Messages), else through a short-lived link to the chat's private folder.
+ * It keeps its shape while loading, so the conversation doesn't jump.
+ */
+function ChatPhoto({ media, alt }) {
+  const local = media.preview || media.src || null;
+  const [url, setUrl] = useState(local);
+  const [broken, setBroken] = useState(false);
+  useEffect(() => {
+    let live = true;
+    if (local && !broken) { setUrl(local); return undefined; }
+    if (media.path) photoUrl(media.path).then((u) => { if (live) setUrl(u); });
+    return () => { live = false; };
+  }, [local, media.path, broken]);
+  const ratio = media.width && media.height ? Math.min(Math.max(media.height / media.width, 0.5), 1.5) : 0.75;
+  return (
+    <span className="mt-0.5 block w-[240px] max-w-full rounded-[14px] overflow-hidden bg-sunk" style={{ aspectRatio: `1 / ${ratio}` }}>
+      {url && <img src={url} alt={alt} className="w-full h-full object-cover block" loading="lazy"
+        onError={() => { if (url === local) setBroken(true); else setUrl(null); }} />}
+    </span>
+  );
+}
+
 /** A photo placeholder: the picture's emoji on a stable tone, as the seed data has no images. */
 const PHOTO_TONES = ["bg-sand", "bg-sage", "bg-mist"];
 const photoTone = (id) => PHOTO_TONES[[...String(id)].reduce((h, ch) => (h + ch.charCodeAt(0)) >>> 0, 0) % PHOTO_TONES.length];
@@ -289,6 +314,8 @@ export default function MessageBubble({
                 <Poll message={message} out={out} isRtl={isRtl} t={t} onVote={onVote} />
               ) : message.kind === "voice" ? (
                 <Voice message={message} out={out} isRtl={isRtl} />
+              ) : message.kind === "photo" && (message.media?.path || message.media?.src || message.media?.preview) ? (
+                <ChatPhoto media={message.media} alt={t.photo} />
               ) : message.kind === "photo" ? (
                 <span role="img" aria-label={t.photo}
                   className={cx("mt-0.5 flex items-center justify-center rounded-[14px] text-5xl w-[230px] max-w-full h-[150px]", photoTone(message.id))}>
