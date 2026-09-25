@@ -6,64 +6,11 @@
   body {
     /* Only sideways overflow is clipped: pages scroll the window, and the
        tab bar, docks and sheets are fixed on top of it. */
-    @apply text-white font-sans antialiased overflow-x-hidden;
+    @apply font-ui antialiased overflow-x-hidden;
     background-color: rgb(var(--ui-bg));
+    color: rgb(var(--ui-fg));
     -webkit-tap-highlight-color: transparent;
   }
-}
-
-/* Legacy tokens. --fg/--ground/--card/--sheet/--track/--dot serve the few
-   classes theme-light.css still remaps. The --tg-* set is the messenger's,
-   now mapped onto Ink & Volt so its Telegram layout wears the app's colours. */
-:root {
-  --fg: #ffffff;
-  --ground: #09090b;
-  --card: #141416;
-  --sheet: #0d0d0f;
-  --track: rgba(255, 255, 255, 0.07);
-  --dot: rgba(255, 255, 255, 0.28);
-  --tg-bg: #0C0D0A;
-  --tg-surface: #0C0D0A;
-  --tg-card: #1A1B17;
-  --tg-accent: #F3F2EC;
-  --tg-accent-deep: #2E2F29;
-  --tg-in-bubble: #1A1B17;
-  --tg-out-bubble: #F3F2EC;
-  --tg-muted: #A7A99E;
-  --tg-sep: #2E2F29;
-  --tg-pill: rgba(26, 27, 23, 0.92);
-  --tg-pill-active: rgba(255, 255, 255, 0.08);
-  --tg-glass: rgba(12, 13, 10, 0.8);
-  --tg-bar: rgba(12, 13, 10, 0.94);
-  --tg-action: #1A1B17;
-  --tg-action-fg: #F3F2EC;
-}
-[data-theme="light"] {
-  --fg: #0f0f12;
-  --ground: #f2f2f7;
-  --card: #ffffff;
-  --sheet: #ffffff;
-  --track: rgba(0, 0, 0, 0.07);
-  --dot: rgba(0, 0, 0, 0.3);
-  --tg-bg: #F3F2EC;
-  --tg-surface: #F3F2EC;
-  --tg-card: #FFFFFF;
-  --tg-accent: #121310;
-  --tg-accent-deep: #121310;
-  --tg-in-bubble: #FFFFFF;
-  --tg-out-bubble: #121310;
-  --tg-muted: #5F6158;
-  --tg-sep: #E4E2DA;
-  --tg-pill: rgba(255, 255, 255, 0.92);
-  --tg-pill-active: rgba(18, 19, 16, 0.08);
-  --tg-glass: rgba(243, 242, 236, 0.82);
-  --tg-bar: rgba(243, 242, 236, 0.94);
-  --tg-action: #FFFFFF;
-  --tg-action-fg: #121310;
-}
-[data-theme="light"] body {
-  background: rgb(var(--ui-bg));
-  color: #0f0f12;
 }
 
 /*
@@ -132,9 +79,6 @@
 /* Hero cards stay ink in paper mode and lift off the night ground with a hairline. */
 [data-theme="dark"] .ui-hero { box-shadow: inset 0 0 0 1px rgb(var(--ui-line)); }
 
-/* White text inside an accent-coloured element, whatever the theme. */
-.on-accent { --fg: #ffffff; }
-
 /* Custom Scrollbar Hide Utility */
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
@@ -142,18 +86,6 @@
 .scrollbar-hide {
   -ms-overflow-style: none;
   scrollbar-width: none;
-}
-
-/* Glassmorphism Card Style */
-.glass-card {
-  background: rgba(18, 18, 21, 0.7);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-[data-theme="light"] .glass-card {
-  background: rgba(255, 255, 255, 0.75);
-  border-color: rgba(0, 0, 0, 0.08);
 }
 
 /* The conversation wallpaper: the paper ground with a faint fitness doodle

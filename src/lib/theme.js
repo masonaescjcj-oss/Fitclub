@@ -1,6 +1,7 @@
-// Light or dark for the whole app. Light is the default; the choice is kept in
-// localStorage and applied to <html data-theme>, which src/theme-light.css
-// keys off. index.html applies it before the first paint for the same reason.
+// Paper or night for the whole app. Paper is the default; the choice is kept
+// in localStorage and applied to <html data-theme> and .dark, which the
+// Ink & Volt tokens in src/index.css key off. index.html applies it before
+// the first paint for the same reason.
 
 import { useEffect, useState } from "react";
 

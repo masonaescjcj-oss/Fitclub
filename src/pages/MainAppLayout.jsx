@@ -107,7 +107,7 @@ function MainAppShell({ onNavigate }) {
   return (
     <div
       dir={isRtl ? "rtl" : "ltr"}
-      className="w-full md:max-w-lg mx-auto min-h-[100dvh] bg-canvas text-white flex flex-col justify-between overflow-x-clip relative font-sans select-none"
+      className="w-full md:max-w-lg mx-auto min-h-[100dvh] bg-canvas text-ink flex flex-col justify-between overflow-x-clip relative font-ui select-none"
     >
       {/* Main & Sub-View Page Container */}
       <AnimatePresence mode="wait">

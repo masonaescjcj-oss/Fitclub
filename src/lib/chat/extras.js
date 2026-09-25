@@ -3,30 +3,6 @@
 
 import { PEOPLE } from "./chatStore";
 
-/**
- * Telegram palette, used only inside the messenger. Every value is a CSS
- * variable so the same components render the light and the dark theme;
- * the actual colours live in src/index.css.
- */
-export const TG = {
-  bg: "var(--tg-bg)",               // chat wallpaper base / page ground
-  surface: "var(--tg-surface)",     // headers, cards
-  card: "var(--tg-card)",           // elevated rows, inputs
-  accent: "var(--tg-accent)",       // links, active states
-  accentDeep: "var(--tg-accent-deep)", // buttons, badges
-  inBubble: "var(--tg-in-bubble)",
-  outBubble: "var(--tg-out-bubble)",
-  muted: "var(--tg-muted)",         // secondary text
-  sep: "var(--tg-sep)",             // hairlines
-  pill: "var(--tg-pill)",           // floating tab bar
-  pillActive: "var(--tg-pill-active)",
-  glass: "var(--tg-glass)",         // frosted pills over the wallpaper
-  bar: "var(--tg-bar)",             // composer and selection bars
-  action: "var(--tg-action)",       // round profile action buttons
-  actionFg: "var(--tg-action-fg)",
-  green: "#34c759",                 // iOS read ticks
-};
-
 const ago = (mins) => new Date(Date.now() - mins * 60000).toISOString();
 
 /** Seed call log. Calls need a backend, so these are display-only. */

@@ -8,9 +8,8 @@
 // - Every tap target is at least 44 px.
 // - Labels are Geist Mono caps; big numbers and titles are Bricolage 800.
 //
-// Only token colours are used here (canvas, card, ink, …). The legacy
-// light-theme remap in theme-light.css rewrites classes like bg-white and
-// text-white, so they would misbehave inside a redesigned screen.
+// Only token colours are used here (canvas, card, ink, …): they read CSS
+// variables, so night mode and the athlete's accent restyle every screen.
 
 import React, { useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
