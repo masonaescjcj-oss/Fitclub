@@ -24,6 +24,8 @@ export const LEGAL = {
             "Your profile: name, username, bio, photo and app language.",
             "What you enter: workouts and sets, your food diary, water and weigh-ins, your nutrition profile (age, sex, height, weight, goal, activity), checklists, and your conversations with the coach.",
             "A random ID for each device you use, so your devices can stay in sync.",
+            "What you share with others: messages and photos you send in chats, the groups and channels you are in, shared checklists and your ticks in them, and when you were last online.",
+            "Error reports: when the app hits an error it didn't expect, it sends the error message, the page, your browser and the app version, with your account ID if you are signed in. Email addresses and sign-in links are removed first, and reports are deleted after 30 days.",
           ],
         },
         {
@@ -45,7 +47,7 @@ export const LEGAL = {
           h: "Who we share it with",
           p: [
             "Only the services that run FitClub: Supabase (sign-in, database and photo storage), Vercel (hosting and the coach's server), and the AI provider above for coach replies. They process data for us under their own terms and security; their servers may be outside your country.",
-            "Other FitClub members can see your name, username, bio and photo once they are signed in. Everything else you enter is visible only to you.",
+            "Other FitClub members can see your name, username, bio and photo once they are signed in. Messages and photos you send in a chat are seen by that chat's members, and a shared checklist, its tasks and everyone's ticks by the people in it; people you chat with see when you were last online. Everything else you enter is visible only to you.",
             "We share data with authorities only when the law requires it.",
           ],
         },
@@ -56,13 +58,13 @@ export const LEGAL = {
         {
           h: "Keeping and deleting",
           p: [
-            "Your data is kept while your account exists. You can delete entries, lists and coach conversations in the app at any time.",
+            "Your data is kept while your account exists. You can delete entries, lists, coach conversations, the messages and photos you sent, and the chats and lists you own in the app at any time.",
             `To delete your account and everything in it, write to ${CONTACT.en}. We delete it within 30 days.`,
           ],
         },
         {
           h: "Security",
-          p: ["Connections are encrypted (HTTPS). The database only lets each account read its own data, and provider keys stay on the server."],
+          p: ["Connections are encrypted (HTTPS). The database only lets each account read its own data and what others shared with it, and provider keys stay on the server."],
         },
         {
           h: "Children",
@@ -88,6 +90,8 @@ export const LEGAL = {
             "پروفایل: نام، نام کاربری، بیو، عکس و زبان اپ.",
             "چیزهایی که خودت وارد می‌کنی: تمرین‌ها و ست‌ها، دفتر غذا، آب و وزن، پروفایل تغذیه (سن، جنسیت، قد، وزن، هدف، میزان فعالیت)، چک‌لیست‌ها و گفتگوهایت با مربی.",
             "یک شناسه‌ی تصادفی برای هر دستگاهی که استفاده می‌کنی، تا دستگاه‌هایت با هم هماهنگ بمانند.",
+            "چیزهایی که با دیگران به اشتراک می‌گذاری: پیام‌ها و عکس‌هایی که در چت‌ها می‌فرستی، گروه‌ها و کانال‌هایی که عضوشان هستی، چک‌لیست‌های مشترک و تیک‌هایت در آن‌ها، و آخرین زمانی که آنلاین بوده‌ای.",
+            "گزارش خطا: وقتی اپ به خطای پیش‌بینی‌نشده‌ای بخورد، متن خطا، صفحه، مرورگر و نسخه‌ی اپ را می‌فرستد و اگر وارد حساب شده باشی شناسه‌ی حسابت را. نشانی‌های ایمیل و لینک‌های ورود پیش از فرستادن پاک می‌شوند و گزارش‌ها بعد از ۳۰ روز حذف می‌شوند.",
           ],
         },
         {
@@ -109,7 +113,7 @@ export const LEGAL = {
           h: "با چه کسانی به اشتراک می‌گذاریم",
           p: [
             "فقط با سرویس‌هایی که فیت‌کلاب روی آن‌ها کار می‌کند: Supabase (ورود، دیتابیس و نگهداری عکس)، Vercel (میزبانی اپ و سرور مربی) و سرویس هوش مصنوعی بالا برای جواب‌های مربی. این سرویس‌ها طبق شرایط و امنیت خودشان داده را برای ما پردازش می‌کنند و ممکن است سرورهایشان خارج از کشور تو باشد.",
-            "اعضای دیگر فیت‌کلاب بعد از ورود، نام، نام کاربری، بیو و عکست را می‌بینند. بقیه‌ی چیزهایی که وارد می‌کنی فقط برای خودت دیده می‌شود.",
+            "اعضای دیگر فیت‌کلاب بعد از ورود، نام، نام کاربری، بیو و عکست را می‌بینند. پیام‌ها و عکس‌هایی که در یک چت می‌فرستی را اعضای همان چت می‌بینند، و یک چک‌لیست مشترک، کارهایش و تیک همه را اعضای همان چک‌لیست؛ کسانی که با آن‌ها چت می‌کنی آخرین زمان آنلاین بودنت را می‌بینند. بقیه‌ی چیزهایی که وارد می‌کنی فقط برای خودت دیده می‌شود.",
             "داده را فقط وقتی قانون ملزم کند در اختیار مراجع قانونی می‌گذاریم.",
           ],
         },
@@ -120,13 +124,13 @@ export const LEGAL = {
         {
           h: "نگهداری و پاک کردن",
           p: [
-            "داده‌هایت تا وقتی حسابت هست نگه داشته می‌شود. هر وقت بخواهی می‌توانی ثبت‌ها، لیست‌ها و گفتگوهای مربی را در خود اپ پاک کنی.",
+            "داده‌هایت تا وقتی حسابت هست نگه داشته می‌شود. هر وقت بخواهی می‌توانی ثبت‌ها، لیست‌ها، گفتگوهای مربی، پیام‌ها و عکس‌هایی که فرستاده‌ای، و چت‌ها و لیست‌هایی که ساخته‌ای را در خود اپ پاک کنی.",
             `برای پاک کردن کامل حساب و همه‌ی داده‌هایش به ${CONTACT.fa} پیام بده. ظرف ۳۰ روز پاک می‌شود.`,
           ],
         },
         {
           h: "امنیت",
-          p: ["ارتباط‌ها رمزنگاری‌شده‌اند (HTTPS). دیتابیس به هر حساب فقط اجازه‌ی خواندن داده‌ی خودش را می‌دهد و کلیدهای سرویس‌ها روی سرور می‌ماند."],
+          p: ["ارتباط‌ها رمزنگاری‌شده‌اند (HTTPS). دیتابیس به هر حساب فقط اجازه‌ی خواندن داده‌ی خودش و چیزهایی که دیگران با او به اشتراک گذاشته‌اند را می‌دهد و کلیدهای سرویس‌ها روی سرور می‌ماند."],
         },
         {
           h: "کودکان",

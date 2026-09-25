@@ -2,10 +2,14 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
+import ErrorBoundary from './components/ErrorBoundary';
+import { installErrorReports } from './lib/errorReport';
 import { applyTheme, loadTheme } from './lib/theme';
 import { applyAccent, loadAccent } from './lib/accent';
 import { loadExerciseCatalog } from './lib/training/catalog';
 
+// Errors nothing else caught are reported (supabase/migrations/0005); none in the demo build.
+installErrorReports();
 applyTheme(loadTheme());
 applyAccent(loadAccent());
 // Merges public/exercises/catalog.json (the liftmanual library) when it has been imported; silent without it.
@@ -14,7 +18,9 @@ loadExerciseCatalog();
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
-    <App />
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
   </React.StrictMode>
 );
 

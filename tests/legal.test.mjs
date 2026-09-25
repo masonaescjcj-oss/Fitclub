@@ -21,6 +21,8 @@ for (const kind of ['privacy', 'terms']) {
 }
 const privacy = JSON.stringify(LEGAL.privacy);
 check('the privacy policy names every service that handles data', ['Supabase', 'Vercel', 'You.com', 'Anthropic'].every((s) => privacy.includes(s)));
+check('the privacy policy says what others see and what an error report carries', LEGAL.privacy.en.sections.some((x) => x.p.some((t) => t.includes("seen by that chat's members")))
+  && LEGAL.privacy.en.sections.some((x) => x.p.some((t) => t.startsWith('Error reports:') && t.includes('30 days'))));
 check('the terms carry the health notice first', LEGAL.terms.en.sections[0].h === 'Health notice');
 
 console.log(`legal: ${pass} passed, ${fail} failed`);
