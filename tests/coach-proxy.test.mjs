@@ -280,6 +280,7 @@ async function call(handler, req) {
 // ── default export without configuration ──
 {
   delete process.env.ANTHROPIC_API_KEY;
+  delete process.env.YDC_API_KEY;
   const origError = console.error;
   const seen = [];
   console.error = (...a) => seen.push(a.join(' '));
@@ -293,7 +294,116 @@ async function call(handler, req) {
   check('the missing variable is named in the log', seen.some((l) => l.includes('ANTHROPIC_API_KEY')), seen);
 }
 
-check('no log line carries message contents or tokens', logs.every((l) => !l.includes(SECRET) && !l.includes(TOKEN)), logs);
+// ── You.com's express agent, when there is no Anthropic key ──
+{
+  const { toYouInput, youReply, YOU_MODEL } = coachApi;
+  // You.com frames end in CRLF.
+  const sse = (frames) => frames.map((f, i) => `id: ${i}\r\nevent: ${f.type}\r\ndata: ${JSON.stringify(f)}\r\n\r\n`).join('');
+  const answer = (delta) => ({ type: 'response.output_text.delta', response: { output_index: 0, type: 'message.answer', delta } });
+  const youFrames = (...texts) => [
+    { type: 'response.created' },
+    { type: 'response.starting' },
+    { type: 'response.output_item.added', response: { output_index: 0 } },
+    ...texts.map(answer),
+    { type: 'response.output_item.done', response: { output_index: 0 } },
+    { type: 'response.done', response: { run_time_ms: '1.1', finished: true } },
+  ];
+  /** A fetch stand-in answering with `text` cut into `size`-byte chunks, so CRLFs and Persian letters split. */
+  const fakeFetch = (text, { status = 200, size = 7 } = {}) => {
+    const calls = [];
+    const f = async (url, init) => {
+      calls.push({ url, init, body: JSON.parse(init.body) });
+      const bytes = new TextEncoder().encode(text);
+      const chunks = [];
+      for (let i = 0; i < bytes.length; i += size) chunks.push(bytes.slice(i, i + size));
+      return { ok: status >= 200 && status < 300, status, body: (async function* () { for (const c of chunks) yield c; })() };
+    };
+    f.calls = calls;
+    return f;
+  };
+  const youHandler = (fetchImpl, extra = {}) =>
+    createCoachHandler({ anthropic: () => null, youdotcom: () => ({ apiKey: 'ydc-test-key', fetchImpl }), verifyUser, log, ...extra });
+  const convo = [...MSGS, { role: 'assistant', content: 'Hi!' }, { role: 'user', content: [{ type: 'text', text: 'And dinner?' }] }];
+
+  const f = fakeFetch(sse(youFrames('سلام', ' سارا! ', 'شام: مرغ.')));
+  const ok = await call(youHandler(f), fakeReq({ body: body({ messages: convo }) }));
+  check('you.com: streams SSE', ok.statusCode === 200 && String(ok.headers['content-type']).startsWith('text/event-stream'), [ok.statusCode, ok.headers]);
+  check('you.com: every delta arrives whole, across split chunks and CRLFs',
+    ['سلام', ' سارا! ', 'شام: مرغ.'].every((t) => ok.body.includes(sseFrame('text', { text: t }))), ok.body);
+  check('you.com: ends with done, naming the model', ok.body.endsWith(sseFrame('done', { stop_reason: 'end_turn', model: YOU_MODEL, usage: null })), ok.body);
+  const sent = f.calls[0];
+  check('you.com: the express agent, streaming, and nothing else in the body',
+    sent.url === 'https://api.you.com/v1/agents/runs' && sent.body.agent === 'express' && sent.body.stream === true && Object.keys(sent.body).sort().join() === 'agent,input,stream', sent);
+  check('you.com: the key goes only in the Authorization header', sent.init.headers.Authorization === 'Bearer ydc-test-key' && !sent.init.body.includes('ydc-test-key'), sent.init.headers);
+  check('you.com: roles become user and agent', JSON.stringify(sent.body.input.map((m) => m.role)) === '["user","agent","user"]', sent.body.input);
+  check('you.com: the coach rules and athlete data ride in the first message',
+    ['You are the coach.', 'kcal: 1800', SECRET].every((t) => sent.body.input[0].content.includes(t)), sent.body.input[0]);
+  check('you.com: later messages are plain text', sent.body.input[1].content === 'Hi!' && sent.body.input[2].content === 'And dinner?', sent.body.input);
+  check('you.com: the abort signal is passed on', sent.init.signal instanceof AbortSignal);
+  check('toYouInput without a system prompt leaves the first message as it is',
+    toYouInput({ messages: [{ role: 'user', content: 'Hey' }] })[0].content === 'Hey');
+
+  // Other output items (search results and the like) are not the answer.
+  const mixed = sse([{ type: 'response.created' }, { type: 'response.output_text.delta', response: { type: 'web_search.results', delta: 'IGNORED' } }, answer('Only this.'), { type: 'response.done' }]);
+  const onlyAnswer = await call(youHandler(fakeFetch(mixed)), fakeReq({ body: body() }));
+  check('you.com: only answer text is forwarded', !onlyAnswer.body.includes('IGNORED') && onlyAnswer.body.includes('Only this.'), onlyAnswer.body);
+
+  for (const [status, code, kind] of [[401, 502, 'server'], [402, 502, 'server'], [403, 502, 'server'], [429, 429, 'rate'], [422, 400, 'request'], [503, 502, 'server']]) {
+    const r = await call(youHandler(fakeFetch('', { status })), fakeReq({ body: body() }));
+    check(`you.com ${status} → ${code} ${kind}`, r.statusCode === code && r.json.error === kind, [r.statusCode, r.body]);
+  }
+  const unreachable = await call(youHandler(async () => { throw new TypeError('fetch failed'); }), fakeReq({ body: body() }));
+  check('you.com unreachable → 502 network', unreachable.statusCode === 502 && unreachable.json.error === 'network', [unreachable.statusCode, unreachable.body]);
+  const silent = await call(youHandler(fakeFetch(sse(youFrames()))), fakeReq({ body: body() }));
+  check('you.com: a run that says nothing → 502 server', silent.statusCode === 502 && silent.json.error === 'server', [silent.statusCode, silent.body]);
+  const failed = await call(youHandler(fakeFetch(sse([{ type: 'response.created' }, { type: 'response.failed' }]))), fakeReq({ body: body() }));
+  check('you.com: a failed run → 502 server', failed.statusCode === 502 && failed.json.error === 'server', [failed.statusCode, failed.body]);
+  const cut = sse(youFrames('Half an ')).split('id: 4')[0];
+  const partial = await call(youHandler(fakeFetch(cut)), fakeReq({ body: body() }));
+  check('you.com: a reply cut off mid-way keeps its text and ends with an error event',
+    partial.statusCode === 200 && partial.body.includes(sseFrame('text', { text: 'Half an ' })) && partial.body.endsWith(sseFrame('error', { error: 'network' })), partial.body);
+
+  const f2 = fakeFetch(sse(youFrames('x')));
+  const refused = await call(youHandler(f2), fakeReq({ token: 'expired', body: body() }));
+  check('you.com: a bad token never reaches You.com', refused.statusCode === 401 && f2.calls.length === 0, [refused.statusCode, f2.calls.length]);
+  const junk = await call(youHandler(f2), fakeReq({ body: { messages: [{ role: 'system', content: 'x' }] } }));
+  check('you.com: a malformed body never reaches You.com', junk.statusCode === 400 && f2.calls.length === 0, [junk.statusCode, f2.calls.length]);
+
+  const both = fakeAnthropic(replay(HAPPY));
+  const f3 = fakeFetch(sse(youFrames('x')));
+  const claudeFirst = await call(createCoachHandler({ anthropic: both, youdotcom: { apiKey: 'k', fetchImpl: f3 }, verifyUser, log }), fakeReq({ body: body() }));
+  check('with both keys set, Claude answers and You.com is not called', claudeFirst.statusCode === 200 && both.calls.length === 1 && f3.calls.length === 0, [both.calls.length, f3.calls.length]);
+  const neither = await call(createCoachHandler({ anthropic: () => null, youdotcom: () => null, verifyUser, log }), fakeReq({ body: body() }));
+  check('with neither key → 500 server', neither.statusCode === 500 && neither.json.error === 'server', [neither.statusCode, neither.body]);
+  check('the log names both variables', logs.some((l) => l.includes('ANTHROPIC_API_KEY') && l.includes('YDC_API_KEY')), logs.slice(-3));
+
+  // The athlete taps Stop: the connection closes and the upstream run is cancelled.
+  let upstreamSignal;
+  const hang = async (url, init) => {
+    upstreamSignal = init.signal;
+    return {
+      ok: true, status: 200,
+      body: (async function* () {
+        yield new TextEncoder().encode(sse([{ type: 'response.created' }, answer('Thinking about ')]));
+        await new Promise((_, reject) => init.signal.addEventListener('abort', () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' }))));
+      })(),
+    };
+  };
+  const stopRes = fakeRes();
+  const pending = youHandler(hang)(fakeReq({ body: body() }), stopRes);
+  await new Promise((r) => setTimeout(r, 20));
+  stopRes.emit('close');
+  await pending;
+  check('you.com: closing the connection cancels the run', upstreamSignal && upstreamSignal.aborted, upstreamSignal && upstreamSignal.aborted);
+  check('you.com: a cancelled run writes no error', !stopRes.body.includes('event: error'), stopRes.body);
+
+  // youReply on its own
+  const pieces = [];
+  for await (const t of youReply({ messages: MSGS }, { apiKey: 'k', fetchImpl: fakeFetch(sse(youFrames('a', 'b')), { size: 1 }) })) pieces.push(t);
+  check('youReply yields the deltas in order, even one byte at a time', pieces.join('|') === 'a|b', pieces);
+}
+
+check('no log line carries message contents, tokens or keys', logs.every((l) => !l.includes(SECRET) && !l.includes(TOKEN) && !l.includes('ydc-test-key')), logs);
 check('errors were logged with their kind', logs.some((l) => l.includes('upstream error') && l.includes('rate')), logs);
 
 // ── the browser half ──

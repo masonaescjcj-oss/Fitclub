@@ -1,9 +1,10 @@
 # Coach proxy
 
 `api/coach.js` is a Vercel serverless function that lets athletes talk to the
-AI coach without an Anthropic key of their own. It checks the caller's Supabase
-sign-in, streams Claude's reply back as Server-Sent Events, and keeps the
-Anthropic key on the server. The browser side lives in
+AI coach without an API key of their own. It checks the caller's Supabase
+sign-in, streams the model's reply back as Server-Sent Events, and keeps the
+provider key on the server. The provider is Claude when `ANTHROPIC_API_KEY` is
+set, otherwise You.com's express agent when `YDC_API_KEY` is set. The browser side lives in
 `src/lib/coach/claudeClient.js`.
 
 ## English
@@ -17,14 +18,26 @@ reach new deployments.
 | Name | Where it's read | Value |
 | --- | --- | --- |
 | `ANTHROPIC_API_KEY` | function only | An Anthropic API key. Mark it Sensitive. Never prefix it with `REACT_APP_`. |
+| `YDC_API_KEY` | function only | A You.com API key (you.com/platform), used only when `ANTHROPIC_API_KEY` is empty. Mark it Sensitive. |
 | `SUPABASE_URL` | function only | Supabase → Project Settings → API → Project URL. |
 | `SUPABASE_ANON_KEY` | function only | The anon (public) key from the same page. Never the service_role key. |
 | `REACT_APP_SUPABASE_URL`, `REACT_APP_SUPABASE_ANON_KEY` | build | The same two values. With them set, the app signs athletes in, and the coach uses the proxy for anyone without their own key. |
 | `REACT_APP_COACH_PROXY` | build, optional | `1` sends every coach message through the proxy, even for athletes who saved their own key; the key field then disappears from coach settings. It still needs the Supabase variables, because the proxy needs a signed-in athlete. |
 
 If `SUPABASE_URL` / `SUPABASE_ANON_KEY` are missing, the function falls back to
-the `REACT_APP_` pair. If `ANTHROPIC_API_KEY` is missing, it answers
-`500 {"error":"server"}` and logs which variable is missing.
+the `REACT_APP_` pair. If neither `ANTHROPIC_API_KEY` nor `YDC_API_KEY` is set,
+it answers `500 {"error":"server"}` and logs which variables are missing.
+
+### You.com
+
+With only `YDC_API_KEY` set, each reply comes from You.com's agent API
+(`POST https://api.you.com/v1/agents/runs`, agent `express`, streaming). That
+API has no system field and names the roles `user` and `agent`, so the proxy
+puts the coach's rules and the athlete's data at the top of the first message
+and renames `assistant` to `agent`. The athlete's messages and shared data then
+go to You.com. The `done` event reports the model as `you.com/express`, and
+coach settings show it. A You.com key error (401, 402 out of credits, 403) is a
+server error, a 429 is `rate`, a 422 is `request`.
 
 Recommended, in `vercel.json` (owned by someone else, so not added here):
 
@@ -80,14 +93,22 @@ and a cold start resets the count.
 | نام | کجا خوانده می‌شود | مقدار |
 | --- | --- | --- |
 | `ANTHROPIC_API_KEY` | فقط تابع سرور | کلید API آنتروپیک. آن را Sensitive علامت بزن و هرگز پیشوند `REACT_APP_` به آن نده. |
+| `YDC_API_KEY` | فقط تابع سرور | کلید API سایت You.com (از you.com/platform). فقط وقتی `ANTHROPIC_API_KEY` خالی است استفاده می‌شود. Sensitive علامت بزن. |
 | `SUPABASE_URL` | فقط تابع سرور | Supabase ← Project Settings ← API ← Project URL |
 | `SUPABASE_ANON_KEY` | فقط تابع سرور | کلید anon (عمومی) از همان صفحه. هرگز کلید service_role. |
 | `REACT_APP_SUPABASE_URL` و `REACT_APP_SUPABASE_ANON_KEY` | زمان build | همان دو مقدار. با این‌ها ورود ورزشکار فعال می‌شود و مربی برای هر کسی که کلید خودش را ندارد از پروکسی استفاده می‌کند. |
 | `REACT_APP_COACH_PROXY` | زمان build، اختیاری | مقدار `1` همه‌ی پیام‌های مربی را از پروکسی می‌فرستد، حتی برای کسی که کلید خودش را ذخیره کرده، و فیلد کلید از تنظیمات مربی حذف می‌شود. باز هم به متغیرهای Supabase نیاز دارد، چون پروکسی ورزشکارِ واردشده می‌خواهد. |
 
 اگر `SUPABASE_URL` یا `SUPABASE_ANON_KEY` نباشد، تابع از جفت `REACT_APP_` استفاده
-می‌کند. اگر `ANTHROPIC_API_KEY` نباشد، پاسخ `500 {"error":"server"}` می‌دهد و در
-لاگ می‌نویسد کدام متغیر کم است.
+می‌کند. اگر نه `ANTHROPIC_API_KEY` باشد نه `YDC_API_KEY`، پاسخ `500 {"error":"server"}`
+می‌دهد و در لاگ می‌نویسد کدام متغیرها کم است.
+
+### You.com
+
+اگر فقط `YDC_API_KEY` تنظیم شده باشد، جواب‌ها از Express Agent سایت You.com می‌آید.
+آن API فیلد system ندارد، پس پروکسی قوانین مربی و داده‌های ورزشکار را اول پیام
+نخست می‌گذارد. پیام‌ها و داده‌هایی که ورزشکار به اشتراک گذاشته به You.com فرستاده
+می‌شود. در تنظیمات مربی، مدل `you.com/express` نشان داده می‌شود.
 
 پیشنهاد برای `vercel.json` (فایلش مال کس دیگری است، برای همین این‌جا اضافه نشد):
 

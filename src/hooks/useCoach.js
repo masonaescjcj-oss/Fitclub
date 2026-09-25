@@ -114,6 +114,13 @@ export default function useCoach(isRtl) {
 
   const stop = useCallback(() => abortRef.current?.abort(), []);
 
+  // Whichever model answered last. Through the proxy the server picks the
+  // provider, so this is the only honest source.
+  const servedModel = useMemo(
+    () => [...state.messages].reverse().find((m) => m.role === "assistant" && m.model)?.model || null,
+    [state.messages]
+  );
+
   const api = useMemo(() => ({
     setApiKey: (apiKey) => setState((s) => ({ ...s, apiKey: (apiKey || "").trim() })),
     setInclude: (patch) => setState((s) => ({ ...s, include: { ...s.include, ...patch } })),
@@ -123,7 +130,7 @@ export default function useCoach(isRtl) {
 
   return {
     messages: state.messages, apiKey: state.apiKey, include: state.include,
-    snapshot, chips, live, mode, viaProxy: mode === "proxy", proxyAvailable, proxyForced, streaming, error, name,
+    snapshot, chips, live, mode, viaProxy: mode === "proxy", proxyAvailable, proxyForced, streaming, error, name, servedModel,
     send, stop, ...api,
   };
 }

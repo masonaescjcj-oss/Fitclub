@@ -185,6 +185,8 @@ function SettingsSheet({ open, coach, isRtl, t, onClose }) {
   // build that forces the server would ignore one, so the field goes away.
   const keyField = !coach.proxyForced;
   const keyLabel = coach.proxyAvailable ? t.ownKey : t.apiKey;
+  // Through the proxy the server picks the provider: show what last answered.
+  const shownModel = coach.viaProxy ? coach.servedModel : COACH_MODEL;
   return (
     <Sheet open={open} title={t.settings} isRtl={isRtl} onClose={onClose} closeLabel={t.close}
       footer={
@@ -226,10 +228,14 @@ function SettingsSheet({ open, coach, isRtl, t, onClose }) {
           <IconWell tone="coach" size={36}><CoachIcon size={18} /></IconWell>
           <span className="flex-1 min-w-0 flex flex-col gap-0.5">
             <span className="text-[15px] font-semibold leading-snug">{t.model}</span>
-            <span dir="ltr" className="self-start font-mono text-[13px] text-muted">{COACH_MODEL}</span>
+            {shownModel ? (
+              <span dir="ltr" className="self-start font-mono text-[13px] text-muted">{shownModel}</span>
+            ) : (
+              <span className="text-[13px] leading-snug text-muted">{t.proxyModel}</span>
+            )}
           </span>
         </div>
-        <p className="m-0 text-[13px] leading-snug text-muted">{t.fallbackNote}</p>
+        {shownModel?.startsWith("claude") && <p className="m-0 text-[13px] leading-snug text-muted">{t.fallbackNote}</p>}
       </Card>
 
       <section className="flex flex-col gap-2">

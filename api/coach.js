@@ -1,5 +1,6 @@
-// POST /api/coach: the coach's wire to Claude when the athlete has no key of
-// their own. The Anthropic key lives only here, in ANTHROPIC_API_KEY.
+// POST /api/coach: the coach's wire to the model when the athlete has no key
+// of their own. The provider keys live only here: ANTHROPIC_API_KEY for
+// Claude, or, when that isn't set, YDC_API_KEY for You.com's express agent.
 //
 // Request:  POST, `Authorization: Bearer <Supabase access token>`,
 //           JSON body `{ system, messages }` and nothing else.
@@ -29,6 +30,11 @@ const MAX_TOKENS = 4096;
 // Server-side fallbacks: a refusal or capacity blip on the primary model is
 // answered by the next one in Anthropic's default chain.
 const FALLBACK_BETA = "server-side-fallback-2026-07-01";
+
+// You.com's agent API: the second provider, used when there is no Anthropic key.
+const YOU_URL = "https://api.you.com/v1/agents/runs";
+const YOU_AGENT = "express";
+const YOU_MODEL = "you.com/express";
 
 const ERROR_KINDS = ["aborted", "auth", "rate", "network", "request", "server", "unknown"];
 
@@ -189,6 +195,110 @@ function validateInput(body, limits = LIMITS) {
   return { system, messages: clean };
 }
 
+/* ───────────────────────────── You.com ───────────────────────────── */
+
+/** A You.com failure, already sorted into one of ERROR_KINDS. */
+class UpstreamError extends Error {
+  constructor(kind, status) {
+    super(`upstream: ${kind}`);
+    this.name = "UpstreamError";
+    this.kind = kind;
+    this.status = status;
+  }
+}
+
+const plainText = (content) => (typeof content === "string" ? content : content.map((b) => b.text).join("\n\n"));
+
+/**
+ * The conversation in the shape You.com's agent API takes: roles "user" and
+ * "agent", plain text, and no system field, so the coach's rules and the
+ * athlete's data ride at the top of the first message.
+ */
+function toYouInput({ system, messages }) {
+  const rules = system === undefined ? "" : plainText(system);
+  return messages.map((m, i) => {
+    const text = plainText(m.content);
+    const content = i === 0 && rules
+      ? `[Coach instructions and athlete data. Apply them to the whole conversation.]\n${rules}\n\n[Athlete's message]\n${text}`
+      : text;
+    return { role: m.role === "assistant" ? "agent" : "user", content };
+  });
+}
+
+/** The error kind for a You.com HTTP status. The key is the operator's, so a key problem is a server problem. */
+function youKind(status) {
+  if (status === 429) return "rate";
+  if (status === 400 || status === 413 || status === 422) return "request";
+  return "server";
+}
+
+/**
+ * Streams one reply from You.com's express agent, yielding the answer text
+ * delta by delta. Throws an UpstreamError, or the abort error once `signal`
+ * fires.
+ */
+async function* youReply(input, { apiKey, fetchImpl, signal }) {
+  let res;
+  try {
+    res = await (fetchImpl || fetch)(YOU_URL, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json", Accept: "text/event-stream" },
+      body: JSON.stringify({ agent: YOU_AGENT, stream: true, input: toYouInput(input) }),
+      signal,
+    });
+  } catch (err) {
+    if (signal && signal.aborted) throw err;
+    throw new UpstreamError("network");
+  }
+  if (!res.ok) throw new UpstreamError(youKind(res.status), res.status);
+  if (!res.body) throw new UpstreamError("network");
+
+  const decoder = new TextDecoder();
+  let pending = "";
+  let buf = "";
+  let said = false;
+  try {
+    for await (const chunk of res.body) {
+      pending += typeof chunk === "string" ? chunk : decoder.decode(chunk, { stream: true });
+      // Frames end in CRLF; a CR split from its LF must not read as two line ends.
+      const cut = pending.endsWith("\r") ? pending.length - 1 : pending.length;
+      buf += pending.slice(0, cut).replace(/\r\n?/g, "\n");
+      pending = pending.slice(cut);
+      let end;
+      while ((end = buf.indexOf("\n\n")) >= 0) {
+        const frame = buf.slice(0, end);
+        buf = buf.slice(end + 2);
+        const data = frame.split("\n").filter((l) => l.startsWith("data:")).map((l) => l.slice(5).trimStart()).join("\n");
+        if (!data) continue;
+        let event;
+        try {
+          event = JSON.parse(data);
+        } catch {
+          continue;
+        }
+        const type = String(event.type || "");
+        const out = event.response;
+        if (type === "response.output_text.delta") {
+          if (out && out.type === "message.answer" && typeof out.delta === "string" && out.delta) {
+            said = true;
+            yield out.delta;
+          }
+        } else if (type === "response.done") {
+          if (!said) throw new UpstreamError("server");
+          return;
+        } else if (type.includes("error") || type.includes("failed")) {
+          throw new UpstreamError("server");
+        }
+      }
+    }
+  } catch (err) {
+    if (err instanceof UpstreamError || (signal && signal.aborted)) throw err;
+    throw new UpstreamError("network");
+  }
+  // The connection closed before the run finished.
+  throw new UpstreamError("network");
+}
+
 /**
  * Maps an SDK error onto classifyError's keys. The key and the account are
  * the operator's, so an upstream auth failure is a server problem here, not
@@ -197,6 +307,7 @@ function validateInput(body, limits = LIMITS) {
 function classifyUpstream(err) {
   if (!err) return "unknown";
   if (err.name === "AbortError" || err instanceof Anthropic.APIUserAbortError) return "aborted";
+  if (err instanceof UpstreamError) return err.kind;
   if (err instanceof Anthropic.AuthenticationError || err instanceof Anthropic.PermissionDeniedError) return "server";
   if (err instanceof Anthropic.RateLimitError) return "rate";
   if (err instanceof Anthropic.APIConnectionError) return "network";
@@ -231,12 +342,15 @@ function createRateLimiter({ max, windowMs }, now = Date.now) {
  * Builds the handler around its dependencies, so tests can pass fakes.
  *  - anthropic: an Anthropic client (anything with `beta.messages.stream`), or
  *    a function returning one; null means ANTHROPIC_API_KEY is missing.
+ *  - youdotcom: `{ apiKey, fetchImpl? }` for You.com's agent API, or a
+ *    function returning it; used only when there is no Anthropic client.
  *  - verifyUser: async (token) => ({ id }) for a valid token, null for an
  *    invalid one; throws when the auth service can't be reached. Null means
  *    the Supabase variables are missing.
  */
-function createCoachHandler({ anthropic, verifyUser, limits = LIMITS, rate = RATE, now = Date.now, log = console } = {}) {
+function createCoachHandler({ anthropic, youdotcom, verifyUser, limits = LIMITS, rate = RATE, now = Date.now, log = console } = {}) {
   const getClient = typeof anthropic === "function" ? anthropic : () => anthropic;
+  const getYou = typeof youdotcom === "function" ? youdotcom : () => youdotcom;
   const take = createRateLimiter(rate, now);
 
   return async function coach(req, res) {
@@ -246,8 +360,10 @@ function createCoachHandler({ anthropic, verifyUser, limits = LIMITS, rate = RAT
     }
 
     const client = getClient();
-    if (!client || !verifyUser) {
-      log.error("[coach] not configured:", !client ? "ANTHROPIC_API_KEY" : "SUPABASE_URL / SUPABASE_ANON_KEY");
+    const you = client ? null : getYou();
+    const provider = client || (you && you.apiKey);
+    if (!provider || !verifyUser) {
+      log.error("[coach] not configured:", !provider ? "ANTHROPIC_API_KEY (or YDC_API_KEY)" : "SUPABASE_URL / SUPABASE_ANON_KEY");
       sendJson(res, 500, { error: "server" });
       return;
     }
@@ -305,6 +421,17 @@ function createCoachHandler({ anthropic, verifyUser, limits = LIMITS, rate = RAT
     };
 
     try {
+      if (!client) {
+        for await (const text of youReply(input, { apiKey: you.apiKey, fetchImpl: you.fetchImpl, signal: ctrl.signal })) {
+          start();
+          res.write(sseFrame("text", { text }));
+        }
+        start();
+        res.write(sseFrame("done", { stop_reason: "end_turn", model: YOU_MODEL, usage: null }));
+        res.end();
+        return;
+      }
+
       const stream = client.beta.messages.stream(
         {
           model: COACH_MODEL,
@@ -334,7 +461,7 @@ function createCoachHandler({ anthropic, verifyUser, limits = LIMITS, rate = RAT
         if (!res.writableEnded) res.end();
         return;
       }
-      log.error("[coach] upstream error:", kind, err && err.status, (err && err.requestID) || "");
+      log.error("[coach] upstream error:", client ? "anthropic" : "you.com", kind, err && err.status, (err && err.requestID) || "");
       if (started) {
         res.write(sseFrame("error", { error: kind }));
         res.end();
@@ -384,6 +511,7 @@ function defaultHandler() {
         if (!anthropicClient) anthropicClient = new Anthropic({ apiKey, maxRetries: 1 });
         return anthropicClient;
       },
+      youdotcom: () => (process.env.YDC_API_KEY ? { apiKey: process.env.YDC_API_KEY } : null),
       // The REACT_APP_ pair is the same public project URL and anon key, so it
       // serves as a fallback when the server-side names aren't set.
       verifyUser: supabaseVerifier(
@@ -399,6 +527,10 @@ module.exports = async (req, res) => defaultHandler()(req, res);
 module.exports.createCoachHandler = createCoachHandler;
 module.exports.validateInput = validateInput;
 module.exports.classifyUpstream = classifyUpstream;
+module.exports.toYouInput = toYouInput;
+module.exports.youReply = youReply;
+module.exports.UpstreamError = UpstreamError;
+module.exports.YOU_MODEL = YOU_MODEL;
 module.exports.sseFrame = sseFrame;
 module.exports.COACH_MODEL = COACH_MODEL;
 module.exports.MAX_TOKENS = MAX_TOKENS;
