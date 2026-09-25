@@ -65,11 +65,17 @@ export function resetSession() {
 }
 
 /**
- * Where a returning visitor should land.
- * Signed in and set up goes straight to the app; a half-finished signup
- * resumes at the profile step rather than starting over.
+ * Where a signed-in person belongs: the profile step until they have a
+ * username, then the questionnaire, then the app. Takes a Supabase profile
+ * or this local session, which both carry `username` and `onboarded`.
+ */
+export const landingFor = (profile) => (!profile?.username ? "profile-setup" : profile.onboarded ? "main-app" : "intro-hero");
+
+/**
+ * Where a returning visitor should land. A half-finished signup resumes
+ * where it stopped rather than starting over.
  */
 export function initialPage(session = loadSession()) {
   if (!session.signedIn) return "welcome";
-  return session.onboarded ? "main-app" : "profile-setup";
+  return landingFor(session);
 }

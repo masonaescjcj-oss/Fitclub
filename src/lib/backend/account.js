@@ -5,7 +5,9 @@
 
 import { AVATAR_BUCKET, RPC_USERNAME_AVAILABLE, TABLES, backendOn, supabase } from "./supabase";
 import { createSync, hookWrites } from "./sync";
-import { clearSession, saveSession } from "../session";
+import { clearSession, landingFor, loadSession, saveSession } from "../session";
+
+export { landingFor };
 
 const DEVICE_KEY = "fitclub.device";
 const DRAFT_KEY = "fitclub.training.v1";
@@ -104,16 +106,31 @@ function detach({ clear }) {
 }
 
 const PROFILE_COLUMNS = "username, name, bio, avatar_url, lang, onboarded";
+const BLANK_PROFILE = { username: null, name: "", bio: "", avatar_url: null, lang: "fa", onboarded: false };
 
-/** The person's FitClub profile, created on first sign-in (nothing on auth.users does it). */
+/**
+ * The person's FitClub profile, created on first sign-in (nothing on
+ * auth.users does it). Throws when the database can't be reached, so a bad
+ * connection is never mistaken for a brand-new account.
+ */
 async function loadProfile(user) {
-  const { data } = await supabase.from(TABLES.profiles).select(PROFILE_COLUMNS).eq("id", user.id).maybeSingle();
+  const { data, error } = await supabase.from(TABLES.profiles).select(PROFILE_COLUMNS).eq("id", user.id).maybeSingle();
+  if (error) throw error;
   if (data) return data;
-  const { data: created } = await supabase.from(TABLES.profiles)
+  const { data: created, error: createError } = await supabase.from(TABLES.profiles)
     .upsert({ id: user.id, name: user.user_metadata?.full_name || "" }, { onConflict: "id", ignoreDuplicates: true })
     .select(PROFILE_COLUMNS).maybeSingle();
-  return created || { username: null, name: "", bio: "", avatar_url: null, lang: "fa", onboarded: false };
+  if (createError) throw createError;
+  return created || { ...BLANK_PROFILE };
 }
+
+/** What this device last knew about `user`'s profile, for when the database is out of reach. */
+export function lastKnownProfile(user, session = loadSession()) {
+  if (!user || session.userId !== user.id) return { ...BLANK_PROFILE };
+  return { ...BLANK_PROFILE, username: session.username || null, name: session.name || "", avatar_url: session.avatarUrl || null, onboarded: Boolean(session.onboarded) };
+}
+
+const after = (ms) => new Promise((resolve) => setTimeout(() => resolve(null), ms));
 
 function mirror(user, profile) {
   saveSession({
@@ -131,21 +148,23 @@ function mirror(user, profile) {
 /**
  * App start and every sign-in: finds the Supabase session, starts the sync,
  * brings the profile into the local session. Resolves with
- * `{user, profile}` (both null when signed out).
+ * `{user, profile}` (both null when signed out). `offline` is true when a
+ * sign-in exists but its token couldn't be renewed for lack of a network:
+ * the account is still on this device, it just can't be checked yet.
  */
 export async function boot({ timeoutMs = 4000 } = {}) {
   if (!backendOn) return { user: null, profile: null };
-  const { data } = await supabase.auth.getSession();
+  const { data, error } = await supabase.auth.getSession();
   const user = data.session?.user || null;
-  if (!user) return { user: null, profile: null };
-  const [profile] = await Promise.all([loadProfile(user).catch(() => null), attach(user, { timeoutMs })]);
-  const safe = profile || { username: null, name: "", onboarded: false };
-  mirror(user, safe);
-  return { user, profile: safe };
+  if (!user) return { user: null, profile: null, offline: Boolean(error) && errorCode(error) === "network" };
+  const [profile] = await Promise.all([
+    Promise.race([loadProfile(user).catch(() => null), after(timeoutMs)]),
+    attach(user, { timeoutMs }),
+  ]);
+  const known = profile || lastKnownProfile(user);
+  mirror(user, known);
+  return { user, profile: known };
 }
-
-/** Where a signed-in person should land, given their profile. */
-export const landingFor = (profile) => (!profile?.username ? "profile-setup" : profile.onboarded ? "main-app" : "intro-hero");
 
 export async function signUp(email, password) {
   if (!backendOn) return offline;

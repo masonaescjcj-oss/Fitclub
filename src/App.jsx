@@ -17,6 +17,8 @@ import { boot, landingFor, onPasswordRecovery, saveProfile, signOut } from './li
 
 // Pages that only make sense before or during sign-up.
 const AUTH_PAGES = ['welcome', 'login', 'signup', 'forgot-password', 'otp'];
+// Where a start can land (lib/session.js landingFor). The account may know better than this device.
+const LANDINGS = ['profile-setup', 'intro-hero', 'main-app'];
 
 /** The mark on paper while the first sync brings this account's data in. */
 function Splash() {
@@ -40,13 +42,15 @@ export default function App() {
   useEffect(() => {
     if (!backendOn) return undefined;
     let alive = true;
-    boot().then(({ user, profile }) => {
+    boot().then(({ user, profile, offline }) => {
       if (!alive) return;
-      if (!user) setCurrentPage((p) => (AUTH_PAGES.includes(p) ? p : 'welcome'));
+      // Offline with an expired sign-in the account is still here: stay put.
+      if (!user) { if (!offline) setCurrentPage((p) => (AUTH_PAGES.includes(p) ? p : 'welcome')); }
       else {
         if (user.email) setUserEmail(user.email);
-        // Back from Google, or a returning athlete: straight to where they belong.
-        setCurrentPage((p) => (AUTH_PAGES.includes(p) || p === 'main-app' ? landingFor(profile) : p));
+        // Back from Google, or a returning athlete: straight to where their
+        // account says they belong, which may be ahead of this device.
+        setCurrentPage((p) => (AUTH_PAGES.includes(p) || LANDINGS.includes(p) ? landingFor(profile) : p));
       }
     }).catch(() => {}).finally(() => { if (alive) setBooting(false); });
     const stop = onPasswordRecovery(() => setCurrentPage('reset-password'));
