@@ -46,8 +46,7 @@ module.exports = {
         mist: token("mist"),
       },
       fontFamily: {
-        // The messenger and any screen not yet redesigned keep the original face.
-        sans: ["Outfit", "Inter", "system-ui", "-apple-system", "sans-serif"],
+        sans: ["Geist", "Vazirmatn", "system-ui", "-apple-system", "sans-serif"],
         // Geist has no Arabic script, so Persian falls through to Vazirmatn glyph by glyph.
         ui: ["Geist", "Vazirmatn", "system-ui", "-apple-system", "sans-serif"],
         display: ["'Bricolage Grotesque'", "Vazirmatn", "Geist", "system-ui", "sans-serif"],
