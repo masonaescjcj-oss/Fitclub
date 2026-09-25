@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { CtaButton, Label, Ring, cx, num } from "../components/ui/kit";
 import { FlowFooter, FlowScreen } from "../components/Header";
+import LegalLinks from "../components/LegalLinks";
 
 // Welcome: the one ink screen before sign-up. Three rings for the three
 // things the app tracks, a big headline, and the way in.
@@ -29,7 +30,7 @@ export default function WelcomePage({ onNavigate }) {
       joinNow: "Join now",
       logInBtn: "Log in",
       haveAccount: "Already a member?",
-      terms: "By joining Fitclub, you agree to the Terms and Privacy Policy.",
+      terms: "By joining FitClub, you agree to the {terms} and the {privacy}.", termsLink: "Terms of use", privacyLink: "Privacy policy",
       lede: "A coach that reads your training log, your food diary and your checklists, then tells you what to do today.",
       rings: "rings a day",
       train: "Train",
@@ -44,7 +45,7 @@ export default function WelcomePage({ onNavigate }) {
       joinNow: "عضویت",
       logInBtn: "ورود",
       haveAccount: "عضو هستید؟",
-      terms: "با عضویت در فیت‌کلاب، شرایط و قوانین حریم خصوصی را می‌پذیرید.",
+      terms: "با عضویت در فیت‌کلاب، {terms} و {privacy} را می‌پذیرید.", termsLink: "شرایط استفاده", privacyLink: "حریم خصوصی",
       lede: "مربی‌ای که دفتر تمرین، دفتر غذا و چک‌لیست‌هایت را می‌خواند و می‌گوید امروز چه کنی.",
       rings: "حلقه در روز",
       train: "تمرین",
@@ -123,7 +124,8 @@ export default function WelcomePage({ onNavigate }) {
           className="h-12 w-full rounded-full bg-transparent border-0 cursor-pointer text-[15px] text-hero-fg transition-transform active:scale-[0.98]">
           <span className="text-hero-muted">{t.haveAccount}</span> <span className="font-semibold">{t.logInBtn}</span>
         </button>
-        <p className="m-0 text-center text-xs leading-normal text-hero-muted/80">{t.terms}</p>
+        <LegalLinks text={t.terms} termsLabel={t.termsLink} privacyLabel={t.privacyLink} onOpen={onNavigate}
+          className="m-0 text-center text-xs leading-normal text-hero-muted/80" linkClassName="text-hero-fg" />
       </FlowFooter>
     </FlowScreen>
   );

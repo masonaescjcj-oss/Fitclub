@@ -1,7 +1,7 @@
 import React, { useMemo, useRef, useState } from "react";
 import {
-  Award, BarChart3, Check as CheckIcon, Crown, Dumbbell, Flame, GraduationCap, Languages, LogOut, Moon,
-  Settings, Sun, Trophy, Users, Wallet, Watch,
+  Award, BarChart3, Check as CheckIcon, Crown, Dumbbell, FileText, Flame, GraduationCap, Languages, LogOut, Moon,
+  Settings, ShieldCheck, Sun, Trophy, Users, Wallet, Watch,
 } from "lucide-react";
 import { Avatar, Card, IconButton, IconWell, Label, List, Row, Screen, Segmented, TopBar, cx, num } from "../../components/ui/kit";
 import { useTheme } from "../../lib/theme";
@@ -30,7 +30,7 @@ const COPY = {
     devices: "Connected wearables & devices", devicesSub: "Apple Health, Health Connect, Garmin: with the phone app", team: "Teams & clubs", teamSub: "Weekly team challenges",
     appearance: "Appearance", theme: "Theme", paper: "Paper", night: "Night", accent: "Accent",
     preferences: "Preferences", language: "App language", languageName: "English",
-    logout: "Log out",
+    logout: "Log out", privacy: "Privacy policy", terms: "Terms of use",
   },
   fa: {
     title: "پروفایل کاربری", settings: "تنظیمات", pro: "PRO",
@@ -46,7 +46,7 @@ const COPY = {
     devices: "دستگاه‌ها و ساعت‌های هوشمند", devicesSub: "اپل هلث، هلث کانکت، گارمین: با اپ گوشی", team: "تیم‌ها و کلوب‌ها", teamSub: "چالش‌های تیمی هفتگی",
     appearance: "ظاهر برنامه", theme: "تم", paper: "روشن", night: "تیره", accent: "رنگ اصلی",
     preferences: "ترجیحات", language: "زبان برنامه", languageName: "فارسی",
-    logout: "خروج از حساب کاربری",
+    logout: "خروج از حساب کاربری", privacy: "حریم خصوصی", terms: "شرایط استفاده",
   },
 };
 
@@ -236,6 +236,11 @@ export default function ProfilePage({ onNavigate, onBack, isRtl }) {
         <Label as="h3" className="m-0 px-1">{c.preferences}</Label>
         <List>
           <Row isRtl={isRtl} chevron icon={icon(Languages)} title={c.language} right={c.languageName} onClick={toggleLanguage} />
+        </List>
+
+        <List>
+          <Row isRtl={isRtl} chevron icon={icon(ShieldCheck)} title={c.privacy} onClick={() => go("privacy")} />
+          <Row isRtl={isRtl} chevron icon={icon(FileText)} title={c.terms} onClick={() => go("terms")} />
         </List>
 
         <List>

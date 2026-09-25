@@ -7,6 +7,7 @@ import { CtaButton, Field } from "../components/ui/kit";
 import Header, {
   FlowFooter, FlowScreen, FlowTitle, FormError, OrDivider, PasswordToggle, SocialButtons, Spinner, TextAction,
 } from "../components/Header";
+import LegalLinks from "../components/LegalLinks";
 
 export default function SignupPage({ onNavigate }) {
   const [email, setEmail] = useState("");
@@ -34,7 +35,7 @@ export default function SignupPage({ onNavigate }) {
       logIn: "Log in",
       validationErr: "Please fill in all fields",
       passwordErr: "Password must be at least 8 characters",
-      terms: "By continuing you agree to the Terms and Privacy Policy.",
+      terms: "By continuing you agree to the {terms} and the {privacy}.", termsLink: "Terms of use", privacyLink: "Privacy policy",
     },
     fa: {
       title: "ایجاد حساب کاربری",
@@ -51,7 +52,7 @@ export default function SignupPage({ onNavigate }) {
       logIn: "ورود",
       validationErr: "لطفاً تمام فیلدها را پر کنید",
       passwordErr: "رمز عبور باید حداقل ۸ کاراکتر باشد",
-      terms: "با ادامه، شرایط و قوانین حریم خصوصی را می‌پذیرید.",
+      terms: "با ادامه، {terms} و {privacy} را می‌پذیرید.", termsLink: "شرایط استفاده", privacyLink: "حریم خصوصی",
     }
   };
 
@@ -129,7 +130,8 @@ export default function SignupPage({ onNavigate }) {
           <CtaButton type="submit" isRtl={isRtl} disabled={isLoading} aria-busy={isLoading}>
             {isLoading ? <span className="inline-flex items-center gap-2.5"><Spinner />{t.continueBtn}</span> : t.continueBtn}
           </CtaButton>
-          <p className="m-0 pt-1 text-center text-xs leading-normal text-muted">{t.terms}</p>
+          <LegalLinks text={t.terms} termsLabel={t.termsLink} privacyLabel={t.privacyLink} onOpen={onNavigate}
+            className="m-0 pt-1 text-center text-xs leading-normal text-muted" linkClassName="text-ink" />
         </FlowFooter>
       </form>
     </FlowScreen>

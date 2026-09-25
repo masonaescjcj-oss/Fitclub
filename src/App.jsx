@@ -11,6 +11,8 @@ import OnboardingWizard from './pages/OnboardingWizard';
 import AiPlanSummaryPage from './pages/AiPlanSummaryPage';
 import MainAppLayout from './pages/MainAppLayout';
 import ResetPasswordPage from './pages/ResetPasswordPage';
+import LegalPage from './pages/LegalPage';
+import { legalFromPath } from './lib/legal';
 import { initialPage, loadSession, saveSession } from './lib/session';
 import { backendOn } from './lib/backend/supabase';
 import { boot, landingFor, onPasswordRecovery, saveProfile, signOut } from './lib/backend/account';
@@ -38,6 +40,13 @@ export default function App() {
   // With real accounts the first screen waits for the Supabase session and
   // the first sync, so the app never flashes another device's stale data.
   const [booting, setBooting] = useState(backendOn);
+  // The privacy policy and terms: opened from sign-up, or straight from
+  // their public addresses, /privacy and /terms.
+  const [legal, setLegal] = useState(() => legalFromPath(window.location.pathname));
+  const closeLegal = () => {
+    if (legalFromPath(window.location.pathname)) window.history.replaceState(null, '', '/');
+    setLegal(null);
+  };
 
   useEffect(() => {
     if (!backendOn) return undefined;
@@ -62,6 +71,7 @@ export default function App() {
    * with where the athlete actually is.
    */
   const navigate = (page) => {
+    if (page === 'terms' || page === 'privacy') { setLegal(page); return; }
     if (page === 'welcome') signOut();
     else if (page === 'main-app') {
       saveSession({ signedIn: true, onboarded: true });
@@ -70,6 +80,14 @@ export default function App() {
     else if (page === 'profile-setup' || page === 'intro-hero') saveSession({ signedIn: true });
     setCurrentPage(page);
   };
+
+  if (legal) {
+    return (
+      <div className="w-full h-full min-h-[100dvh] bg-canvas font-ui antialiased overflow-x-clip">
+        <LegalPage kind={legal} isRtl={(localStorage.getItem('language') || 'en') === 'fa'} onBack={closeLegal} />
+      </div>
+    );
+  }
 
   if (booting && !AUTH_PAGES.includes(currentPage)) return <Splash />;
 

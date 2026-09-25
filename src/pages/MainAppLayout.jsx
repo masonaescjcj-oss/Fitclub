@@ -21,6 +21,7 @@ import WorkoutPage from "./main/WorkoutPage";
 import DietPage from "./main/DietPage";
 import AiCoachPage from "./main/AiCoachPage";
 import CommunityPage from "./main/CommunityPage";
+import LegalPage from "./LegalPage";
 import ChecklistPage from "./main/ChecklistPage";
 
 // Sub-Pages
@@ -147,6 +148,7 @@ function MainAppShell({ onNavigate }) {
           {subPage === "subscription" && <SubscriptionPage onBack={() => setSubPage(null)} isRtl={isRtl} />}
           {subPage === "recipeExplore" && <RecipeExplorePage onBack={() => setSubPage(null)} isRtl={isRtl} />}
           {subPage === "dietGuide" && <DietGuidePage onBack={() => setSubPage(null)} isRtl={isRtl} />}
+          {(subPage === "privacy" || subPage === "terms") && <LegalPage kind={subPage} isRtl={isRtl} onBack={() => setSubPage("profile")} />}
           {subPage === "checklist" && <ChecklistPage isRtl={isRtl} onBack={() => setSubPage(null)} onGoToStreak={() => setSubPage("streakDetail")} />}
 
           {/* Main 5 Tabs */}
