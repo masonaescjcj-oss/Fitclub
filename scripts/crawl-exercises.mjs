@@ -1,18 +1,28 @@
 #!/usr/bin/env node
 /**
- * Reads every exercise on liftmanual.com (the owner's own site) into
+ * Reads every exercise on the owner's exercise site (a WordPress site) into
  * <dir>/exercises.json: the list and its muscles and equipment from the
  * WordPress REST API, each exercise's text and animation from its page.
  * Six requests at a time, with a pause between. Resumable: an exercise
  * already read, and unchanged on the site since, is kept.
  *
- * Usage: node scripts/crawl-liftmanual.mjs <dir>
- * Next: scripts/liftmanual-media.mjs, then scripts/build-liftmanual.mjs.
+ * The site's address is given each run and kept out of the repository, and
+ * nothing the app ships links back to it (scripts/build-exercises.mjs).
+ *
+ * Usage: node scripts/crawl-exercises.mjs --site https://… <dir>
+ *        (or EXERCISE_SITE=https://… node scripts/crawl-exercises.mjs <dir>)
+ * Next: scripts/exercise-media.mjs, then scripts/build-exercises.mjs.
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 
-const SITE = "https://liftmanual.com";
-const OUT = `${(process.argv[2] || "data/liftmanual").replace(/\/+$/, "")}/`;
+const argv = process.argv.slice(2);
+const SITE = (argv.includes("--site") ? argv[argv.indexOf("--site") + 1] : process.env.EXERCISE_SITE || "").replace(/\/+$/, "");
+const dir = argv.find((a, i) => !a.startsWith("--") && argv[i - 1] !== "--site");
+if (!/^https:\/\/[^/]+$/.test(SITE) || !dir) {
+  console.error("usage: node scripts/crawl-exercises.mjs --site https://<site> <dir>");
+  process.exit(2);
+}
+const OUT = `${dir.replace(/\/+$/, "")}/`;
 const FILE = `${OUT}exercises.json`;
 const TYPES = { 43: "Strength", 44: "Cardio", 45: "Stretching" };
 const UA = "FitClub exercise importer (site owner's app)";
@@ -73,13 +83,11 @@ function parsePage(html) {
       href: (m[1].match(/href="([^"]+)"/i) || [])[1] || null,
     })).filter((x) => x.text);
     const media = [...body.matchAll(/<(?:img|source|video)[^>]+(?:src|data-src)="([^"]+)"/gi)].map((m) => m[1]);
-    const srcset = [...body.matchAll(/srcset="([^"]+)"/gi)].flatMap((m) => m[1].split(",").map((x) => x.trim().split(/\s+/)[0]));
-    sections.push({ title, items, media, srcset });
+    sections.push({ title, items, media });
   }
   const find = (re) => sections.find((s) => re.test(s.title));
   const visual = find(/Form\s*&\s*Visual/i) || sections.find((s) => s.media.length);
   const media = visual ? [...new Set(visual.media)] : [];
-  const stills = visual ? [...new Set(visual.srcset)] : [];
   return {
     description: para("Description"),
     muscleText: para("Muscle Group"),
@@ -88,8 +96,8 @@ function parsePage(html) {
     benefits: (find(/Benefits$/i)?.items || []).map((x) => x.text),
     musclesWorked: (find(/Muscles Worked$/i)?.items || []).map((x) => x.text),
     variations: (find(/Variations/i)?.items || []).map((x) => ({ name: x.text, slug: x.href && x.href.startsWith(SITE) ? x.href.replace(SITE, "").replace(/^\/|\/$/g, "") : null })),
+    // The animation itself (GIF or animated WebP), never a resized still.
     animation: media.find((u) => /\.(webp|gif|mp4|webm)(\?|$)/i.test(u) && !/-\d+x\d+\./.test(u)) || null,
-    still: stills.find((u) => /-150x150\./.test(u)) || stills.find((u) => /-300x300\./.test(u)) || null,
   };
 }
 

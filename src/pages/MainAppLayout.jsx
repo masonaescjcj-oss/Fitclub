@@ -36,7 +36,6 @@ const SCREENS = {
   StreakDetailPage: () => import("./sub/StreakDetailPage"),
   MyRankPage: () => import("./sub/MyRankPage"),
   HistoryPage: () => import("./sub/HistoryPage"),
-  TutorialsPage: () => import("./sub/TutorialsPage"),
   NotificationsPage: () => import("./sub/NotificationsPage"),
   WorkoutReportPage: () => import("./sub/WorkoutReportPage"),
   TeamPage: () => import("./sub/TeamPage"),
@@ -57,7 +56,6 @@ const DevicesPage = lazyScreen(SCREENS.DevicesPage);
 const StreakDetailPage = lazyScreen(SCREENS.StreakDetailPage);
 const MyRankPage = lazyScreen(SCREENS.MyRankPage);
 const HistoryPage = lazyScreen(SCREENS.HistoryPage);
-const TutorialsPage = lazyScreen(SCREENS.TutorialsPage);
 const NotificationsPage = lazyScreen(SCREENS.NotificationsPage);
 const WorkoutReportPage = lazyScreen(SCREENS.WorkoutReportPage);
 const TeamPage = lazyScreen(SCREENS.TeamPage);
@@ -101,6 +99,8 @@ export default function MainAppLayout({ onNavigate }) {
 function MainAppShell({ onNavigate }) {
   const [activeTab, setActiveTab] = useState("today");
   const [subPage, setSubPage] = useState(null);
+  // A Train segment to open on, once (the profile's exercise guide opens the library).
+  const [trainSegment, setTrainSegment] = useState(null);
   // A plan shared by link lands here; the sheet decides whether it is a
   // program or a nutrition plan and hands it to the right store.
   const [shareCode, setShareCode] = useState(() => readShareFromLocation());
@@ -173,6 +173,9 @@ function MainAppShell({ onNavigate }) {
   const handleSubNavigate = (page) => {
     if (page === "welcome") {
       onNavigate("welcome");
+    } else if (page === "exerciseLibrary") {
+      // The exercise guide is Train's own library.
+      setTrainSegment("exercises"); setSubPage(null); setActiveTab("train");
     } else {
       setSubPage(page);
     }
@@ -206,7 +209,6 @@ function MainAppShell({ onNavigate }) {
           {subPage === "streakDetail" && <StreakDetailPage onBack={() => setSubPage(null)} onGoToRank={() => setSubPage("myRank")} onGoToHistory={() => setSubPage("history")} isRtl={isRtl} />}
           {subPage === "myRank" && <MyRankPage onBack={() => setSubPage("streakDetail")} isRtl={isRtl} />}
           {subPage === "history" && <HistoryPage onBack={() => setSubPage(null)} isRtl={isRtl} />}
-          {subPage === "tutorials" && <TutorialsPage onBack={() => setSubPage(null)} isRtl={isRtl} />}
           {subPage === "notifications" && <NotificationsPage onBack={() => setSubPage(null)} isRtl={isRtl}
             onOpenChat={(chatId, messageId) => { setOpenTarget({ chatId, messageId }); setSubPage(null); setActiveTab("club"); }}
             onGo={(target) => { if (target.tab) { setSubPage(null); setActiveTab(target.tab); } else setSubPage(target.sub); }} />}
@@ -223,7 +225,8 @@ function MainAppShell({ onNavigate }) {
           {!subPage && (
             <>
               {activeTab === "today" && <TodayPage isRtl={isRtl} alerts={alerts} onOpen={handleSubNavigate} onTab={setActiveTab} />}
-              {activeTab === "train" && <WorkoutPage isRtl={isRtl} onOpen={handleSubNavigate} />}
+              {activeTab === "train" && <WorkoutPage isRtl={isRtl} onOpen={handleSubNavigate}
+                initialSegment={trainSegment} onSegmentShown={() => setTrainSegment(null)} />}
               {activeTab === "fuel" && <DietPage isRtl={isRtl} onGoToRecipe={() => setSubPage("recipeExplore")} onGoToGuide={() => setSubPage("dietGuide")} />}
               {activeTab === "coach" && <AiCoachPage isRtl={isRtl} onClose={goHome} />}
               {activeTab === "club" && <CommunityPage isRtl={isRtl} onExit={goHome} joinCode={joinCode} onJoinHandled={() => setJoinCode(null)}

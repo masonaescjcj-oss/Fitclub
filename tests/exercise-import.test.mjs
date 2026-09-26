@@ -1,4 +1,4 @@
-// The liftmanual taxonomy, normalizeExercise(), name → slug matching, and the
+// The library taxonomy, normalizeExercise(), name → slug matching, and the
 // import script (scripts/import-exercises.mjs) end to end on small inputs.
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -6,9 +6,9 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  EXERCISE_TYPES, LM_EQUIPMENT, LM_MUSCLES, LM_TYPES, MUSCLE_GROUP, SLUG_RE, equipmentSlug, fieldOf, muscleSlug,
+  EXERCISE_TYPES, EQUIPMENT_TAGS, MUSCLE_TAGS, EXERCISE_SECTIONS, MUSCLE_GROUP, SLUG_RE, equipmentSlug, fieldOf, muscleSlug,
   normalizeExercise, slugFromUrl, slugify, splitList, splitSteps, typeSlug,
-} from "../src/lib/training/liftmanual.js";
+} from "../src/lib/training/taxonomy.js";
 import { MUSCLES } from "../src/lib/training/exercises.js";
 import { buildCatalog, parseCsv, run } from "../scripts/import-exercises.mjs";
 
@@ -21,20 +21,20 @@ const sample = join(root, "scripts", "sample-exercises.csv");
 const scratch = mkdtempSync(join(tmpdir(), "fitclub-import-test-"));
 
 // ── taxonomy ──
-check("33 muscles, 28 equipment (the site's 27 and one it used to list), 5 types", LM_MUSCLES.length === 33 && LM_EQUIPMENT.length === 28 && LM_TYPES.length === 5);
+check("33 muscles, 28 equipment (the site's 27 and one it used to list), 5 types", MUSCLE_TAGS.length === 33 && EQUIPMENT_TAGS.length === 28 && EXERCISE_SECTIONS.length === 5);
 const unique = (list) => new Set(list.map((x) => x.slug)).size === list.length;
-check("taxonomy slugs are unique and kebab-case", unique(LM_MUSCLES) && unique(LM_EQUIPMENT) && [...LM_MUSCLES, ...LM_EQUIPMENT].every((x) => SLUG_RE.test(x.slug)));
-check("every entry has an English and a Persian label", [...LM_MUSCLES, ...LM_EQUIPMENT, ...LM_TYPES].every((x) => x.en && /[؀-ۿ]/.test(x.fa)));
+check("taxonomy slugs are unique and kebab-case", unique(MUSCLE_TAGS) && unique(EQUIPMENT_TAGS) && [...MUSCLE_TAGS, ...EQUIPMENT_TAGS].every((x) => SLUG_RE.test(x.slug)));
+check("every entry has an English and a Persian label", [...MUSCLE_TAGS, ...EQUIPMENT_TAGS, ...EXERCISE_SECTIONS].every((x) => x.en && /[؀-ۿ]/.test(x.fa)));
 const groups = new Set(MUSCLES.map((m) => m.id));
-check("every liftmanual muscle maps to one of the 7 coarse groups", LM_MUSCLES.every((m) => groups.has(MUSCLE_GROUP[m.slug])));
+check("every muscle tag maps to one of the 7 coarse groups", MUSCLE_TAGS.every((m) => groups.has(MUSCLE_GROUP[m.slug])));
 check("every coarse group is reachable", [...groups].every((g) => Object.values(MUSCLE_GROUP).includes(g)));
-check("the site's list, A–Z", ["abs", "back", "biceps", "calves", "cardio", "chest", "forearms", "front-deltoid", "glutes", "hamstrings", "hips", "latissimus-dorsi", "neck", "obliques", "quadriceps", "rear-deltoid", "shoulders", "side-deltoid", "thighs", "traps", "triceps", "upper-arms", "waist", "wrist", "yoga"].every((s) => LM_MUSCLES.some((m) => m.slug === s)));
+check("the site's list, A–Z", ["abs", "back", "biceps", "calves", "cardio", "chest", "forearms", "front-deltoid", "glutes", "hamstrings", "hips", "latissimus-dorsi", "neck", "obliques", "quadriceps", "rear-deltoid", "shoulders", "side-deltoid", "thighs", "traps", "triceps", "upper-arms", "waist", "wrist", "yoga"].every((s) => MUSCLE_TAGS.some((m) => m.slug === s)));
 check("exercise types are the first three sections", EXERCISE_TYPES.join() === "strength,cardio,stretching");
 
 // ── name → slug ──
 check("each slug, English and Persian label maps to itself",
-  LM_MUSCLES.every((m) => muscleSlug(m.slug) === m.slug && muscleSlug(m.en) === m.slug && muscleSlug(m.fa) === m.slug)
-  && LM_EQUIPMENT.every((e) => equipmentSlug(e.slug) === e.slug && equipmentSlug(e.en) === e.slug && equipmentSlug(e.fa) === e.slug));
+  MUSCLE_TAGS.every((m) => muscleSlug(m.slug) === m.slug && muscleSlug(m.en) === m.slug && muscleSlug(m.fa) === m.slug)
+  && EQUIPMENT_TAGS.every((e) => equipmentSlug(e.slug) === e.slug && equipmentSlug(e.en) === e.slug && equipmentSlug(e.fa) === e.slug));
 const cases = [["GLUTES", "glutes"], ["glute", "glutes"], ["Front Deltoid", "front-deltoid"], ["front-deltoids", "front-deltoid"],
   ["Lats", "latissimus-dorsi"], ["Quads", "quadriceps"], ["calf", "calves"], ["  Hamstrings ", "hamstrings"], ["Rear Delts", "rear-deltoid"]];
 check("muscle names match case- and spacing-insensitively", cases.every(([n, s]) => muscleSlug(n) === s), cases.map(([n]) => muscleSlug(n)));
@@ -48,7 +48,7 @@ check("type labels", typeSlug("Strength Workouts") === "strength" && typeSlug("S
 check("column names", fieldOf("Muscle Group") === "muscles" && fieldOf("Equipment Required") === "equipment" && fieldOf("Heel Glute Bridge Instructions") === "steps"
   && fieldOf("Variations & Alternatives") === "variations" && fieldOf("Muscles Worked") === "musclesWorked" && fieldOf("Name FA") === "nameFa" && fieldOf("whatever") === null);
 check("slugify", slugify("Farmer’s Walk") === "farmers-walk" && slugify("90 to 90 Stretch") === "90-to-90-stretch" && slugify("Push-Up") === "push-up");
-check("slug from a liftmanual URL", slugFromUrl("https://liftmanual.com/heel-glute-bridge/") === "heel-glute-bridge" && slugFromUrl("https://liftmanual.com/muscle/glutes") === "glutes");
+check("slug from a page URL", slugFromUrl("https://example.com/heel-glute-bridge/") === "heel-glute-bridge" && slugFromUrl("https://example.com/muscle/glutes") === "glutes");
 check("lists split on lines first, else on commas outside brackets",
   splitList("Glutes, Hamstrings").length === 2 && splitList("a (b, c), d").length === 2 && splitList("x, y\nz").join("|") === "x, y|z");
 check("numbered steps split and lose their numbers", splitSteps("1. Lie down. 2. Lift, then hold. 3) Lower.").join("|") === "Lie down.|Lift, then hold.|Lower.");
@@ -56,19 +56,19 @@ check("Persian step numbers are stripped too", splitSteps("۱. دراز بکشی
 
 // ── normalizeExercise ──
 const row = {
-  Name: "Heel Glute Bridge", URL: "https://liftmanual.com/heel-glute-bridge/", "Muscle Group": "Glutes, Hamstrings",
+  Name: "Heel Glute Bridge", URL: "https://example.com/heel-glute-bridge/", "Muscle Group": "Glutes, Hamstrings",
   "Equipment Required": "Bodyweight", Instructions: "1. Lie flat.\n2. Lift toes.\n3. Drive up.", "Muscles Worked": "Gluteus maximus\nAdductor magnus",
   Benefits: "No equipment needed", "Variations & Alternatives": "Dumbbell Glute Bridge, Barbell Glute Bridge", id: "17",
 };
 const n1 = normalizeExercise(row);
-check("a liftmanual-labelled row is valid", n1.ok && n1.errors.length === 0, n1.errors);
+check("a row with an exercise page's headings is valid", n1.ok && n1.errors.length === 0, n1.errors);
 const v = n1.value;
 check("slug from the URL, not the numeric id", v.slug === "heel-glute-bridge", v.slug);
 check("muscles and equipment become slugs", v.muscles.join() === "glutes,hamstrings" && v.equipment.join() === "bodyweight");
 check("steps are numbered-free, English", v.steps.en.length === 3 && v.steps.en[0] === "Lie flat." && !v.steps.fa);
 check("muscles worked, benefits, variations", v.musclesWorked.length === 2 && v.benefits.en[0] === "No equipment needed" && v.variations.join() === "dumbbell-glute-bridge,barbell-glute-bridge");
 check("type and mode default to strength / reps", v.type === "strength" && v.mode === "reps");
-check("source is kept", v.source === "https://liftmanual.com/heel-glute-bridge/");
+check("the page URL only gives the slug: no link is kept", !("source" in v) && !JSON.stringify(v).includes("example.com"));
 check("a catalog record normalizes to itself", JSON.stringify(normalizeExercise(v).value) === JSON.stringify(v));
 
 const bad = (raw) => normalizeExercise(raw).errors.join(" | ");

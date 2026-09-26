@@ -27,5 +27,5 @@ yarn-error.log*
 .env
 .vercel
 
-# Working files of the liftmanual import (scripts/crawl-liftmanual.mjs): downloads and converted media, hosted elsewhere
-/data/liftmanual/
+# Working files of the exercise import (scripts/crawl-exercises.mjs): downloads and animations, hosted elsewhere
+/data/

@@ -5,15 +5,15 @@
  * `mode` decides what the second number in a set means:
  *   reps → repetitions, time → seconds, distance → metres.
  *
- * Every built-in also carries its liftmanual.com slug, muscles and equipment
- * (see liftmanual.js). When public/exercises/catalog.json exists, catalog.js
+ * Every built-in also carries its library slug, muscle and equipment tags
+ * (see taxonomy.js). When public/exercises/catalog.json exists, catalog.js
  * merges it in at start-up: a catalog exercise with a built-in's slug enriches
  * that built-in (steps, media, …) and keeps its id; the rest are added with
  * id = slug. findExercise, searchExercises and allExercises read the merged
  * list synchronously; useExerciseCatalog() re-renders a screen once it lands.
  */
 
-import { findEquipment, findMuscle, lmLabel } from "./liftmanual";
+import { findEquipment, findMuscle, tagLabel } from "./taxonomy";
 
 /**
  * What findExercise() returns.
@@ -25,18 +25,17 @@ import { findEquipment, findMuscle, lmLabel } from "./liftmanual";
  * @property {string} nameFa
  * @property {string} equipment    display text ("Dumbbells", "Pull-up Bar")
  * @property {"reps"|"time"|"distance"} mode
- * @property {string} slug         liftmanual slug
- * @property {string[]} muscles    liftmanual muscle slugs, primary first
- * @property {string[]} equipmentSlugs  liftmanual equipment slugs
+ * @property {string} slug         library slug
+ * @property {string[]} muscles    muscle tags, primary first
+ * @property {string[]} equipmentSlugs  equipment tags
  * @property {string} type         strength | cardio | stretching
- * The rest arrive with the catalog (see CatalogExercise in liftmanual.js):
+ * The rest arrive with the catalog (see CatalogExercise in taxonomy.js):
  * @property {string[]} [musclesWorked]
  * @property {{en?: string, fa?: string}} [description]
  * @property {{en: string[], fa?: string[]}} [steps]
  * @property {{en: string[], fa?: string[]}} [benefits]
  * @property {string[]} [variations]
  * @property {{gif?: string, webp?: string, mp4?: string, poster?: string}} [media]
- * @property {string} [source]
  */
 
 export const MUSCLES = [
@@ -121,13 +120,13 @@ const BUILT_INS = [
 ];
 
 /*
- * liftmanual slug, muscles and equipment of each built-in. Slugs were checked
- * against liftmanual.com where a page exists; lateral-cone-hops and
- * rowing-machine have none, so a catalog can only add those as new entries.
- * Equipment the site has no category for (sled, rower, treadmill, bike,
- * rope) is left empty.
+ * Library slug, muscles and equipment of each built-in. Slugs match the
+ * library's where it has the exercise; lateral-cone-hops and rowing-machine
+ * aren't in it, so a catalog can only add those as new entries. Equipment
+ * the library has no tag for (sled, rower, treadmill, bike, rope) is left
+ * empty.
  */
-const LIFTMANUAL = {
+const LIBRARY_TAGS = {
   ex1: ["jump-squat", "quadriceps glutes", "bodyweight"],
   ex2: ["barbell-deadlift", "glutes hamstrings back", "barbell"],
   ex3: ["power-sled-push", "cardio quadriceps glutes", ""],
@@ -184,7 +183,7 @@ const LIFTMANUAL = {
 const words = (s) => (s ? s.split(" ") : []);
 
 export const EXERCISES = BUILT_INS.map((e) => {
-  const [slug, muscles, gear] = LIFTMANUAL[e.id];
+  const [slug, muscles, gear] = LIBRARY_TAGS[e.id];
   return { ...e, slug, muscles: words(muscles), equipmentSlugs: words(gear), type: e.muscle === "cardio" ? "cardio" : "strength" };
 });
 
@@ -229,7 +228,7 @@ export const exercisesVersion = () => version;
 
 export const findExercise = (id) => byId.get(id) || null;
 
-/** The exercise with this liftmanual slug, built-in or from the catalog. */
+/** The exercise with this library slug, built-in or from the catalog. */
 export const findBySlug = (slug) => bySlug.get(slug) || null;
 
 export const exerciseName = (exOrId, isRtl) => {
@@ -253,20 +252,20 @@ function haystack(e) {
 
 /**
  * Exercises matching a search, optionally narrowed to a coarse group
- * (`muscle`, one of MUSCLES), a liftmanual muscle slug (`lmMuscle`) and a
- * liftmanual equipment slug (`equipment`).
+ * (`muscle`, one of MUSCLES), a muscle tag (`muscleTag`) and an equipment
+ * tag (`equipment`).
  */
-export function searchExercises(query, muscle = null, { lmMuscle = null, equipment = null } = {}) {
+export function searchExercises(query, muscle = null, { muscleTag = null, equipment = null } = {}) {
   const q = String(query || "").trim().toLowerCase();
   return registry.filter((e) => {
     if (muscle && e.muscle !== muscle) return false;
-    if (lmMuscle && !(e.muscles || []).includes(lmMuscle)) return false;
+    if (muscleTag && !(e.muscles || []).includes(muscleTag)) return false;
     if (equipment && !(e.equipmentSlugs || []).includes(equipment)) return false;
     return !q || haystack(e).includes(q);
   });
 }
 
-// Persian for the built-ins' own equipment words the liftmanual list has no entry for.
+// Persian for the built-ins' own equipment words the library's tags have no entry for.
 const EQUIPMENT_FA = {
   Box: "باکس", Cones: "مانع", "Pull-up Bar": "میله بارفیکس", "Dip Bars": "میله پارالل", Sled: "سورتمه",
   "Agility Ladder": "نردبان چابکی", Rower: "دستگاه روئینگ", Treadmill: "تردمیل", Bike: "دوچرخه ثابت", Rope: "طناب",
@@ -279,10 +278,10 @@ export function equipmentLabel(e, isRtl) {
   return EQUIPMENT_FA[e.equipment] || (e.equipmentSlugs || []).map((s) => findEquipment(s)?.fa).filter(Boolean).join("، ") || e.equipment || "";
 }
 
-/** The primary liftmanual muscles in the current language (at most `max`), else the coarse group. */
+/** The primary muscle tags in the current language (at most `max`), else the coarse group. */
 export function muscleLabel(e, isRtl, max = 2) {
   if (!e) return "";
-  const names = (e.muscles || []).slice(0, max).map((s) => lmLabel(findMuscle(s), isRtl)).filter(Boolean);
+  const names = (e.muscles || []).slice(0, max).map((s) => tagLabel(findMuscle(s), isRtl)).filter(Boolean);
   if (names.length) return names.join(isRtl ? "، " : ", ");
   const m = MUSCLES.find((x) => x.id === e.muscle);
   return m ? (isRtl ? m.fa : m.en) : "";

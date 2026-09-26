@@ -64,7 +64,7 @@ const en = {
   exerciseCount: (v, raw) => `${v} ${raw === 1 ? "exercise" : "exercises"}`, clearFilters: "Clear filters",
   showMore: (v) => `Show ${v} more`, noMatches: "No exercises match", noMatchesBody: "Try another muscle, equipment or search.",
   instructions: "Instructions", benefits: "Benefits", musclesWorked: "Muscles worked",
-  variations: "Variations & alternatives", viewOnLiftmanual: "View on liftmanual",
+  variations: "Variations & alternatives",
 };
 
 const fa = {
@@ -133,7 +133,7 @@ const fa = {
   exerciseCount: (v) => `${v} حرکت`, clearFilters: "پاک کردن فیلترها",
   showMore: (v) => `${v} حرکت دیگر`, noMatches: "حرکتی پیدا نشد", noMatchesBody: "عضله، تجهیزات یا جست‌وجوی دیگری را امتحان کنید.",
   instructions: "روش اجرا", benefits: "فواید", musclesWorked: "عضلات درگیر",
-  variations: "حرکات مشابه و جایگزین", viewOnLiftmanual: "دیدن در liftmanual",
+  variations: "حرکات مشابه و جایگزین",
 };
 
 export const useTrainingT = (isRtl) => (isRtl ? fa : en);

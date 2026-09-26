@@ -1,8 +1,8 @@
 -- FitClub · 0013 · the exercise library's animations
 --
--- The liftmanual.com library (scripts/build-liftmanual.mjs) streams its
--- animations from a public bucket of its own, fitclub-exercises: an MP4
--- and a still WebP per exercise, named by slug. Anyone may view them.
+-- The exercise library (scripts/build-exercises.mjs) loads its animations
+-- from a public bucket of its own, fitclub-exercises, named by slug (0014
+-- makes them animations only). Anyone may view them.
 -- Only an account listed in fitclub_media_uploaders may add, replace or
 -- remove files; the list is empty except while an import runs (an import
 -- account is added, uploads, and is taken off again). Nothing else in the

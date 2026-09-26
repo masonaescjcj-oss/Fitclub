@@ -1,5 +1,5 @@
-Name,Name FA,URL,Type,Muscle Group,Equipment Required,Description,Instructions,Instructions FA,Benefits,Muscles Worked,Variations & Alternatives
-Heel Glute Bridge,پل باسن روی پاشنه,https://liftmanual.com/heel-glute-bridge/,Strength,"Glutes, Hamstrings",Bodyweight,"The heel glute bridge is a glute bridge variation performed with the toes lifted off the floor and weight pushed through the heels only. The toes-up position increases hamstring activation while still loading the glutes heavily.","1. Lie flat on your back with knees bent at 90 degrees and feet flat on the floor, hip-width apart.
+Name,Name FA,Slug,Type,Muscle Group,Equipment Required,Description,Instructions,Instructions FA,Benefits,Muscles Worked,Variations & Alternatives
+Heel Glute Bridge,پل باسن روی پاشنه,heel-glute-bridge,Strength,"Glutes, Hamstrings",Bodyweight,"The heel glute bridge is a glute bridge variation performed with the toes lifted off the floor and weight pushed through the heels only. The toes-up position increases hamstring activation while still loading the glutes heavily.","1. Lie flat on your back with knees bent at 90 degrees and feet flat on the floor, hip-width apart.
 2. Lift your toes off the floor. Keep only your heels in contact with the ground.
 3. Brace your core. Press your lower back into the floor.
 4. Drive through your heels and squeeze your glutes to lift your hips off the floor.
@@ -21,7 +21,7 @@ Hamstrings (increased involvement)
 Adductor magnus
 Erector spinae (stabilizer)
 Core (stabilizer)","Dumbbell Glute Bridge, Barbell Glute Bridge, Glute Bridge March, Single-Leg Heel Glute Bridge"
-Barbell Bench Press,پرس سینه با هالتر,https://liftmanual.com/barbell-bench-press/,Strength,"Chest, Front Deltoid, Triceps",Barbell,"The barbell bench press is the most popular upper-body pressing exercise in strength training. It primarily develops the pectoralis major while heavily recruiting the front deltoids and triceps.","Lie back on a flat bench with your eyes directly under the bar. Plant both feet firmly on the floor.
+Barbell Bench Press,پرس سینه با هالتر,barbell-bench-press,Strength,"Chest, Front Deltoid, Triceps",Barbell,"The barbell bench press is the most popular upper-body pressing exercise in strength training. It primarily develops the pectoralis major while heavily recruiting the front deltoids and triceps.","Lie back on a flat bench with your eyes directly under the bar. Plant both feet firmly on the floor.
 Pull your shoulder blades down and back, pinning them to the bench.
 Grip the bar with hands slightly wider than shoulder-width and stack your wrists over your elbows.
 Unrack the bar with straight arms, take a deep breath and brace your core.
@@ -32,7 +32,7 @@ Allows progressive overload across a long career of training","Pectoralis major
 Anterior deltoids
 Triceps brachii
 Serratus anterior (stabilizer)","Dumbbell Bench Press | Incline Barbell Bench Press | Close-Grip Bench Press | Push-Up"
-90 to 90 Stretch,کشش ۹۰/۹۰,https://liftmanual.com/90-to-90-stretch/,Stretches,"Glutes, Hips",Bodyweight,"A seated hip mobility drill with both legs on the floor at 90-degree angles: the front leg in external rotation and the back leg in internal rotation.","Sit on the floor. Bend your right knee to 90 degrees in front of you with the outside of your right leg on the floor.
+90 to 90 Stretch,کشش ۹۰/۹۰,90-to-90-stretch,Stretches,"Glutes, Hips",Bodyweight,"A seated hip mobility drill with both legs on the floor at 90-degree angles: the front leg in external rotation and the back leg in internal rotation.","Sit on the floor. Bend your right knee to 90 degrees in front of you with the outside of your right leg on the floor.
 Bend your left knee to 90 degrees behind you with the inside of your left leg on the floor.
 Sit up tall and square your torso forward over your right shin.
 For a deeper stretch, lean forward over your right shin, keeping your back flat.

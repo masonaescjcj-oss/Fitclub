@@ -1,6 +1,6 @@
-# Importing the liftmanual exercise library
+# Importing the exercise library
 
-FitClub reads an optional catalog, `public/exercises/catalog.json`, when the app starts. If the file is there, its exercises join the 51 built-ins: they show up in Train, in Exercises and in the program builder, with their GIFs, instructions and a "View on liftmanual" link. Without the file, the app works exactly as before. Adding the library takes no code changes.
+FitClub reads an optional catalog, `public/exercises/catalog.json`, when the app starts. If the file is there, its exercises join the 51 built-ins: they show up in Train, in Exercises and in the program builder, with their animations and instructions. Nothing in the app links to where they came from. Without the file, the app works exactly as before. Adding the library takes no code changes.
 
 ## What you provide
 
@@ -11,7 +11,7 @@ FitClub reads an optional catalog, `public/exercises/catalog.json`, when the app
    | `Name` | Heel Glute Bridge | yes |
    | `Muscle Group` | Glutes, Hamstrings | yes |
    | `Equipment Required` | Bodyweight | recommended |
-   | `URL` or `Slug` | https://liftmanual.com/heel-glute-bridge/ | recommended |
+   | `Slug` or `URL` | heel-glute-bridge | recommended |
    | `Type` | Strength / Cardio / Stretches | no; it is guessed |
    | `Instructions` | one step per line (numbers are removed) | no |
    | `Benefits`, `Muscles Worked` | one item per line | no |
@@ -21,9 +21,9 @@ FitClub reads an optional catalog, `public/exercises/catalog.json`, when the app
    | `Mode` | reps / time / distance | no; stretches and cardio default to time |
    | `GIF`, `WebP`, `MP4`, `Image` | a file name or a full URL | no; files are matched by slug |
 
-   Muscle and equipment names must be one of liftmanual's 25 muscle groups and 19 equipment types. Case, spaces, hyphens and plurals don't matter, and common aliases work too: "Lats", "Quads", "Dumbbells", "EZ Bar", "TRX".
+   Muscle and equipment names must be one of the library's 33 muscle tags and 28 equipment tags (`src/lib/training/taxonomy.js`). Case, spaces, hyphens and plurals don't matter, and common aliases work too: "Lats", "Quads", "Dumbbells", "EZ Bar", "TRX".
 
-   The slug is taken from `Slug`, else from the URL, else from the name.
+   The slug is taken from `Slug`, else from the URL, else from the name. A URL only gives the slug; the app keeps no link.
 
    `scripts/sample-exercises.csv` is a three-row example.
 
@@ -38,10 +38,10 @@ FitClub reads an optional catalog, `public/exercises/catalog.json`, when the app
 
 ```sh
 # 1. Check only: read everything, print the report, write nothing
-node scripts/import-exercises.mjs ~/liftmanual/exercises.csv --media ~/liftmanual/gifs --dry-run
+node scripts/import-exercises.mjs ~/exercises/exercises.csv --media ~/exercises/gifs --dry-run
 
 # 2. Fix what the report lists, then install into the app
-node scripts/import-exercises.mjs ~/liftmanual/exercises.csv --media ~/liftmanual/gifs --out public/exercises
+node scripts/import-exercises.mjs ~/exercises/exercises.csv --media ~/exercises/gifs --out public/exercises
 ```
 
 The report lists:
@@ -60,17 +60,17 @@ Then commit `public/exercises/` and deploy.
 
 ## How the catalog merges
 
-- An exercise whose slug matches a built-in's slug enriches that built-in. It gains the steps, GIF, muscles and link. It keeps its id, names and logging mode, so programs and history stay intact.
+- An exercise whose slug matches a built-in's slug enriches that built-in. It gains the steps, animation and muscles. It keeps its id, names and logging mode, so programs and history stay intact.
 - Every other exercise is added, with `id` set to its slug.
-- The record format is documented in `src/lib/training/liftmanual.js` (`CatalogExercise`). The merge is in `src/lib/training/catalog.js`.
+- The record format is documented in `src/lib/training/taxonomy.js` (`CatalogExercise`). The merge is in `src/lib/training/catalog.js`.
 
 ---
 
 <div dir="rtl">
 
-# وارد کردن کتابخانه‌ی حرکات liftmanual
+# وارد کردن کتابخانه‌ی حرکات
 
-فیت‌کلاب هنگام باز شدن، اگر فایل `public/exercises/catalog.json` وجود داشته باشد آن را می‌خواند. حرکات این فایل به ۵۱ حرکت داخلی برنامه اضافه می‌شوند و همراه با گیف، روش اجرا و لینک «دیدن در liftmanual» در بخش «تمرین ← حرکات» و سازنده‌ی برنامه نمایش داده می‌شوند. اگر فایل نباشد، برنامه دقیقاً مثل قبل کار می‌کند. برای این کار هیچ تغییری در کد لازم نیست.
+فیت‌کلاب هنگام باز شدن، اگر فایل `public/exercises/catalog.json` وجود داشته باشد آن را می‌خواند. حرکات این فایل به ۵۱ حرکت داخلی برنامه اضافه می‌شوند و همراه با انیمیشن و روش اجرا در بخش «تمرین ← حرکات» و سازنده‌ی برنامه نمایش داده می‌شوند. اگر فایل نباشد، برنامه دقیقاً مثل قبل کار می‌کند. برای این کار هیچ تغییری در کد لازم نیست.
 
 ## آنچه شما آماده می‌کنید
 
@@ -81,7 +81,7 @@ Then commit `public/exercises/` and deploy.
   - `Name` (الزامی)
   - `Muscle Group` (الزامی)
   - `Equipment Required`
-  - `URL` یا `Slug`
+  - `Slug` یا `URL` (از آدرس فقط slug برداشته می‌شود و هیچ لینکی در اپ نمی‌ماند)
   - `Type`
   - `Instructions` (هر مرحله در یک خط)
   - `Benefits`
@@ -91,7 +91,7 @@ Then commit `public/exercises/` and deploy.
   - `Mode`
   - `GIF`
 - برای متن فارسی این ستون‌ها را اضافه کنید: `Name FA`، `Instructions FA`، `Benefits FA` و `Description FA`. اگر نباشند، متن انگلیسی نمایش داده می‌شود.
-- نام عضله و تجهیزات باید یکی از ۲۵ گروه عضلانی و ۱۹ نوع تجهیزات liftmanual باشد. بزرگی و کوچکی حروف، فاصله و جمع بودن نام مهم نیست.
+- نام عضله و تجهیزات باید یکی از ۳۳ برچسب عضله و ۲۸ برچسب تجهیزات کتابخانه باشد (`src/lib/training/taxonomy.js`). بزرگی و کوچکی حروف، فاصله و جمع بودن نام مهم نیست.
 - فایل نمونه: `scripts/sample-exercises.csv`
 
 ۲. **پوشه‌ی رسانه** (اختیاری):
@@ -103,10 +103,10 @@ Then commit `public/exercises/` and deploy.
 
 ```sh
 # ۱. فقط بررسی: همه چیز خوانده و گزارش می‌شود، چیزی نوشته نمی‌شود
-node scripts/import-exercises.mjs ~/liftmanual/exercises.csv --media ~/liftmanual/gifs --dry-run
+node scripts/import-exercises.mjs ~/exercises/exercises.csv --media ~/exercises/gifs --dry-run
 
 # ۲. پس از رفع خطاها، نصب در برنامه
-node scripts/import-exercises.mjs ~/liftmanual/exercises.csv --media ~/liftmanual/gifs --out public/exercises
+node scripts/import-exercises.mjs ~/exercises/exercises.csv --media ~/exercises/gifs --out public/exercises
 ```
 
 گزارش دو بخش دارد:
@@ -118,7 +118,7 @@ node scripts/import-exercises.mjs ~/liftmanual/exercises.csv --media ~/liftmanua
 پس از نصب، پوشه‌ی `public/exercises/` را commit و منتشر کنید. اگر حجم ۱۵۰۰ گیف برای build زیاد است، آن‌ها را روی CDN بگذارید و این‌طور اجرا کنید:
 
 ```sh
-node scripts/import-exercises.mjs ~/liftmanual/exercises.csv --media ~/liftmanual/gifs --no-copy --media-base https://cdn.example.com/exercises/ --out public/exercises
+node scripts/import-exercises.mjs ~/exercises/exercises.csv --media ~/exercises/gifs --no-copy --media-base https://cdn.example.com/exercises/ --out public/exercises
 ```
 
 ## قاعده‌ی ادغام
@@ -128,30 +128,30 @@ node scripts/import-exercises.mjs ~/liftmanual/exercises.csv --media ~/liftmanua
 
 </div>
 
-## The whole liftmanual.com library
+## The whole library, from the owner's site
 
-The app's library is liftmanual.com itself: every strength, cardio and stretching exercise on the site (3,432 in September 2026), with its animation, steps, benefits, muscles worked and alternatives, and a Persian name for each. Refreshing it after the site changes takes four steps:
+The app's library is every strength, cardio and stretching exercise on the owner's exercise site (3,432 in September 2026), with its animation, steps, benefits, muscles worked and alternatives, and a Persian name for each. The site's address is given on the command line and stays out of the repository; nothing the app ships links back to it. Refreshing the library after the site changes takes four steps:
 
 ```sh
 # 1. Read the site (the REST API for the list, each page for its text). Resumable.
-node scripts/crawl-liftmanual.mjs data/liftmanual
+node scripts/crawl-exercises.mjs --site https://<the site> data/exercises
 
-# 2. Turn each animation into a small MP4 and a still poster (needs sharp and ffmpeg)
+# 2. Make each exercise's animation: an animated WebP, 360 px, on white (needs sharp)
 npm i --no-save sharp
-FFMPEG=/path/to/ffmpeg node scripts/liftmanual-media.mjs data/liftmanual/exercises.json --out data/liftmanual
+node scripts/exercise-media.mjs data/exercises/exercises.json --out data/exercises
 
-# 3. Upload data/liftmanual/media/ to the public fitclub-exercises bucket
-#    (supabase/migrations/0013). Only an account listed in fitclub_media_uploaders may
-#    upload; add the import account there for the upload and take it off afterwards.
+# 3. Upload data/exercises/animations/ to animations/ in the public fitclub-exercises
+#    bucket (supabase/migrations/0013). Only an account listed in fitclub_media_uploaders
+#    may upload; add the import account there for the upload and take it off afterwards.
 
 # 4. Build the app's catalog from it
-node scripts/build-liftmanual.mjs data/liftmanual/exercises.json --media data/liftmanual/media \
-  --media-base https://<project>.supabase.co/storage/v1/object/public/fitclub-exercises/ \
-  --names-fa scripts/data/liftmanual-names-fa.json
+node scripts/build-exercises.mjs data/exercises/exercises.json --media data/exercises/animations \
+  --media-base https://<project>.supabase.co/storage/v1/object/public/fitclub-exercises/animations/ \
+  --names-fa scripts/data/exercise-names-fa.json
 ```
 
-Step 4 writes `public/exercises/catalog.json`, the list the app loads at start-up (about 75 KB compressed), and `public/exercises/details/00.json` to `63.json`, the long text, which the app fetches only when an exercise is opened. Commit both and deploy. `data/liftmanual/` stays out of git.
+Step 4 writes `public/exercises/catalog.json`, the list the app loads at start-up (about 110 KB compressed), and `public/exercises/details/00.json` to `63.json`, the long text, which the app fetches only when an exercise is opened. Commit both and deploy. `data/` stays out of git.
 
-An animated WebP of about 180 KB becomes an MP4 of about 25 KB that looks the same, so the whole library's media is about 90 MB.
+The site's animations average about 220 KB; re-encoded they are about 70 KB each and look the same, so the whole library is about 250 MB. The app shows the animation itself everywhere, list rows included, and the service worker keeps each one once seen, so it plays offline.
 
-`scripts/data/liftmanual-names-fa.json` holds the Persian names, by slug. A new exercise on the site shows its English name until it gets a line there.
+`scripts/data/exercise-names-fa.json` holds the Persian names, by slug. A new exercise on the site shows its English name until it gets a line there.

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Import the liftmanual.com exercise library into FitClub.
+ * Import an exercise library (a spreadsheet or JSON export) into FitClub.
  *
  * Reads a CSV or JSON file of exercises (plus, optionally, a folder of GIFs),
  * checks every row, and writes catalog.json, which the app merges in at start-up
@@ -11,9 +11,9 @@
  *   node scripts/import-exercises.mjs <exercises.csv|.tsv|.json> [options]
  *
  *   # check only: read everything, print the report, write nothing
- *   node scripts/import-exercises.mjs ~/liftmanual/exercises.csv --media ~/liftmanual/gifs --dry-run
+ *   node scripts/import-exercises.mjs ~/exercises/exercises.csv --media ~/exercises/gifs --dry-run
  *   # install into the app (copies the media to public/exercises/media/)
- *   node scripts/import-exercises.mjs ~/liftmanual/exercises.csv --media ~/liftmanual/gifs --out public/exercises
+ *   node scripts/import-exercises.mjs ~/exercises/exercises.csv --media ~/exercises/gifs --out public/exercises
  *
  * Options
  *   --media <dir>       Media named by slug, searched recursively: <slug>.gif, <slug>.webp,
@@ -34,9 +34,9 @@
  *   Instructions | Instructions FA | Benefits | Benefits FA | Muscles Worked |
  *   Variations & Alternatives | Mode | GIF | WebP | MP4 | Image
  *   Lists: one item per line, or separated by "|" or ";"; Muscle Group, Equipment and
- *   Variations may also use commas. Muscle and equipment names match liftmanual's
- *   categories case-insensitively ("Glutes", "front deltoid", "Dumbbells", "EZ Bar").
- *   The slug comes from Slug, else the URL, else the name.
+ *   Variations may also use commas. Muscle and equipment names match the library's
+ *   tags case-insensitively ("Glutes", "front deltoid", "Dumbbells", "EZ Bar").
+ *   The slug comes from Slug, else the URL, else the name. The URL itself isn't kept.
  *
  * Exit code: 0 all rows imported; 1 some rows had errors (the valid ones are still
  * written unless --strict); 2 bad usage or unreadable input.
@@ -56,7 +56,7 @@ process.emitWarning = function quiet(warning, ...rest) {
   if (code === "MODULE_TYPELESS_PACKAGE_JSON") return undefined;
   return emitWarning.call(this, warning, ...rest);
 };
-const { LIFTMANUAL_URL, canonicalRow, normalizeExercise, slugify } = await import(new URL("../src/lib/training/liftmanual.js", import.meta.url));
+const { canonicalRow, normalizeExercise, slugify } = await import(new URL("../src/lib/training/taxonomy.js", import.meta.url));
 process.emitWarning = emitWarning;
 
 /* ───────────────────────────── arguments ───────────────────────────── */
@@ -344,7 +344,6 @@ export function run(argv, { log = console.log } = {}) {
   const exercises = built.records.map((r) => r.rec).sort((a, b) => a.slug.localeCompare(b.slug));
   const catalog = {
     version: 1,
-    source: LIFTMANUAL_URL,
     generatedAt: new Date().toISOString(),
     count: exercises.length,
     ...(opts.mediaBase ? { mediaBase: opts.mediaBase } : {}),

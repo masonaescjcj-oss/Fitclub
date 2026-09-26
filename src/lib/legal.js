@@ -183,7 +183,7 @@ export const LEGAL = {
         },
         {
           h: "Exercise library",
-          p: ["Exercise guides come from Lift Manual (liftmanual.com), used with permission. Don't copy them out of the app."],
+          p: ["The exercise guides and animations belong to FitClub. Don't copy them out of the app."],
         },
         {
           h: "Paid plans",
@@ -237,7 +237,7 @@ export const LEGAL = {
         },
         {
           h: "کتابخانه‌ی حرکات",
-          p: ["راهنمای حرکات از Lift Manual (liftmanual.com) و با اجازه‌ی آن آمده است. آن‌ها را از اپ بیرون کپی نکن."],
+          p: ["راهنماها و انیمیشن‌های حرکات متعلق به فیت‌کلاب است. آن‌ها را از اپ بیرون کپی نکن."],
         },
         {
           h: "اشتراک پولی",

@@ -4,7 +4,7 @@ import { loadExerciseDetails } from "./catalog";
 
 /**
  * Re-renders the calling screen when the exercise list changes (the
- * liftmanual catalog finished loading). Returns the list's version number,
+ * exercise catalog finished loading). Returns the list's version number,
  * handy as a memo dependency.
  */
 export function useExerciseCatalog() {

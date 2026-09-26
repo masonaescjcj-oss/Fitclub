@@ -11,7 +11,7 @@
  * - Push (supabase/migrations/0008, api/push-*.js): a notification per
  *   message or reminder; tapping it opens or focuses the app at its link.
  */
-const VERSION = "fitclub-v3";
+const VERSION = "fitclub-v4";
 const SHELL = ["/", "/index.html", "/manifest.json", "/icons/icon-192.png", "/icons/icon-512.png"];
 
 self.addEventListener("install", (event) => {
@@ -68,15 +68,15 @@ self.addEventListener("fetch", (event) => {
   }
 
   // The exercise library: the list and each exercise's text refresh in the
-  // background, so a rebuilt library reaches installed apps; a GIF once seen
-  // stays available offline.
+  // background, so a rebuilt library reaches installed apps.
   if (url.origin === self.location.origin && (url.pathname === "/exercises/catalog.json" || url.pathname.startsWith("/exercises/details/"))) {
     event.respondWith(staleWhileRevalidate(request));
     return;
   }
-  // The library's stills on the FitClub media server (supabase/migrations/0013)
-  // stay once seen; the animations stream (videos ask in ranges, which aren't stored).
-  if (url.pathname.includes("/storage/v1/object/public/fitclub-exercises/") && url.pathname.endsWith(".webp")) {
+  // Its animations on the FitClub media server (supabase/migrations/0013)
+  // stay once seen, so they play offline. The app asks for them with CORS,
+  // so what's stored is the real file, not an opaque stand-in.
+  if (url.pathname.includes("/storage/v1/object/public/fitclub-exercises/") && /\.(webp|gif)$/.test(url.pathname)) {
     event.respondWith(cacheFirst(request));
     return;
   }

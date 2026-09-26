@@ -1,5 +1,6 @@
-// The exercise library's media bucket (supabase/migrations/0013) on PGlite:
-// anyone views, only a listed importer uploads, and nothing else changes.
+// The exercise library's media bucket (supabase/migrations/0013, 0014) on
+// PGlite: animations only, anyone views, only a listed importer uploads, and
+// nothing else changes.
 
 import { readFileSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -42,8 +43,8 @@ check("other apps' buckets are untouched", JSON.stringify(bucketsBefore) === JSO
 await db.exec("grant select, insert, update, delete on storage.objects to authenticated; grant select on storage.objects to anon;");
 
 const bucket = (await db.query("select * from storage.buckets where id = 'fitclub-exercises'")).rows[0];
-check("the library's bucket is public, 1 MB a file, MP4 and WebP only",
-  bucket?.public === true && Number(bucket.file_size_limit) === 1048576 && JSON.stringify(bucket.allowed_mime_types) === JSON.stringify(["video/mp4", "image/webp"]), bucket);
+check("the library's bucket is public, 1 MB a file, animated WebP and GIF only",
+  bucket?.public === true && Number(bucket.file_size_limit) === 1048576 && JSON.stringify(bucket.allowed_mime_types) === JSON.stringify(["image/webp", "image/gif"]), bucket);
 
 const IMPORTER = "aaaaaaaa-0000-0000-0000-000000000001";
 const SOMEONE = "bbbbbbbb-0000-0000-0000-000000000002";
@@ -57,18 +58,18 @@ async function as(uid, sql) {
 }
 const put = (uid, name) => as(uid, `insert into storage.objects (bucket_id, name) values ('fitclub-exercises', '${name}')`);
 
-check("nobody uploads while no importer is listed", !(await put(IMPORTER, "squat.mp4")).ok);
+check("nobody uploads while no importer is listed", !(await put(IMPORTER, "animations/squat.webp")).ok);
 await db.exec(`insert into public.fitclub_media_uploaders (user_id) values ('${IMPORTER}')`);
-check("a listed importer uploads", (await put(IMPORTER, "squat.mp4")).ok && (await put(IMPORTER, "squat.webp")).ok);
-check("…and replaces", (await as(IMPORTER, "update storage.objects set name = name where name = 'squat.mp4' returning id")).rows?.length === 1);
-check("anyone else can't", !(await put(SOMEONE, "evil.mp4")).ok && !(await put(null, "evil.mp4")).ok);
+check("a listed importer uploads", (await put(IMPORTER, "animations/squat.webp")).ok && (await put(IMPORTER, "animations/squat.gif")).ok);
+check("…and replaces", (await as(IMPORTER, "update storage.objects set name = name where name = 'animations/squat.webp' returning id")).rows?.length === 1);
+check("anyone else can't", !(await put(SOMEONE, "animations/evil.webp")).ok && !(await put(null, "animations/evil.webp")).ok);
 check("…nor take files down", (await as(SOMEONE, "delete from storage.objects where bucket_id = 'fitclub-exercises' returning id")).rows?.length === 0);
 check("everyone can see the files, signed in or not", (await as(null, "select name from storage.objects where bucket_id = 'fitclub-exercises'")).rows?.length === 2
   && (await as(SOMEONE, "select name from storage.objects where bucket_id = 'fitclub-exercises'")).rows?.length === 2);
 check("the importer list can't be read or written through the API", !(await as(SOMEONE, "select * from public.fitclub_media_uploaders")).ok
   && !(await as(SOMEONE, `insert into public.fitclub_media_uploaders (user_id) values ('${SOMEONE}')`)).ok);
 await db.exec("delete from public.fitclub_media_uploaders");
-check("taken off the list, the importer can't upload any more", !(await put(IMPORTER, "late.mp4")).ok);
+check("taken off the list, the importer can't upload any more", !(await put(IMPORTER, "animations/late.webp")).ok);
 
 console.log(`exercise media schema: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

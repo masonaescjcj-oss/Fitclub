@@ -1,4 +1,4 @@
-// A big exercise library (scripts/build-liftmanual.mjs): the list loads
+// A big exercise library (scripts/build-exercises.mjs): the list loads
 // lean at start-up, and each exercise's text arrives from its shard when
 // it's first opened (src/lib/training/catalog.js).
 import { EXERCISES, findExercise, setExerciseRegistry, subscribeExercises } from "../src/lib/training/exercises.js";
@@ -15,9 +15,9 @@ check("…and slugs spread over the shards", spread.size > 50, spread.size);
 
 const lean = [
   { slug: "heel-glute-bridge", nameEn: "Heel Glute Bridge", nameFa: "پل باسن روی پاشنه", type: "strength", muscles: ["glutes", "hamstrings"], equipment: ["bodyweight"],
-    media: { mp4: "heel-glute-bridge.mp4", poster: "heel-glute-bridge.webp" }, mode: "reps", source: "https://liftmanual.com/heel-glute-bridge/" },
+    media: { webp: "heel-glute-bridge.webp" } },
   { slug: "barbell-bench-press", nameEn: "Barbell Bench Press", nameFa: "پرس سینه هالتر", type: "strength", muscles: ["chest", "triceps"], equipment: ["barbell"],
-    media: { mp4: "barbell-bench-press.mp4" }, mode: "reps", source: "https://liftmanual.com/barbell-bench-press/" },
+    media: { webp: "barbell-bench-press.webp" } },
 ];
 const SHARDS = 8;
 const shards = {};
@@ -38,7 +38,7 @@ const merged = await loadExerciseCatalog({ force: true, fetch: fetchImpl });
 check("the lean list loads: one added, one built-in enriched", merged && merged.added === 1 && merged.enriched === 1, merged && { added: merged.added, enriched: merged.enriched });
 const hgb = findExercise("heel-glute-bridge");
 check("it has its name, muscles and animation at once", hgb.nameFa === "پل باسن روی پاشنه" && hgb.muscles.join() === "glutes,hamstrings"
-  && mediaUrl(hgb.media.mp4) === "https://media.example/lm/heel-glute-bridge.mp4");
+  && mediaUrl(hgb.media.webp) === "https://media.example/lm/heel-glute-bridge.webp");
 check("…but not its steps yet", !hgb.steps?.en?.length && asked.length === 1);
 
 let bumps = 0;

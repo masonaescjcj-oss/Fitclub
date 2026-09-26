@@ -12,7 +12,7 @@ import { loadExerciseCatalog } from './lib/training/catalog';
 installErrorReports();
 applyTheme(loadTheme());
 applyAccent(loadAccent());
-// Merges public/exercises/catalog.json (the liftmanual library) when it has been imported; silent without it.
+// Merges public/exercises/catalog.json (the exercise library) when it has been imported; silent without it.
 loadExerciseCatalog();
 
 const root = ReactDOM.createRoot(document.getElementById('root'));

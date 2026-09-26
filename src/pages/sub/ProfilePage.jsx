@@ -32,7 +32,7 @@ const COPY = {
     badges: "Badges", of: (a, b) => `${a} of ${b}`,
     badge: { pr: "First PR", run7: "7-day run", tons: "100 t lifted", run30: "30-day run" },
     training: "Training", history: "Workout history & logs", historySub: "Every session you've finished",
-    report: "Progress report", reportSub: "Volume, burn and records", tutorials: "Tutorials", tutorialsSub: "Form, muscles and routines on Lift Manual",
+    report: "Progress report", reportSub: "Volume, burn and records", tutorials: "Exercise guide", tutorialsSub: "Every move with its animation and how to do it",
     account: "Account", proRow: "FitClub Pro", proSub: "Membership and plans", wallet: "Wallet & rewards", walletSub: "XP balance and your referral code",
     devices: "Connected wearables & devices", devicesSub: "Apple Health, Health Connect, Garmin: with the phone app", team: "Teams & clubs", teamSub: "Weekly team challenges",
     appearance: "Appearance", theme: "Theme", paper: "Paper", night: "Night", accent: "Accent",
@@ -50,7 +50,7 @@ const COPY = {
     badges: "نشان‌ها", of: (a, b) => `${a} از ${b}`,
     badge: { pr: "اولین رکورد", run7: "۷ روز پیاپی", tons: "۱۰۰ تن وزنه", run30: "۳۰ روز پیاپی" },
     training: "تمرین", history: "تاریخچه تمرینات و فعالیت‌ها", historySub: "همه‌ی جلسه‌هایی که تمام کردی",
-    report: "گزارش پیشرفت", reportSub: "حجم، کالری و رکوردها", tutorials: "آموزش‌ها", tutorialsSub: "فرم حرکات، عضلات و برنامه‌ها در Lift Manual",
+    report: "گزارش پیشرفت", reportSub: "حجم، کالری و رکوردها", tutorials: "آموزش حرکات", tutorialsSub: "همه‌ی حرکات با انیمیشن و روش اجرا",
     account: "حساب کاربری", proRow: "اشتراک و عضویت ویژه‌", proSub: "عضویت و پلن‌ها", wallet: "کیف پول و امتیازها", walletSub: "موجودی امتیاز و کد دعوت",
     devices: "دستگاه‌ها و ساعت‌های هوشمند", devicesSub: "اپل هلث، هلث کانکت، گارمین: با اپ گوشی", team: "تیم‌ها و کلوب‌ها", teamSub: "چالش‌های تیمی هفتگی",
     appearance: "ظاهر برنامه", theme: "تم", paper: "روشن", night: "تیره", accent: "رنگ اصلی",
@@ -247,7 +247,7 @@ export default function ProfilePage({ onNavigate, onBack, isRtl }) {
       <List>
         <Row isRtl={isRtl} chevron icon={icon(Dumbbell)} title={c.history} subtitle={c.historySub} onClick={() => go("history")} />
         <Row isRtl={isRtl} chevron icon={icon(BarChart3)} title={c.report} subtitle={c.reportSub} onClick={() => go("workoutReport")} />
-        <Row isRtl={isRtl} chevron icon={icon(GraduationCap)} title={c.tutorials} subtitle={c.tutorialsSub} onClick={() => go("tutorials")} />
+        <Row isRtl={isRtl} chevron icon={icon(GraduationCap)} title={c.tutorials} subtitle={c.tutorialsSub} onClick={() => go("exerciseLibrary")} />
       </List>
 
       <Label as="h2" className="m-0 mt-2 px-1">{c.account}</Label>

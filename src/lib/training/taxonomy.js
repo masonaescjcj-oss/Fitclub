@@ -1,21 +1,14 @@
 /**
- * liftmanual.com's taxonomy, and the shape one exercise takes in FitClub's
- * exercise catalog (public/exercises/catalog.json).
+ * The exercise library's taxonomy (muscles, equipment, sections), and the
+ * shape one exercise takes in FitClub's exercise catalog
+ * (public/exercises/catalog.json).
  *
- * Pure data and helpers with no imports, so the import script
- * (scripts/import-exercises.mjs), the tests and the app all share this one
- * file. The taxonomy mirrors the site:
- *
- *   muscles    → https://liftmanual.com/muscle/<slug>/     (25)
- *   equipment  → https://liftmanual.com/equipment/<slug>/  (19)
- *   types      → https://liftmanual.com/<slug>/            (5 sections)
- *   exercises  → https://liftmanual.com/<slug>/            media named <slug>.gif / .webp / .jpg
- *
- * Each liftmanual muscle also maps to one of the app's seven coarse groups
- * (MUSCLES in exercises.js), so the older filters keep working.
+ * Pure data and helpers with no imports, so the import scripts
+ * (scripts/import-exercises.mjs, scripts/build-exercises.mjs), the tests and
+ * the app all share this one file. Each muscle tag also maps to one of the
+ * app's seven coarse groups (MUSCLES in exercises.js), so the older filters
+ * keep working.
  */
-
-export const LIFTMANUAL_URL = "https://liftmanual.com";
 
 /**
  * @typedef {Object} Localized
@@ -28,28 +21,28 @@ export const LIFTMANUAL_URL = "https://liftmanual.com";
  * writes and what normalizeExercise() returns.
  *
  * @typedef {Object} CatalogExercise
- * @property {string} slug        liftmanual URL slug, kebab-case, unique: "heel-glute-bridge"
+ * @property {string} slug        kebab-case, unique: "heel-glute-bridge"
  * @property {string} nameEn      "Heel Glute Bridge"
  * @property {string} [nameFa]    Persian name; the app falls back to nameEn
- * @property {"strength"|"cardio"|"stretching"} type   the liftmanual section
- * @property {string[]} muscles   liftmanual muscle slugs, primary first ("Muscle Group"): ["glutes", "hamstrings"]
+ * @property {"strength"|"cardio"|"stretching"} type   the library section
+ * @property {string[]} muscles   muscle tags, primary first ("Muscle Group"): ["glutes", "hamstrings"]
  * @property {string[]} musclesWorked  detailed anatomy, free text ("Muscles Worked"): ["Gluteus maximus", "Adductor magnus"]
- * @property {string[]} equipment liftmanual equipment slugs ("Equipment Required"): ["bodyweight"]
+ * @property {string[]} equipment equipment tags ("Equipment Required"): ["bodyweight"]
  * @property {{en?: string, fa?: string}} [description]
  * @property {Localized} steps    numbered "Instructions", one string per step, numbers stripped
  * @property {Localized} benefits "Benefits", one string per line
  * @property {string[]} variations slugs of "Variations & Alternatives"
  * @property {{gif?: string, webp?: string, mp4?: string, poster?: string}} [media]
- *           paths relative to the catalog's media base ("media/heel-glute-bridge.gif"),
+ *           the animation (an animated WebP or GIF) and, optionally, a video and a still;
+ *           paths relative to the catalog's media base ("animations/heel-glute-bridge.webp"),
  *           or absolute http(s) URLs
  * @property {"reps"|"time"|"distance"} mode  what the second number of a logged set means
- * @property {string} source      the liftmanual page: "https://liftmanual.com/heel-glute-bridge/"
  */
 
 /* ───────────────────────────── taxonomy ───────────────────────────── */
 
-/** The site's 33 muscle categories, in body order (the site lists them A–Z). `group` is the app's coarse group. */
-export const LM_MUSCLES = [
+/** The library's 33 muscle tags, in body order. `group` is the app's coarse group. */
+export const MUSCLE_TAGS = [
   { slug: "chest", en: "Chest", fa: "سینه", group: "chest" },
   { slug: "back", en: "Back", fa: "پشت", group: "back" },
   { slug: "upper-back", en: "Upper Back", fa: "بالای پشت", group: "back" },
@@ -87,8 +80,8 @@ export const LM_MUSCLES = [
   { slug: "yoga", en: "Yoga", fa: "یوگا", group: "core" },
 ];
 
-/** The site's equipment categories (27), and one it used to have that the built-ins still name. */
-export const LM_EQUIPMENT = [
+/** The library's equipment tags (27), and one more the built-ins name. */
+export const EQUIPMENT_TAGS = [
   { slug: "resistance-band", en: "Resistance Band", fa: "کش مقاومتی" },
   { slug: "barbell", en: "Barbell", fa: "هالتر" },
   { slug: "battle-ropes", en: "Battle Ropes", fa: "طناب بتل" },
@@ -119,8 +112,8 @@ export const LM_EQUIPMENT = [
   { slug: "other", en: "Other", fa: "سایر" },
 ];
 
-/** The site's five sections. Only the first three hold single exercises. */
-export const LM_TYPES = [
+/** The library's five sections. Only the first three hold single exercises. */
+export const EXERCISE_SECTIONS = [
   { slug: "strength", en: "Strength Workouts", fa: "تمرین‌های قدرتی", exercise: true },
   { slug: "cardio", en: "Cardio Exercises", fa: "تمرین‌های هوازی", exercise: true },
   { slug: "stretching", en: "Stretches", fa: "حرکات کششی", exercise: true },
@@ -128,33 +121,26 @@ export const LM_TYPES = [
   { slug: "guides", en: "Guides", fa: "راهنماها", exercise: false },
 ];
 
-export const EXERCISE_TYPES = LM_TYPES.filter((t) => t.exercise).map((t) => t.slug);
+export const EXERCISE_TYPES = EXERCISE_SECTIONS.filter((t) => t.exercise).map((t) => t.slug);
 export const MODES = ["reps", "time", "distance"];
 
-/** liftmanual muscle slug → the app's coarse group (legs, back, chest, shoulders, arms, core, cardio). */
-export const MUSCLE_GROUP = Object.fromEntries(LM_MUSCLES.map((m) => [m.slug, m.group]));
+/** Muscle tag → the app's coarse group (legs, back, chest, shoulders, arms, core, cardio). */
+export const MUSCLE_GROUP = Object.fromEntries(MUSCLE_TAGS.map((m) => [m.slug, m.group]));
 
-/** The coarse group of an exercise: its primary (first) liftmanual muscle's. */
+/** The coarse group of an exercise: its primary (first) muscle tag's. */
 export const groupOfMuscles = (muscles = []) => {
   for (const slug of muscles) if (MUSCLE_GROUP[slug]) return MUSCLE_GROUP[slug];
   return null;
 };
 
 const bySlug = (list) => Object.fromEntries(list.map((x) => [x.slug, x]));
-const MUSCLE_BY_SLUG = bySlug(LM_MUSCLES);
-const EQUIPMENT_BY_SLUG = bySlug(LM_EQUIPMENT);
+const MUSCLE_BY_SLUG = bySlug(MUSCLE_TAGS);
+const EQUIPMENT_BY_SLUG = bySlug(EQUIPMENT_TAGS);
 export const findMuscle = (slug) => MUSCLE_BY_SLUG[slug] || null;
 export const findEquipment = (slug) => EQUIPMENT_BY_SLUG[slug] || null;
 
 /** A taxonomy entry's label in the current language. */
-export const lmLabel = (entry, isRtl) => (entry ? (isRtl ? entry.fa : entry.en) : "");
-
-/** liftmanual page of an exercise, muscle or equipment. */
-export const liftmanualUrl = (slug, kind) =>
-  `${LIFTMANUAL_URL}/${kind === "muscle" ? "muscle/" : kind === "equipment" ? "equipment/" : ""}${slug}/`;
-
-/** A search on liftmanual: always lands somewhere, unlike a guessed slug. */
-export const liftmanualSearchUrl = (query) => `${LIFTMANUAL_URL}/?s=${encodeURIComponent(query)}`;
+export const tagLabel = (entry, isRtl) => (entry ? (isRtl ? entry.fa : entry.en) : "");
 
 /* ───────────────────────── names → slugs ───────────────────────── */
 
@@ -247,9 +233,9 @@ function buildIndex(entries, aliases) {
   for (const [slug, names] of Object.entries(aliases)) for (const name of names) put(name, slug);
   return index;
 }
-const MUSCLE_INDEX = buildIndex(LM_MUSCLES, MUSCLE_ALIASES);
-const EQUIPMENT_INDEX = buildIndex(LM_EQUIPMENT, EQUIPMENT_ALIASES);
-const TYPE_INDEX = buildIndex(LM_TYPES, TYPE_ALIASES);
+const MUSCLE_INDEX = buildIndex(MUSCLE_TAGS, MUSCLE_ALIASES);
+const EQUIPMENT_INDEX = buildIndex(EQUIPMENT_TAGS, EQUIPMENT_ALIASES);
+const TYPE_INDEX = buildIndex(EXERCISE_SECTIONS, TYPE_ALIASES);
 const MODE_INDEX = buildIndex(MODES.map((slug) => ({ slug, en: slug })), MODE_ALIASES);
 
 const lookup = (index) => (name) => {
@@ -276,7 +262,7 @@ export const slugify = (s) => String(s ?? "")
 
 export const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
-/** The slug in a liftmanual URL: "https://liftmanual.com/heel-glute-bridge/" → "heel-glute-bridge". */
+/** The slug at the end of a page URL: "https://example.com/heel-glute-bridge/" → "heel-glute-bridge". */
 export function slugFromUrl(url) {
   const m = String(url ?? "").trim().match(/^https?:\/\/[^/]+\/(?:[^?#]*\/)?([^/?#]+)\/?(?:[?#].*)?$/i);
   return m ? slugify(decodeURIComponent(m[1])) : "";
@@ -284,7 +270,7 @@ export function slugFromUrl(url) {
 
 /* ───────────────────────── loose input → record ───────────────────────── */
 
-// Column names as a spreadsheet, a JSON export or the liftmanual page call them.
+// Column names as a spreadsheet, a JSON export or an exercise page call them.
 const FIELD_ALIASES = {
   slug: ["slug", "id", "exerciseslug", "urlslug", "permalink"],
   nameEn: ["nameen", "name", "exercise", "exercisename", "title", "englishname", "nameenglish", "en"],
@@ -306,7 +292,7 @@ const FIELD_ALIASES = {
   poster: ["poster", "image", "imageurl", "thumbnail", "thumb", "jpg", "picture", "photo"],
   media: ["media"],
   mode: ["mode", "measure", "tracking", "unit", "metric"],
-  source: ["source", "url", "link", "liftmanualurl", "liftmanual", "page", "pageurl"],
+  source: ["source", "url", "link", "page", "pageurl"],
 };
 const FIELD_OF = new Map();
 for (const [field, names] of Object.entries(FIELD_ALIASES)) for (const n of names) FIELD_OF.set(n, field);
@@ -393,7 +379,8 @@ const pathOk = (p) => /^https?:\/\//i.test(p) || (!p.startsWith("//") && !p.spli
 
 /**
  * Validates and normalizes one exercise from any loose shape: a CSV row with
- * liftmanual's column names, a JSON object, or a catalog record.
+ * an exercise page's column names, a JSON object, or a catalog record. A
+ * page URL only gives the slug; the record keeps no link.
  *
  * Errors make the record unusable (no name, a bad slug, an unknown muscle or
  * equipment name, no muscle at all, a routine or guide instead of an
@@ -483,7 +470,6 @@ export function normalizeExercise(raw) {
     variations,
     ...(Object.keys(media).length ? { media } : {}),
     mode,
-    source: /^https?:\/\//i.test(source) ? source : liftmanualUrl(slug),
   };
   const ok = errors.length === 0;
   return { ok, value: ok ? value : null, errors, warnings, slug };
@@ -491,7 +477,7 @@ export function normalizeExercise(raw) {
 
 /**
  * The file an exercise's long text is in when a big catalog keeps it apart
- * (scripts/build-liftmanual.mjs writes them, src/lib/training/catalog.js
+ * (scripts/build-exercises.mjs writes them, src/lib/training/catalog.js
  * reads them): FNV-1a of the slug, modulo the number of files.
  */
 export function detailShard(slug, count) {

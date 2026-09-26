@@ -1,7 +1,7 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import {
-  Copy, Download, Dumbbell, ExternalLink, History, Moon, MoreHorizontal, Pencil, Play, Plus, Search, Share2, Trash2, TrendingDown, TrendingUp, Trophy,
+  Copy, Download, Dumbbell, History, Moon, MoreHorizontal, Pencil, Play, Plus, Search, Share2, Trash2, TrendingDown, TrendingUp, Trophy,
 } from "lucide-react";
 import ExerciseMedia from "../../components/training/ExerciseMedia";
 import ActiveWorkoutModal from "../../components/modals/ActiveWorkoutModal";
@@ -16,8 +16,8 @@ import {
   equipmentLabel, exerciseName, findBySlug, findExercise, muscleLabel, searchExercises,
 } from "../../lib/training/exercises";
 import {
-  LM_EQUIPMENT, LM_MUSCLES, findEquipment, findMuscle, liftmanualSearchUrl, liftmanualUrl, lmLabel, slugify,
-} from "../../lib/training/liftmanual";
+  EQUIPMENT_TAGS, MUSCLE_TAGS, findEquipment, findMuscle, tagLabel, slugify,
+} from "../../lib/training/taxonomy";
 import { useExerciseCatalog, useExerciseDetails } from "../../lib/training/useExerciseCatalog";
 import {
   bestSetIn, compactProgram, exerciseBests, exerciseTrend, lastPerformance, sessionSetsDone, sessionVolume,
@@ -111,13 +111,15 @@ function highlightLift(sessions) {
   return top;
 }
 
-export default function WorkoutPage({ isRtl, onOpen }) {
+export default function WorkoutPage({ isRtl, onOpen, initialSegment = null, onSegmentShown }) {
   const t = useTrainingT(isRtl);
   const store = useTrainingStore();
   const nutrition = useNutritionStore();
-  // Redraws Train (the library, the sheets, the live workout) once the liftmanual catalog lands.
+  // Redraws Train (the library, the sheets, the live workout) once the exercise catalog lands.
   useExerciseCatalog();
-  const [segment, setSegment] = useState("plan");
+  const [segment, setSegment] = useState(SEGMENTS.includes(initialSegment) ? initialSegment : "plan");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { if (initialSegment) onSegmentShown?.(); }, []);
   const [live, setLive] = useState(!!store.draft);
   const [builder, setBuilder] = useState(undefined); // undefined closed | null new | program edit
   const [share, setShare] = useState(null);           // program to share
@@ -485,7 +487,7 @@ function PlanView({ t, n, sep, isRtl, store, plan, programName, onStart, onShare
 
 const PAGE = 40;
 
-/** One labelled, sideways-scrolling row of liftmanual filter chips; tapping the active chip clears it. */
+/** One labelled, sideways-scrolling row of filter chips; tapping the active chip clears it. */
 function FilterRow({ label, all, options, value, onChange, isRtl }) {
   return (
     <div role="group" aria-label={label} className="flex flex-col gap-2">
@@ -493,7 +495,7 @@ function FilterRow({ label, all, options, value, onChange, isRtl }) {
       <div className="-mx-5 px-5 flex gap-2 overflow-x-auto scrollbar-hide">
         <Chip active={value === null} onClick={() => onChange(null)}>{all}</Chip>
         {options.map((o) => (
-          <Chip key={o.slug} active={value === o.slug} onClick={() => onChange(value === o.slug ? null : o.slug)}>{lmLabel(o, isRtl)}</Chip>
+          <Chip key={o.slug} active={value === o.slug} onClick={() => onChange(value === o.slug ? null : o.slug)}>{tagLabel(o, isRtl)}</Chip>
         ))}
       </div>
     </div>
@@ -502,11 +504,11 @@ function FilterRow({ label, all, options, value, onChange, isRtl }) {
 
 function Library({ isRtl, t, n, sep, sessions, onOpen }) {
   const [q, setQ] = useState("");
-  const [muscle, setMuscle] = useState(null); // liftmanual muscle slug
-  const [gear, setGear] = useState(null);     // liftmanual equipment slug
+  const [muscle, setMuscle] = useState(null); // muscle tag
+  const [gear, setGear] = useState(null);     // equipment tag
   const [limit, setLimit] = useState(PAGE);
   // Not memoised: Train re-renders when the catalog lands, and a filter over the list is cheap.
-  const list = searchExercises(q, null, { lmMuscle: muscle, equipment: gear });
+  const list = searchExercises(q, null, { muscleTag: muscle, equipment: gear });
   const filtered = !!(q.trim() || muscle || gear);
   const refine = (fn) => (value) => { fn(value); setLimit(PAGE); };
   const clear = () => { setQ(""); setMuscle(null); setGear(null); setLimit(PAGE); };
@@ -515,8 +517,8 @@ function Library({ isRtl, t, n, sep, sessions, onOpen }) {
     <>
       <Field type="search" value={q} onChange={(e) => refine(setQ)(e.target.value)} placeholder={t.searchExercises} aria-label={t.searchExercises}
         prefix={<Search className="w-[18px] h-[18px] text-muted" strokeWidth={2} />} />
-      <FilterRow label={t.muscleGroup} all={t.allMuscles} options={LM_MUSCLES} value={muscle} onChange={refine(setMuscle)} isRtl={isRtl} />
-      <FilterRow label={t.equipment} all={t.anyEquipment} options={LM_EQUIPMENT} value={gear} onChange={refine(setGear)} isRtl={isRtl} />
+      <FilterRow label={t.muscleGroup} all={t.allMuscles} options={MUSCLE_TAGS} value={muscle} onChange={refine(setMuscle)} isRtl={isRtl} />
+      <FilterRow label={t.equipment} all={t.anyEquipment} options={EQUIPMENT_TAGS} value={gear} onChange={refine(setGear)} isRtl={isRtl} />
       <SectionHead title={t.exerciseCount(n(list.length), list.length)} action={filtered ? t.clearFilters : null} onAction={clear} />
       {list.length === 0 ? (
         <Card>
@@ -557,7 +559,6 @@ function pickLang(loc, isRtl) {
   return { items: loc?.en || [], ltr: isRtl };
 }
 
-const humanize = (slug) => slug.replace(/-/g, " ").replace(/^./, (c) => c.toUpperCase());
 
 function TrendSheet({ exerciseId, sessions, isRtl, t, n, sep, onClose, onOpenExercise }) {
   // A big library keeps each exercise's steps apart; they arrive when it's opened.
@@ -575,8 +576,8 @@ function TrendSheet({ exerciseId, sessions, isRtl, t, n, sep, onClose, onOpenExe
   const aboutLtr = isRtl && !ex?.description?.fa;
   const muscles = (ex?.muscles || []).map(findMuscle).filter(Boolean);
   const gear = (ex?.equipmentSlugs || []).map(findEquipment).filter(Boolean);
-  const variations = (ex?.variations || []).filter((s) => slugify(s) === s).map((slug) => ({ slug, ex: findBySlug(slug) }));
-  const link = ex?.source || (ex?.slug ? liftmanualUrl(ex.slug) : null);
+  // Only alternatives the app has; each opens its own sheet.
+  const variations = (ex?.variations || []).filter((s) => slugify(s) === s).map(findBySlug).filter(Boolean);
   const stepNo = (i) => (steps.ltr ? i + 1 : n(i + 1));
 
   return (
@@ -606,7 +607,7 @@ function TrendSheet({ exerciseId, sessions, isRtl, t, n, sep, onClose, onOpenExe
             <div key={label} className="flex flex-col gap-2">
               <Label>{label}</Label>
               <div className="flex flex-wrap gap-1.5">
-                {items.map((m) => <Tag key={m.slug}>{lmLabel(m, isRtl)}</Tag>)}
+                {items.map((m) => <Tag key={m.slug}>{tagLabel(m, isRtl)}</Tag>)}
               </div>
             </div>
           ))}
@@ -676,33 +677,14 @@ function TrendSheet({ exerciseId, sessions, isRtl, t, n, sep, onClose, onOpenExe
       {variations.length > 0 && (
         <section className="flex flex-col gap-2.5">
           <SectionHead title={t.variations} className="mt-0" />
-          {variations.some((v) => v.ex) && (
-            <List>
-              {variations.filter((v) => v.ex).map(({ ex: v }) => (
-                <Row key={v.id} isRtl={isRtl} chevron onClick={() => onOpenExercise(v.id)}
-                  icon={<span className="w-10 h-10 rounded-xl overflow-hidden shrink-0"><ExerciseMedia exerciseId={v.id} name={v.nameEn} thumb /></span>}
-                  title={exerciseName(v, isRtl)} subtitle={muscleLabel(v, isRtl)} />
-              ))}
-            </List>
-          )}
-          {variations.some((v) => !v.ex) && (
-            <div dir={isRtl ? "ltr" : undefined} className="flex flex-wrap gap-1.5">
-              {variations.filter((v) => !v.ex).map(({ slug }) => (
-                <a key={slug} href={liftmanualSearchUrl(humanize(slug))} target="_blank" rel="noopener noreferrer"
-                  className="h-9 px-3.5 rounded-full inline-flex items-center gap-1.5 text-[13px] font-medium bg-card text-ink no-underline">
-                  {humanize(slug)}<ExternalLink aria-hidden="true" className="w-3 h-3 text-muted" strokeWidth={2} />
-                </a>
-              ))}
-            </div>
-          )}
+          <List>
+            {variations.map((v) => (
+              <Row key={v.id} isRtl={isRtl} chevron onClick={() => onOpenExercise(v.id)}
+                icon={<span className="w-10 h-10 rounded-xl overflow-hidden shrink-0"><ExerciseMedia exerciseId={v.id} name={v.nameEn} thumb /></span>}
+                title={exerciseName(v, isRtl)} subtitle={muscleLabel(v, isRtl)} />
+            ))}
+          </List>
         </section>
-      )}
-
-      {link && (
-        <a href={link} target="_blank" rel="noopener noreferrer"
-          className="h-12 shrink-0 px-5 rounded-full inline-flex items-center justify-center gap-2 bg-card text-ink text-[15px] font-semibold no-underline select-none transition-transform active:scale-[0.98]">
-          <ExternalLink aria-hidden="true" className="w-[18px] h-[18px]" strokeWidth={2} />{t.viewOnLiftmanual}
-        </a>
       )}
     </Sheet>
   );

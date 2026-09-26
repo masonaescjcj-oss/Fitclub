@@ -4,6 +4,7 @@ import {
   Button, Card, Chip, CtaButton, Field, IconButton, IconWell, Label, List, Row, Segmented, Sheet as KitSheet, Tag, Toggle, cx, initials, num,
 } from "../ui/kit";
 import { MUSCLES, equipmentLabel, exerciseName, findExercise, searchExercises } from "../../lib/training/exercises";
+import ExerciseMedia from "./ExerciseMedia";
 import {
   PROGRAM_COLORS, createDay, createProgramExercise, decodeShare, encodeShare, expandMealPlan, shareLink,
 } from "../../lib/training/programModel";
@@ -77,6 +78,7 @@ function ExercisePicker({ isRtl, t, onPick, onClose }) {
       <List>
         {list.slice(0, limit).map((e) => (
           <Row key={e.id} onClick={() => onPick(e)} title={exerciseName(e, isRtl)} subtitle={equipmentLabel(e, isRtl)}
+            icon={<span className="w-11 h-11 rounded-[14px] overflow-hidden shrink-0"><ExerciseMedia exercise={e} exerciseId={e.id} name={e.nameEn} thumb /></span>}
             right={<Plus className="w-5 h-5 text-ink" strokeWidth={2} />} />
         ))}
       </List>
@@ -169,6 +171,7 @@ export function ProgramBuilderSheet({ program, isRtl, t, author, onSave, onClose
                     return (
                       <div key={e.id} className="rounded-2xl bg-sunk p-3 flex flex-col gap-2.5">
                         <div className="flex items-center gap-1.5">
+                          <span className="w-10 h-10 me-1 rounded-xl overflow-hidden shrink-0"><ExerciseMedia exerciseId={e.exerciseId} name={ex?.nameEn} thumb /></span>
                           <span className="flex-1 min-w-0 text-[15px] font-semibold text-ink truncate">{exerciseName(e.exerciseId, isRtl)}</span>
                           <IconButton label={t.moveUp} tone="card" size={40} onClick={() => move(di, ei, -1)} disabled={ei === 0}
                             className="disabled:opacity-40"><ArrowUp className="w-4 h-4" strokeWidth={2} /></IconButton>

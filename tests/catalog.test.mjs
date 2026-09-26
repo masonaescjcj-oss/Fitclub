@@ -1,27 +1,27 @@
-// The exercise catalog: built-ins' liftmanual data, the merge rules, the
+// The exercise catalog: built-ins' library tags, the merge rules, the
 // failure-silent loader, and the registry that findExercise/searchExercises read.
 import {
   EXERCISES, allExercises, equipmentLabel, exerciseName, exercisesVersion, findBySlug, findExercise, muscleLabel,
   searchExercises, setExerciseRegistry, subscribeExercises, unitOf,
 } from "../src/lib/training/exercises.js";
 import { catalogRecords, catalogUrl, loadExerciseCatalog, mediaUrl, mergeCatalog } from "../src/lib/training/catalog.js";
-import { SLUG_RE, findEquipment, findMuscle } from "../src/lib/training/liftmanual.js";
+import { SLUG_RE, findEquipment, findMuscle } from "../src/lib/training/taxonomy.js";
 
 let pass = 0, fail = 0;
 const check = (name, cond, got) => { cond ? pass++ : fail++; if (!cond) console.log("✗", name, got !== undefined ? `(got ${JSON.stringify(got)})` : ""); };
 
 // ── built-ins ──
 check("51 built-ins, ids unchanged", EXERCISES.length === 51 && ["ex1", "ex2", "ex3", "ex4", "ex5", "ex6", "bench_press", "plank", "jump_rope"].every((id) => findExercise(id)));
-check("every built-in has a liftmanual slug", EXERCISES.every((e) => SLUG_RE.test(e.slug)), EXERCISES.filter((e) => !SLUG_RE.test(e.slug || "")).map((e) => e.id));
+check("every built-in has a library slug", EXERCISES.every((e) => SLUG_RE.test(e.slug)), EXERCISES.filter((e) => !SLUG_RE.test(e.slug || "")).map((e) => e.id));
 check("built-in slugs are unique", new Set(EXERCISES.map((e) => e.slug)).size === EXERCISES.length);
-check("built-in muscles and equipment are liftmanual slugs", EXERCISES.every((e) => e.muscles.length && e.muscles.every(findMuscle) && e.equipmentSlugs.every(findEquipment)));
+check("built-in muscles and equipment are library tags", EXERCISES.every((e) => e.muscles.length && e.muscles.every(findMuscle) && e.equipmentSlugs.every(findEquipment)));
 check("best-guess slugs", findExercise("ex2").slug === "barbell-deadlift" && findExercise("bench_press").slug === "barbell-bench-press" && findExercise("pullup").slug === "pull-up");
 check("old fields intact", findExercise("ex2").equipment === "Barbell" && findExercise("plank").mode === "time" && findExercise("ex3").mode === "distance" && findExercise("lunge").muscle === "legs");
 check("findBySlug", findBySlug("push-up")?.id === "pushup" && findBySlug("nope") === null);
 check("old search still works", searchExercises("bench").length > 0 && searchExercises("پرس").length > 0 && searchExercises("", "legs").every((e) => e.muscle === "legs"));
-check("search by liftmanual muscle", searchExercises("", null, { lmMuscle: "glutes" }).every((e) => e.muscles.includes("glutes")) && searchExercises("", null, { lmMuscle: "glutes" }).length > 5);
+check("search by muscle tag", searchExercises("", null, { muscleTag: "glutes" }).every((e) => e.muscles.includes("glutes")) && searchExercises("", null, { muscleTag: "glutes" }).length > 5);
 check("search by equipment", searchExercises("", null, { equipment: "kettlebell" }).map((e) => e.id).sort().join() === "goblet_squat,kb_swing");
-check("filters combine", searchExercises("squat", "legs", { lmMuscle: "quadriceps", equipment: "barbell" }).map((e) => e.id).sort().join() === "ex4,front_squat");
+check("filters combine", searchExercises("squat", "legs", { muscleTag: "quadriceps", equipment: "barbell" }).map((e) => e.id).sort().join() === "ex4,front_squat");
 check("search matches muscle labels in both languages", searchExercises("hamstrings").length > 0 && searchExercises("پشت ران").length > 0);
 check("labels", equipmentLabel(findExercise("ex5"), false) === "Machine" && equipmentLabel(findExercise("ex5"), true) === "دستگاه اسمیت"
   && equipmentLabel(findExercise("pullup"), true) === "میله بارفیکس" && muscleLabel(findExercise("ex2"), false) === "Glutes, Hamstrings" && muscleLabel(findExercise("ex2"), true) === "باسن، پشت ران");
@@ -29,7 +29,7 @@ check("labels", equipmentLabel(findExercise("ex5"), false) === "Machine" && equi
 // ── merge rules ──
 const hgb = { slug: "heel-glute-bridge", nameEn: "Heel Glute Bridge", nameFa: "پل باسن روی پاشنه", type: "strength", muscles: ["glutes", "hamstrings"],
   equipment: ["bodyweight"], steps: { en: ["Lie down.", "Lift."] }, benefits: { en: ["Glutes"] }, variations: ["barbell-hip-thrust"],
-  media: { gif: "media/heel-glute-bridge.gif" }, mode: "reps", source: "https://liftmanual.com/heel-glute-bridge/" };
+  media: { gif: "media/heel-glute-bridge.gif" }, mode: "reps" };
 const bench = { slug: "barbell-bench-press", nameEn: "Barbell Bench Press", muscles: ["chest", "front-deltoid", "triceps"], equipment: ["barbell"],
   steps: { en: ["Lie back.", "Press."], fa: ["دراز بکشید.", "فشار دهید."] }, media: { gif: "media/barbell-bench-press.gif", poster: "media/barbell-bench-press.jpg" }, mode: "time", type: "strength" };
 const plankClash = { slug: "plank", nameEn: "Plank", muscles: ["abs"], equipment: ["bodyweight"] };
@@ -39,8 +39,8 @@ check("merge is pure", EXERCISES.length === 51 && !findExercise("bench_press").s
 const b = m.list.find((e) => e.id === "bench_press");
 check("matched by slug: the built-in keeps its id, names, group, equipment text and mode",
   b && b.nameFa === "پرس سینه با هالتر" && b.nameEn === "Barbell Bench Press" && b.muscle === "chest" && b.equipment === "Barbell" && b.mode === "reps");
-check("…and takes the catalog's steps, media, muscles and source", b.steps.fa.length === 2 && b.media.poster === "media/barbell-bench-press.jpg"
-  && b.muscles.join() === "chest,front-deltoid,triceps" && b.source === "https://liftmanual.com/barbell-bench-press/");
+check("…and takes the catalog's steps, media and muscles, and no link", b.steps.fa.length === 2 && b.media.poster === "media/barbell-bench-press.jpg"
+  && b.muscles.join() === "chest,front-deltoid,triceps" && !("source" in b));
 check("the built-in stays where it was", m.list.indexOf(b) === EXERCISES.findIndex((e) => e.id === "bench_press"));
 const h = m.list.find((e) => e.id === "heel-glute-bridge");
 check("new exercise: id = slug, coarse group from its first muscle", h && h.muscle === "legs" && h.slug === "heel-glute-bridge" && h.mode === "reps");
@@ -80,7 +80,7 @@ check("loads from /exercises/catalog.json", fetched === "/exercises/catalog.json
 check("loaded: registry swapped, listeners told once, version bumped", r && r.added === 1 && r.enriched === 1 && calls === 1 && exercisesVersion() === v0 + 1);
 check("findExercise sees catalog exercises synchronously", findExercise("heel-glute-bridge")?.nameEn === "Heel Glute Bridge" && findExercise("bench_press").steps.en.length === 2);
 check("exerciseName / unitOf work on them", exerciseName("heel-glute-bridge", true) === "پل باسن روی پاشنه" && unitOf(findExercise("heel-glute-bridge"), { reps: "reps" }) === "reps");
-check("searchExercises sees them, by name and by filter", searchExercises("heel glute").length === 1 && searchExercises("", null, { lmMuscle: "hamstrings", equipment: "bodyweight" }).some((e) => e.id === "heel-glute-bridge"));
+check("searchExercises sees them, by name and by filter", searchExercises("heel glute").length === 1 && searchExercises("", null, { muscleTag: "hamstrings", equipment: "bodyweight" }).some((e) => e.id === "heel-glute-bridge"));
 check("findBySlug sees them", findBySlug("heel-glute-bridge")?.id === "heel-glute-bridge");
 check("loading again without force reuses the first result", (await loadExerciseCatalog()) === r && calls === 1);
 check("media paths resolve under /exercises/", mediaUrl("media/x.gif") === "/exercises/media/x.gif" && mediaUrl("https://cdn.example.com/x.gif") === "https://cdn.example.com/x.gif" && mediaUrl("/y.gif") === "/y.gif" && mediaUrl("") === "");

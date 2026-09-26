@@ -1,6 +1,7 @@
 /**
- * The liftmanual exercise catalog: public/exercises/catalog.json, written by
- * scripts/import-exercises.mjs (see docs/EXERCISE-IMPORT.md).
+ * The exercise catalog: public/exercises/catalog.json, written by
+ * scripts/build-exercises.mjs or scripts/import-exercises.mjs (see
+ * docs/EXERCISE-IMPORT.md).
  *
  * loadExerciseCatalog() runs once at start-up (src/index.js). When the file
  * is there, its exercises are merged into the list that findExercise() and
@@ -11,15 +12,15 @@
  *  - A catalog exercise whose slug is a built-in's enriches that built-in:
  *    the built-in keeps its id, names, coarse group, equipment text and mode
  *    (so logged sets keep their meaning), and takes the catalog's type,
- *    muscles, equipment slugs, steps, benefits, muscles worked, variations,
- *    media and source.
+ *    muscles, equipment tags, steps, benefits, muscles worked, variations
+ *    and media.
  *  - Any other catalog exercise is added with id = its slug (or "lm-<slug>"
  *    when a built-in already uses that id).
  *  - Invalid records and repeated slugs are skipped.
  */
 
 import { EXERCISES, findExercise, setExerciseRegistry, touchExercises } from "./exercises";
-import { detailShard, findEquipment, groupOfMuscles, normalizeExercise } from "./liftmanual";
+import { detailShard, findEquipment, groupOfMuscles, normalizeExercise } from "./taxonomy";
 
 export { detailShard };
 
@@ -55,7 +56,6 @@ export function toAppExercise(rec, builtin = null, id = rec.slug) {
     steps: rec.steps || { en: [] },
     benefits: rec.benefits || { en: [] },
     variations: rec.variations || [],
-    source: rec.source,
     ...(rec.description ? { description: rec.description } : {}),
     ...(rec.media ? { media: rec.media } : {}),
   };

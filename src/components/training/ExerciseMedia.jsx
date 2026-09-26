@@ -5,15 +5,19 @@ import { findExercise } from "../../lib/training/exercises";
 import { mediaUrl } from "../../lib/training/catalog";
 
 /**
- * An exercise's own animation (the liftmanual GIF, WebP or MP4) on a white
- * card, else the drawn ExerciseGraphic. Takes ExerciseGraphic's props, so it
- * drops in wherever that was used; the parent sizes and rounds it.
+ * An exercise's own animation (an animated WebP or GIF, from FitClub's media
+ * bucket) on a white card, else the drawn ExerciseGraphic. Takes
+ * ExerciseGraphic's props, so it drops in wherever that was used; the parent
+ * sizes and rounds it.
  *
- * - `thumb` (list rows) prefers the still poster and never plays video.
- * - Media is lazy-loaded; the poster, or a soft skeleton, shows until it has.
- * - A file that fails to load falls back to the drawing.
+ * - The animation plays everywhere it's shown, list rows (`thumb`) included:
+ *   it's an image, so no autoplay rules or codecs stand in its way.
+ * - A catalog with only a video plays it in the full view; a thumbnail then
+ *   shows the still, if any.
+ * - Media is lazy-loaded behind a soft skeleton; a file that fails to load
+ *   falls back to the drawing.
  *
- * The well stays white at night too (the GIFs are drawn on white), and
+ * The well stays white at night too (the animations are drawn on white), and
  * multiply blending melts their white edges into it.
  */
 export default function ExerciseMedia({ exerciseId, name, className = "", thumb = false, exercise }) {
@@ -24,12 +28,10 @@ export default function ExerciseMedia({ exerciseId, name, className = "", thumb 
   const mp4 = mediaUrl(m?.mp4);
   const poster = mediaUrl(m?.poster);
 
-  // Thumbnails stay still when they can; the full view moves. A browser that
-  // can't play the library's H.264 MP4s shows the still instead.
-  const video = mp4 && canPlayMp4();
   let kind = null;
-  if (thumb) kind = poster ? "poster" : webp || gif ? "image" : video ? "video" : null;
-  else kind = video ? "video" : webp || gif ? "image" : poster ? "poster" : null;
+  if (webp || gif) kind = "image";
+  else if (mp4 && !thumb && canPlayMp4()) kind = "video";
+  else if (poster) kind = "poster";
 
   const fallback = <ExerciseGraphic exerciseId={exerciseId} name={name} className={className} />;
   if (!kind) return fallback;
@@ -49,13 +51,11 @@ function canPlayMp4() {
   return mp4Support;
 }
 
-function MediaWell({ kind: wanted, gif, webp, mp4, poster, name, thumb, className, fallback }) {
+function MediaWell({ kind, gif, webp, mp4, poster, name, thumb, className, fallback }) {
   const [state, setState] = useState("loading"); // loading | ready | failed
-  // An animation that won't load falls back to the exercise's still, then to the drawing.
-  const [kind, setKind] = useState(wanted);
   if (state === "failed") return fallback;
   const ready = () => setState("ready");
-  const failed = () => { if (kind !== "poster" && poster) { setKind("poster"); setState("loading"); } else setState("failed"); };
+  const failed = () => setState("failed");
   const fill = cx("absolute inset-0 w-full h-full object-contain mix-blend-multiply transition-opacity duration-300",
     state === "ready" ? "opacity-100" : "opacity-0");
   const alt = thumb ? "" : name || "";
@@ -63,24 +63,21 @@ function MediaWell({ kind: wanted, gif, webp, mp4, poster, name, thumb, classNam
   let media;
   if (kind === "video") {
     media = (
-      <video className={fill} src={mp4} poster={poster || undefined} muted loop playsInline autoPlay={!thumb}
-        preload={thumb ? "metadata" : "auto"} aria-label={alt || undefined} onLoadedData={ready} onError={failed} />
+      <video className={fill} src={mp4} poster={poster || undefined} muted loop playsInline autoPlay
+        preload="auto" aria-label={alt || undefined} onLoadedData={ready} onError={failed} />
     );
-  } else if (kind === "poster") {
-    media = <img className={fill} src={poster} alt={alt} loading="lazy" decoding="async" onLoad={ready} onError={failed} />;
   } else {
-    const img = <img className={fill} src={gif || webp} alt={alt} loading="lazy" decoding="async" onLoad={ready} onError={failed} />;
-    media = webp && gif ? <picture><source srcSet={webp} type="image/webp" />{img}</picture> : img;
+    // With both, the GIF is the <img> and browsers that read WebP take the lighter file.
+    const src = kind === "poster" ? poster : gif || webp;
+    // CORS, so the service worker can keep the file for offline use (public/sw.js).
+    const img = <img className={fill} src={src} alt={alt} loading="lazy" decoding="async" crossOrigin="anonymous" onLoad={ready} onError={failed} />;
+    media = kind === "image" && webp && gif ? <picture><source srcSet={webp} type="image/webp" />{img}</picture> : img;
   }
 
   return (
     <div className={cx("relative w-full h-full overflow-hidden isolate bg-card [[data-theme=dark]_&]:bg-hero-fg",
       thumb && "ring-1 ring-inset ring-line", className)}>
-      {state === "loading" && (poster && kind !== "poster" ? (
-        <img aria-hidden="true" alt="" src={poster} className="absolute inset-0 w-full h-full object-contain mix-blend-multiply" />
-      ) : (
-        <span aria-hidden="true" className="absolute inset-0 animate-pulse bg-hero-muted/20" />
-      ))}
+      {state === "loading" && <span aria-hidden="true" className="absolute inset-0 animate-pulse bg-hero-muted/20" />}
       {media}
     </div>
   );
