@@ -1,8 +1,10 @@
 import React, { useEffect, useRef, useState } from "react";
-import { applyOnboardingToProfile } from "../lib/nutrition/profile";
+import { applyOnboardingToProfile, targetsFor } from "../lib/nutrition/profile";
+import { buildWeek, loadMealPlan, saveMealPlan } from "../lib/nutrition/mealPlanStore";
+import { dayKey } from "../lib/nutrition/diaryStore";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Building2, Check, CheckCheck, Drumstick, Dumbbell, Flame, Footprints, GraduationCap, HeartPulse, Home, Leaf, Minus,
+  Building2, Check, CheckCheck, Drumstick, Dumbbell, Flame, Footprints, HeartPulse, Home, Leaf, Minus,
   PersonStanding, Plus, Scale, Scan, Star, Trees, TrendingDown, Utensils, WheatOff, Zap as Lightning,
 } from "lucide-react";
 import { Card, Chip, CtaButton, IconButton, IconWell, Label, Segmented, cx, num } from "../components/ui/kit";
@@ -186,7 +188,8 @@ export default function OnboardingWizard({ onNavigate }) {
     difficulty: "moderate",
     dietType: "high_protein",
     workoutProgram: "full_body",
-    mealProgram: "maintain",
+    mealBudget: "medium",
+    mealsPerDay: 4,
   });
 
   const stepsData = [
@@ -312,12 +315,12 @@ export default function OnboardingWizard({ onNavigate }) {
       type: "workout-program-picker",
     },
     {
-      key: "mealProgram",
-      titleEn: "Select your meal program",
-      titleFa: "برنامه تغذیه خود را انتخاب کنید",
-      subtitleEn: "Based on your goal and diet type, these programs are recommended:",
-      subtitleFa: "بر اساس هدف و نوع رژیم غذایی شما، این برنامه‌ها پیشنهاد شده‌اند:",
-      type: "meal-program-picker",
+      key: "mealBudget",
+      titleEn: "Your food budget",
+      titleFa: "بودجه‌ی غذایی‌ات",
+      subtitleEn: "Your meal plan is built from real foods at this budget. You can change it any time.",
+      subtitleFa: "برنامه‌ی غذایی‌ات از غذاهای واقعی و با همین بودجه ساخته می‌شود. هر وقت خواستی عوضش کن.",
+      type: "meal-budget",
     }
   ];
 
@@ -357,34 +360,13 @@ export default function OnboardingWizard({ onNavigate }) {
     }
   ];
 
-  const mealPrograms = [
-    {
-      id: "maintain",
-      recommended: true,
-      Icon: Scale,
-      titleEn: "Maintain weight",
-      titleFa: "تثبیت وزن و تعادل نهایی",
-      protein: "30%", carbs: "45%", fat: "25%",
-      extraKcal: null,
-    },
-    {
-      id: "muscle_gain",
-      recommended: false,
-      Icon: Flame,
-      titleEn: "Muscle gain with minimal fat",
-      titleFa: "افزایش عضله با حداقل درصد چربی",
-      protein: "30%", carbs: "45%", fat: "25%",
-      extraKcal: 300,
-    },
-    {
-      id: "affordable",
-      recommended: false,
-      Icon: GraduationCap,
-      titleEn: "Affordable nutrition",
-      titleFa: "تغذیه اقتصادی و کاملاً در دسترس",
-      protein: "30%", carbs: "45%", fat: "25%",
-      extraKcal: 200,
-    }
+  const mealBudgets = [
+    { id: "economy", Icon: Scale, titleEn: "Economy", titleFa: "اقتصادی",
+      descEn: "Eggs, legumes, dairy and chicken first: the cheapest way to your protein.", descFa: "اول تخم‌مرغ، حبوبات، لبنیات و مرغ: ارزان‌ترین راه رسیدن به پروتئین." },
+    { id: "medium", Icon: Utensils, titleEn: "Medium", titleFa: "میانه", recommended: true,
+      descEn: "A balance of price and variety, red meat and fish now and then.", descFa: "تعادل قیمت و تنوع، گاهی گوشت قرمز و ماهی." },
+    { id: "free", Icon: Flame, titleEn: "No limit", titleFa: "آزاد",
+      descEn: "Price hardly counts: the most variety.", descFa: "قیمت کم‌اهمیت است: بیشترین تنوع." },
   ];
 
   const currentStepData = stepsData[stepIndex];
@@ -392,8 +374,16 @@ export default function OnboardingWizard({ onNavigate }) {
 
   const handleNext = () => {
     if (stepIndex === totalSteps - 1) {
-      // The answers drove nothing before; the diet tab's targets read them now.
-      applyOnboardingToProfile(formData);
+      // The answers set the diet tab's targets, and the first week of meals is built from them.
+      const profile = applyOnboardingToProfile(formData);
+      try {
+        const current = loadMealPlan();
+        const plan = { ...current, settings: { ...current.settings, budget: formData.mealBudget, meals: formData.mealsPerDay } };
+        const target = targetsFor(profile);
+        saveMealPlan({ ...plan, week: buildWeek({ plan, profile, targetFor: () => target, start: dayKey() }) });
+      } catch {
+        // Fuel offers to make the plan if this didn't.
+      }
     }
     if (stepIndex < totalSteps - 1) {
       setStepIndex((prev) => prev + 1);
@@ -481,7 +471,7 @@ export default function OnboardingWizard({ onNavigate }) {
   const footerLabel = {
     "muscle-target": mt?.Next || "Next",
     "height-picker": isRtl ? "ادامه و محاسبه" : "Let's Calculate",
-    "meal-program-picker": isRtl ? "ایجاد برنامه کامل تمرینی و تغذیه" : "Generate Complete Workout & Meal Plan",
+    "meal-budget": isRtl ? "ساختن برنامه‌ی تمرین و تغذیه" : "Build my workout and meal plan",
   }[type] || nextLabel;
 
   const selectedCount = (formData.focusAreas || []).length;
@@ -673,41 +663,38 @@ export default function OnboardingWizard({ onNavigate }) {
             </div>
           )}
 
-          {/* MEAL PROGRAM */}
-          {type === "meal-program-picker" && (
+          {/* MEAL BUDGET */}
+          {type === "meal-budget" && (
             <div className="flex flex-col gap-2.5">
-              {mealPrograms.map((prog) => {
-                const on = formData.mealProgram === prog.id;
-                const pct = (p) => (isRtl ? num(p, true).replace("%", "٪") : p);
+              {mealBudgets.map((b) => {
+                const on = formData.mealBudget === b.id;
                 return (
-                  <button key={prog.id} type="button" aria-pressed={on} onClick={() => handleOptionSelect("mealProgram", prog.id)}
-                    className={cx("w-full rounded-3xl p-4 flex flex-col gap-3.5", pressable, optionTone(on))}>
-                    <span className="w-full flex items-center gap-3.5">
-                      <Well on={on}><prog.Icon className="w-5 h-5" strokeWidth={2} /></Well>
-                      <span className="flex-1 min-w-0 text-[17px] font-bold leading-snug">{isRtl ? prog.titleFa : prog.titleEn}</span>
-                      <Tick on={on} />
+                  <button key={b.id} type="button" aria-pressed={on} onClick={() => handleOptionSelect("mealBudget", b.id)}
+                    className={cx("w-full rounded-3xl p-4 flex items-start gap-3.5 text-start", pressable, optionTone(on))}>
+                    <Well on={on}><b.Icon className="w-5 h-5" strokeWidth={2} /></Well>
+                    <span className="flex-1 min-w-0 flex flex-col gap-1">
+                      <span className="flex items-center gap-2 flex-wrap">
+                        <span className="text-[17px] font-bold leading-snug">{isRtl ? b.titleFa : b.titleEn}</span>
+                        {b.recommended && <RecommendedTag on={on} isRtl={isRtl} />}
+                      </span>
+                      <span className={cx("text-[13px] leading-snug", on ? "text-on-inv/80" : "text-muted")}>{isRtl ? b.descFa : b.descEn}</span>
                     </span>
-                    <span className="flex flex-wrap gap-1.5">
-                      {prog.recommended && <RecommendedTag on={on} isRtl={isRtl} />}
-                      <span className={cx(tagCls, tagTone(on))}>{isRtl ? "پروتئین" : "Protein"} {pct(prog.protein)}</span>
-                      <span className={cx(tagCls, tagTone(on))}>{isRtl ? "کربوهیدرات" : "Carbs"} {pct(prog.carbs)}</span>
-                      <span className={cx(tagCls, tagTone(on))}>{isRtl ? "چربی" : "Fat"} {pct(prog.fat)}</span>
-                      {prog.extraKcal && (
-                        <span className={cx(tagCls, on ? "bg-on-inv text-inv" : "bg-inv text-on-inv")}>
-                          +{n(prog.extraKcal)} {isRtl ? "کالری" : "kcal"}
-                        </span>
-                      )}
-                    </span>
+                    <Tick on={on} />
                   </button>
                 );
               })}
+              <div className="mt-2 flex flex-col gap-2">
+                <Label>{isRtl ? "تعداد وعده در روز" : "Meals a day"}</Label>
+                <Segmented value={String(formData.mealsPerDay)} onChange={(v) => handleOptionSelect("mealsPerDay", +v)}
+                  options={[3, 4, 5].map((m) => ({ id: String(m), label: num(m, isRtl) }))} />
+              </div>
             </div>
           )}
 
           <FlowFooter>
             <CtaButton isRtl={isRtl} onClick={handleNext}
-              className={type === "meal-program-picker" ? "!h-auto min-h-[56px] py-2 !text-[15px]" : ""}>
-              {type === "meal-program-picker"
+              className={type === "meal-budget" ? "!h-auto min-h-[56px] py-2 !text-[15px]" : ""}>
+              {type === "meal-budget"
                 ? <span className="block whitespace-normal text-start leading-tight">{footerLabel}</span>
                 : footerLabel}
             </CtaButton>

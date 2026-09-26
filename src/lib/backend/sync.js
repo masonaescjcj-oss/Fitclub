@@ -19,6 +19,7 @@ export const SYNCED_KEYS = {
   "fitclub.training.v1": "training.v1",
   "fitclub.diary.v1": "diary.v1",
   "fitclub.profile.v1": "profile.v1",
+  "fitclub.mealplan.v1": "mealplan.v1",
   "fitclub.checklists.v1": "checklists.v1",
   "fitclub.coach.v1": "coach.v1",
   "fitclub.inbox.read": "inbox.read",

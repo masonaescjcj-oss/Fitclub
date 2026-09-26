@@ -147,6 +147,8 @@ export const FOODS = [
     [{ en: "30 nuts", fa: "۳۰ عدد", g: 30 }]),
   f("peanut_butter", "fat", "Peanut butter", "کره بادام‌زمینی", 588, 25, 20, 50, 6, 17,
     [{ en: "tbsp", fa: "قاشق غذاخوری", g: 16 }]),
+  f("vegetable_oil", "fat", "Vegetable oil (canola, sunflower)", "روغن مایع", 884, 0, 0, 100, 0, 0,
+    [{ en: "tbsp", fa: "قاشق غذاخوری", g: 14 }]),
   f("olive_oil", "fat", "Olive oil", "روغن زیتون", 884, 0, 0, 100, 0, 2,
     [{ en: "tbsp", fa: "قاشق غذاخوری", g: 14 }]),
   f("butter", "fat", "Butter", "کره", 717, 0.9, 0.1, 81.1, 0, 643,

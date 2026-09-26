@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   BedDouble, BookOpen, ChevronDown, ChevronLeft, ChevronRight, Coffee, Dumbbell, Eye, Info, Moon, Plus,
@@ -17,6 +17,8 @@ import { useNutritionStore } from "../../lib/nutrition/nutritionContext";
 import { CalorieRing, MACRO_COLORS, MacroBar, MacroDot, Stat, TrendSpark, fmtNum, round } from "../../components/diet/DietBits";
 import FoodSearchSheet, { macroLine } from "../../components/diet/FoodSearchSheet";
 import { QuickAddSheet, Sheet, TargetsSheet, ViewSheet, WeightSheet } from "../../components/diet/SmallSheets";
+import { PlanSettingsSheet, PlanTodayCard, ShoppingSheet, SwapSheet, WeekSheet } from "../../components/diet/MealPlan";
+import { planDay, weekOver } from "../../lib/nutrition/mealPlanStore";
 import { ShareSheet } from "../../components/training/TrainingSheets";
 import { compactMealPlan } from "../../lib/training/programModel";
 import { useTrainingStore } from "../../lib/training/trainingContext";
@@ -70,6 +72,8 @@ export default function DietPage({ isRtl, onGoToRecipe, onGoToGuide }) {
   const [sheet, setSheet] = useState(null); // "menu" | "weight" | "targets" | "view" | "share"
   const [savingMeal, setSavingMeal] = useState(null);
   const [openMeals, setOpenMeals] = useState(() => new Set());
+  const [planSheet, setPlanSheet] = useState(null); // "settings" | "week" | "shop"
+  const [swapping, setSwapping] = useState(null);   // { date, mealIndex, itemIndex }
 
   const cursorDate = useMemo(() => new Date(`${cursor}T00:00:00`), [cursor]);
   const isToday = cursor === dayKey();
@@ -107,6 +111,19 @@ export default function DietPage({ isRtl, onGoToRecipe, onGoToGuide }) {
 
   const Prev = isRtl ? ChevronRight : ChevronLeft;
   const Next = isRtl ? ChevronLeft : ChevronRight;
+
+  // The meal plan: the planned day for the date on screen.
+  const plan = store.mealPlan;
+  const planned = planDay(plan, cursor);
+  const today = dayKey();
+  // A week that has run out rolls on by itself, with the same settings.
+  useEffect(() => {
+    if (plan.week && weekOver(plan, today)) store.buildMealPlan();
+  }, [plan, today, store]);
+  const baseline = store.planTargets();
+  const stale = !!planned && (Math.abs(planned.target.kcal - baseline.kcal) > baseline.kcal * 0.03
+    || Math.abs(planned.target.protein - baseline.protein) > baseline.protein * 0.05);
+  const swapItem = swapping && planDay(plan, swapping.date)?.meals[swapping.mealIndex];
 
   return (
     <Screen isRtl={isRtl} tabbed>
@@ -220,6 +237,17 @@ export default function DietPage({ isRtl, onGoToRecipe, onGoToGuide }) {
         </div>
         <p className="m-0 text-center text-[13px] text-muted">{t.dayTypeHint}</p>
       </div>
+
+      {/* ── Meal plan ──────────────────────────────────────────── */}
+      {(planned || (!plan.week && isToday)) && (
+        <PlanTodayCard isRtl={isRtl} plan={plan} day={planned} stale={stale}
+          onOpenSettings={() => setPlanSheet("settings")}
+          onOpenWeek={() => setPlanSheet("week")}
+          onOpenShop={() => setPlanSheet("shop")}
+          onUpdate={() => store.buildMealPlan()}
+          onMark={(date, mealIndex, status) => store.markPlannedMeal(date, mealIndex, status)}
+          onSwap={(date, mealIndex, itemIndex) => setSwapping({ date, mealIndex, itemIndex })} />
+      )}
 
       {/* ── Meals ──────────────────────────────────────────────── */}
       <h2 className="m-0 mt-2 font-display font-bold text-[22px] tracking-[-0.02em] text-ink">{t.meals}</h2>
@@ -418,6 +446,33 @@ export default function DietPage({ isRtl, onGoToRecipe, onGoToGuide }) {
           onClose={() => setSheet(null)} />
       )}
 
+      <AnimatePresence>
+        {planSheet === "settings" && (
+          <PlanSettingsSheet isRtl={isRtl} settings={plan.settings}
+            onApply={(settings) => { store.buildMealPlan(settings); setPlanSheet(null); }}
+            onClose={() => setPlanSheet(null)} />
+        )}
+        {planSheet === "week" && (
+          <WeekSheet isRtl={isRtl} plan={plan} today={today}
+            onSwap={(date, mealIndex, itemIndex) => setSwapping({ date, mealIndex, itemIndex })}
+            onRebuild={() => store.buildMealPlan()}
+            onOpenSettings={() => setPlanSheet("settings")}
+            onRemoveRule={store.removeMealPlanRule}
+            onClose={() => setPlanSheet(null)} />
+        )}
+        {planSheet === "shop" && <ShoppingSheet isRtl={isRtl} plan={plan} today={today} onClose={() => setPlanSheet(null)} />}
+      </AnimatePresence>
+      <AnimatePresence>
+        {swapItem && (
+          <SwapSheet isRtl={isRtl} profile={profile} settings={plan.settings}
+            item={swapItem.items[swapping.itemIndex]} slot={swapItem.id[0]}
+            onPick={(option, scope) => {
+              store.swapPlannedFood({ ...swapping, foodId: option.foodId, grams: option.grams, scope });
+              setSwapping(null);
+            }}
+            onClose={() => setSwapping(null)} />
+        )}
+      </AnimatePresence>
       <AnimatePresence>
         {sheet === "share" && (
           <ShareSheet

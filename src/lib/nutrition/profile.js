@@ -75,7 +75,10 @@ export function targetsFor(profile, { trainingDay = null, estimatedTdee = null }
   if (trainingDay === true) kcal *= 1.08;
   else if (trainingDay === false) kcal *= 0.94;
 
-  const protein = Math.round((PROTEIN_PER_KG[profile.goal] ?? 1.6) * profile.weight);
+  // Plant proteins come with carbs: past 1.8 g/kg a vegetarian day can't be
+  // built from whole foods without overshooting them.
+  const perKg = PROTEIN_PER_KG[profile.goal] ?? 1.6;
+  const protein = Math.round((profile.dietType === "vegetarian" ? Math.min(perKg, 1.8) : perKg) * profile.weight);
 
   let fat;
   let carbs;
