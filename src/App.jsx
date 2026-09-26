@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useEffect, useState } from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import WelcomePage from './pages/WelcomePage';
 import LoginPage from './pages/LoginPage';
@@ -8,17 +8,18 @@ import { legalFromPath } from './lib/legal';
 import { initialPage, loadSession, saveSession } from './lib/session';
 import { backendOn } from './lib/backend/supabase';
 import { boot, landingFor, onPasswordRecovery, saveProfile, signOut } from './lib/backend/account';
+import { lazyScreen } from './lib/lazyScreen';
 
 // Screens someone passes through once (sign-up, onboarding, a password
 // reset) load only when they're reached, so everyone else's first load is lighter.
-const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'));
-const OtpPage = lazy(() => import('./pages/OtpPage'));
-const ProfileSetupPage = lazy(() => import('./pages/ProfileSetupPage'));
-const IntroHeroPage = lazy(() => import('./pages/IntroHeroPage'));
-const OnboardingWizard = lazy(() => import('./pages/OnboardingWizard'));
-const AiPlanSummaryPage = lazy(() => import('./pages/AiPlanSummaryPage'));
-const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'));
-const LegalPage = lazy(() => import('./pages/LegalPage'));
+const ForgotPasswordPage = lazyScreen(() => import('./pages/ForgotPasswordPage'));
+const OtpPage = lazyScreen(() => import('./pages/OtpPage'));
+const ProfileSetupPage = lazyScreen(() => import('./pages/ProfileSetupPage'));
+const IntroHeroPage = lazyScreen(() => import('./pages/IntroHeroPage'));
+const OnboardingWizard = lazyScreen(() => import('./pages/OnboardingWizard'));
+const AiPlanSummaryPage = lazyScreen(() => import('./pages/AiPlanSummaryPage'));
+const ResetPasswordPage = lazyScreen(() => import('./pages/ResetPasswordPage'));
+const LegalPage = lazyScreen(() => import('./pages/LegalPage'));
 
 // Pages that only make sense before or during sign-up.
 const AUTH_PAGES = ['welcome', 'login', 'signup', 'forgot-password', 'otp'];

@@ -316,12 +316,16 @@ export async function removeAvatar() {
   return saveProfile({ avatar_url: null });
 }
 
-/** Signs out everywhere on this device and forgets the account's data here. */
+/**
+ * Signs out on this device and forgets the account's data here. Only this
+ * device's sign-in ends: the login is shared with other apps in the
+ * project, and a global sign-out would end their sessions too.
+ */
 export async function signOut() {
   if (backendOn) {
     await sync?.flush().catch(() => {});
     detach({ clear: true });
-    await supabase.auth.signOut().catch(() => {});
+    await supabase.auth.signOut({ scope: "local" }).catch(() => {});
   }
   clearSession();
 }
@@ -361,6 +365,7 @@ export async function deleteAccount() {
   if (error) return failed(error);
   forgetAccountHere();
   await dropPushHere();
-  await supabase.auth.signOut().catch(() => {});
+  // Other devices still signed in find out at their next start (boot above), and can't write meanwhile.
+  await supabase.auth.signOut({ scope: "local" }).catch(() => {});
   return { error: null };
 }

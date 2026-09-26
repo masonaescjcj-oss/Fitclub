@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useEffect, useRef, useState } from "react";
+import React, { Suspense, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChecklistProvider, useChecklistStore } from "../lib/checklistContext";
 import { NutritionProvider } from "../lib/nutrition/nutritionContext";
@@ -15,6 +15,7 @@ import { loadSession } from "../lib/session";
 import { clearShareFromLocation, readShareFromLocation } from "../lib/training/programModel";
 import { clearJoinFromLocation, readJoinFromLocation } from "../lib/chat/search";
 import { applyMealPlan } from "../lib/nutrition/mealPlan";
+import { importWithRetry, lazyScreen } from "../lib/lazyScreen";
 import BottomNavBar from "../components/BottomNavBar";
 import { Toast } from "../components/ui/kit";
 
@@ -45,30 +46,30 @@ const SCREENS = {
   DietGuidePage: () => import("./sub/DietGuidePage"),
   ImportSheet: () => import("../components/training/TrainingSheets").then((m) => ({ default: m.ImportSheet })),
 };
-const WorkoutPage = lazy(SCREENS.WorkoutPage);
-const DietPage = lazy(SCREENS.DietPage);
-const AiCoachPage = lazy(SCREENS.AiCoachPage);
-const CommunityPage = lazy(SCREENS.CommunityPage);
-const ChecklistPage = lazy(SCREENS.ChecklistPage);
-const LegalPage = lazy(SCREENS.LegalPage);
-const ProfilePage = lazy(SCREENS.ProfilePage);
-const DevicesPage = lazy(SCREENS.DevicesPage);
-const StreakDetailPage = lazy(SCREENS.StreakDetailPage);
-const MyRankPage = lazy(SCREENS.MyRankPage);
-const HistoryPage = lazy(SCREENS.HistoryPage);
-const TutorialsPage = lazy(SCREENS.TutorialsPage);
-const NotificationsPage = lazy(SCREENS.NotificationsPage);
-const WorkoutReportPage = lazy(SCREENS.WorkoutReportPage);
-const TeamPage = lazy(SCREENS.TeamPage);
-const WalletPage = lazy(SCREENS.WalletPage);
-const SubscriptionPage = lazy(SCREENS.SubscriptionPage);
-const RecipeExplorePage = lazy(SCREENS.RecipeExplorePage);
-const DietGuidePage = lazy(SCREENS.DietGuidePage);
-const ImportSheet = lazy(SCREENS.ImportSheet);
+const WorkoutPage = lazyScreen(SCREENS.WorkoutPage);
+const DietPage = lazyScreen(SCREENS.DietPage);
+const AiCoachPage = lazyScreen(SCREENS.AiCoachPage);
+const CommunityPage = lazyScreen(SCREENS.CommunityPage);
+const ChecklistPage = lazyScreen(SCREENS.ChecklistPage);
+const LegalPage = lazyScreen(SCREENS.LegalPage);
+const ProfilePage = lazyScreen(SCREENS.ProfilePage);
+const DevicesPage = lazyScreen(SCREENS.DevicesPage);
+const StreakDetailPage = lazyScreen(SCREENS.StreakDetailPage);
+const MyRankPage = lazyScreen(SCREENS.MyRankPage);
+const HistoryPage = lazyScreen(SCREENS.HistoryPage);
+const TutorialsPage = lazyScreen(SCREENS.TutorialsPage);
+const NotificationsPage = lazyScreen(SCREENS.NotificationsPage);
+const WorkoutReportPage = lazyScreen(SCREENS.WorkoutReportPage);
+const TeamPage = lazyScreen(SCREENS.TeamPage);
+const WalletPage = lazyScreen(SCREENS.WalletPage);
+const SubscriptionPage = lazyScreen(SCREENS.SubscriptionPage);
+const RecipeExplorePage = lazyScreen(SCREENS.RecipeExplorePage);
+const DietGuidePage = lazyScreen(SCREENS.DietGuidePage);
+const ImportSheet = lazyScreen(SCREENS.ImportSheet);
 
 /** Fetches every screen in the background once the app is idle. */
 function prefetchScreens() {
-  const run = () => Object.values(SCREENS).forEach((load) => load().catch(() => {}));
+  const run = () => Object.values(SCREENS).forEach((load) => importWithRetry(load).catch(() => {}));
   if (typeof window.requestIdleCallback === "function") window.requestIdleCallback(run, { timeout: 4000 });
   else setTimeout(run, 2500);
 }
