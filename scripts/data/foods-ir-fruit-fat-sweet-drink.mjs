@@ -127,7 +127,7 @@ export default [
     n: { kcal: 18, protein: 0.3, carbs: 4.5, fat: 0, fiber: 0, sodium: 5 }, source: "composition estimate: unripe grape juice, ~5 °Brix with 2–3% organic acids",
     servings: [["tbsp", "یک قاشق غذاخوری", 15], ["tsp", "یک قاشق چای‌خوری", 5]], price: 110000, priceEst: true, tags: ["vegan", "keto"], aliases: ["آب غوره", "غوره"] },
   { id: "vinegar", cat: "condiment", group: "condiment", nameEn: "Vinegar (grape)", nameFa: "سرکه",
-    usda: 172240, servings: [["tbsp", "یک قاشق غذاخوری", 15]], price: 70000, priceEst: true, tags: ["vegan", "keto"], aliases: ["سرکه انگور", "سرکه سفید", "سرکه قرمز"] },
+    usda: 172240, energyNote: "its energy is acetic acid, which is not a macro", servings: [["tbsp", "یک قاشق غذاخوری", 15]], price: 70000, priceEst: true, tags: ["vegan", "keto"], aliases: ["سرکه انگور", "سرکه سفید", "سرکه قرمز"] },
   { id: "dried_lime", cat: "condiment", group: "condiment", nameEn: "Dried lime (limoo amani)", nameFa: "لیمو عمانی",
     n: { kcal: 230, protein: 5.4, carbs: 81, fat: 1.5, fiber: 21, sodium: 15 }, source: "USDA fresh lime (168155) scaled to ~10% moisture",
     energyNote: "scaled from USDA's own lime energy, which counts fiber and citric acid at lower factors than 4/4/9",

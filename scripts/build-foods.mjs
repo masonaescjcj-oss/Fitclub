@@ -85,6 +85,8 @@ for (const row of base) {
     ...(row.usda ? { usda: row.usda } : {}),
     ...(row.tags?.length ? { tags: row.tags } : {}),
     ...(row.aliases?.length ? { aliases: row.aliases } : {}),
+    // USDA's own energy factors differ from 4/4/9 here (fibre, acids): the row says why.
+    ...(row.energyNote ? { energyNote: true } : {}),
   });
 }
 

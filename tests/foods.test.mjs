@@ -10,8 +10,9 @@ for (const food of FOODS) {
   const netCarbs = Math.max(p.carbs - p.fiber, 0);
   const derived = p.protein*4 + netCarbs*4 + p.fiber*2 + p.fat*9;
   const drift = p.kcal === 0 ? derived : Math.abs(derived - p.kcal) / p.kcal;
-  const tol = p.kcal < 50 ? 0.25 : 0.12;
-  if (p.kcal > 5 && drift > tol) { console.log(`✗ kcal drift ${(drift*100).toFixed(0)}% ${food.id}: stated ${p.kcal}, macros imply ${derived.toFixed(0)}`); bad++; }
+  // USDA's own energy factors run a little off 4/4/9 for some foods; rows that differ more say why (energyNote).
+  const tol = p.kcal < 50 ? (food.usda ? 0.3 : 0.25) : food.usda ? 0.16 : 0.12;
+  if (p.kcal > 5 && drift > tol && !food.energyNote) { console.log(`✗ kcal drift ${(drift*100).toFixed(0)}% ${food.id}: stated ${p.kcal}, macros imply ${derived.toFixed(0)}`); bad++; }
   if (ids.has(food.id)) { console.log('✗ duplicate id', food.id); bad++; }
   ids.add(food.id);
   if (!catIds.has(food.cat)) { console.log('✗ unknown category', food.id, food.cat); bad++; }

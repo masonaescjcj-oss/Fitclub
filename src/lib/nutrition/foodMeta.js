@@ -77,6 +77,9 @@ const RAW = {
   chickpeas: ["legume", "legume", "ld", "legume", { yield: 2.2, unit: { en: "cup", fa: "پیمانه", g: 164 } }],
   kidney_beans: ["legume", "legume", "ld", "legume", { yield: 2.4, unit: { en: "cup", fa: "پیمانه", g: 177 } }],
   tofu: ["legume", "soy", "ld", "protein", { keto: true, allergens: ["soy"] }],
+  // Textured soy (سویا), weighed dry: the cheapest protein a vegetarian plan has.
+  // Only ever added to top up protein (repair), never a meal's main food.
+  soy_tvp: ["legume", "soy", "ld", "legume", { allergens: ["soy"], portion: { min: 30, max: 90, step: 10 }, booster: true }],
   broccoli: ["veg", "veg", "ld", "veg", { yield: 0.8, keto: true }],
   spinach: ["veg", "leafy", "ld", "veg", { yield: 0.9, keto: true }],
   cucumber: ["veg", "salad", "blds", "veg", { yield: 0.95, keto: true }],
@@ -119,7 +122,11 @@ const RAW = {
 // The Iranian dishes (foodsIr.js) join the planner as lunch and dinner dishes; the sweet ones stay out.
 for (const r of DISH_RECIPES) {
   if (RAW[r.id] || r.planSub === "sweet" || !["lunch", "dinner"].includes(r.meal)) continue;
-  RAW[r.id] = ["dish", r.planSub || "dish", "ld", "dish", { meat: r.diet === "meat" || r.diet === "fish", pair: r.pair || "none", allergens: r.allergens || [] }];
+  // Its portion range comes from its own serving (a falafel plate is not a bowl of stew).
+  const step = r.serving >= 250 ? 50 : 20;
+  const min = Math.max(step, Math.round((r.serving * 0.6) / step) * step);
+  const max = Math.max(min + step, Math.round((r.serving * 1.35) / step) * step);
+  RAW[r.id] = ["dish", r.planSub || "dish", "ld", "dish", { meat: r.diet === "meat" || r.diet === "fish", pair: r.pair || "none", allergens: r.allergens || [], portion: { min, max, step } }];
 }
 const IR_PRICES = Object.fromEntries(FOODS_IR.filter((f) => f.price > 0).map((f) => [f.id, { price: f.price, est: !!f.priceEst }]));
 
@@ -127,12 +134,13 @@ const META = Object.fromEntries(Object.entries(RAW).map(([id, [group, sub, slots
   const market = MARKET_PRICES[id] || IR_PRICES[id];
   const y = x.yield || 1;
   return [id, {
-    id, group, sub, slots, ...BOUNDS[bounds], bounds,
+    id, group, sub, slots, ...BOUNDS[bounds], ...(x.portion || {}), bounds,
     yield: y,
     meat: !!x.meat,
     keto: !!x.keto,
     allergens: x.allergens || [],
     pair: x.pair || null,
+    booster: !!x.booster,
     unit: x.unit || null,
     // toman per gram as eaten
     pricePerG: market ? market.price / y / 1000 : null,

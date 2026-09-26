@@ -91,7 +91,8 @@ const has = (m, slot) => m.slots.includes(slot);
 
 /** The foods that can fill one role of one meal. */
 function rolePool(pool, role, kind, ctx = {}) {
-  const at = pool.filter((f) => has(f.meta, kind));
+  // A top-up food (textured soy) only comes in through repair().
+  const at = pool.filter((f) => has(f.meta, kind) && !f.meta.booster);
   switch (role) {
     case "main": return at.filter((f) => (f.meta.group === "protein" && f.meta.sub !== "egg") || f.meta.group === "legume"
       || (ctx.eggMain && f.meta.sub === "egg" && f.id === "egg"));
@@ -441,7 +442,7 @@ export function generateWeek({ start, targetFor, settings = DEFAULT_SETTINGS, di
 }
 
 // Cheap, plain protein that fits beside almost any meal.
-const BOOSTERS = ["egg", "egg_white", "yogurt_plain", "greek_yogurt", "cottage", "tuna_can", "chicken_breast", "whey", "tofu", "feta"];
+const BOOSTERS = ["egg", "egg_white", "yogurt_plain", "greek_yogurt", "cottage", "tuna_can", "chicken_breast", "whey", "tofu", "soy_tvp", "feta"];
 
 /**
  * A day that still misses after its tries is usually short on protein (a
@@ -460,7 +461,7 @@ function repair(day, pool, { budget, layout, dietType, likes }) {
       .sort((a, b) => (likes.includes(b.id) - likes.includes(a.id)) || (a.meta.pricePerG ?? 9) - (b.meta.pricePerG ?? 9));
     const current = best.day;
     const tries = [];
-    for (const e of candidates.slice(0, 5)) {
+    for (const e of candidates.slice(0, 6)) {
       current.meals.forEach((meal, m) => {
         const kind = layout[m]?.kind || "l";
         if (!e.meta.slots.includes(kind) || meal.items.some((it) => it.foodId === e.id)) return;

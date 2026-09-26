@@ -75,7 +75,7 @@ export default [
     ingredients: [["rice_raw", 450], ["water", 800], ["chicken_whole", 600], ["onion", 150], ["tomato_paste", 25], ["barberries", 40], ["sugar", 10], ["butter", 25], ["vegetable_oil", 45], ["saffron_brewed", 25], ["pistachio", 15]],
     cookedWeight: 2100, serving: 400, servingEn: "plate", servingFa: "یک بشقاب",
     stepsEn: ["Soak the rice for 2 hours, parboil it in salted water for 8 minutes, drain, and steam it 50 minutes with half the oil and a little water.", "Fry the onion in the rest of the oil, add the chicken, tomato paste, turmeric and a glass of water and simmer 45 minutes until the sauce thickens.", "Fry the barberries very briefly in the butter with the sugar and a spoon of the saffron.", "Mix some of the rice with the rest of the saffron and serve topped with the barberries and pistachio slivers, the chicken on the side."],
-    stepsFa: ["برنج را ۲ ساعت خیس کن، ۸ دقیقه در آب نمک آب‌پز کن، آبکش کن و با نصف روغن و کمی آب ۵۰ دقیقه دم کن.", "پیاز را در باقی روغن تفت بده، مرغ، رب، زردچوبه و یک لیوان آب را اضافه کن و ۴۵ دقیقه بپز تا سس غلیظ شود.", "زرشک را با شکر و یک قاشق زعفران خیلی کوتاه در کره تفت بده.", "کمی از برنج را با باقی زعفران قاطی کن و پلو را با زرشک و خلال پسته رویش و مرغ کنارش سرو کن."],
+    stepsFa: ["برنج را ۲ ساعت خیس کن، ۸ دقیقه در آب نمک آب‌پز کن، آبکش کن و با نصف روغن و کمی آب ۵۰ دقیقه دم کن.", "پیاز را در باقی روغن تفت بده، مرغ، رب، زردچوبه و یک لیوان آب را اضافه کن و ۴۵ دقیقه بپز تا سس غلیظ شود.", "زرشک را با شکر و یک قاشق زعفران خیلی کوتاه در کره تفت بده.", "کمی از برنج را با باقی زعفران مخلوط کن و پلو را با زرشک و خلال پسته رویش و مرغ کنارش سرو کن."],
     aliases: ["زرشک پلو", "زرشک‌پلو با مرغ", "زرشک پلو مرغ"],
   },
   {
@@ -93,7 +93,7 @@ export default [
     ingredients: [["rice_raw", 450], ["water", 700], ["lentils", 300], ["onion", 200], ["raisins", 80], ["dates", 80], ["butter", 30], ["vegetable_oil", 50], ["saffron_brewed", 15]],
     cookedWeight: 1800, serving: 400, servingEn: "plate", servingFa: "یک بشقاب",
     stepsEn: ["Parboil the soaked rice for 7 minutes, drain, and mix it with the cooked lentils.", "Steam the rice and lentils for 45 minutes with half the oil.", "Fry the sliced onion golden in the rest of the oil, then add the raisins and pitted dates for a minute.", "Serve the polo topped with the onion, raisins and dates, the butter and saffron."],
-    stepsFa: ["برنج خیس‌خورده را ۷ دقیقه آب‌پز و آبکش کن و با عدس پخته قاطی کن.", "برنج و عدس را با نصف روغن ۴۵ دقیقه دم کن.", "پیاز خلالی را در باقی روغن طلایی کن و کشمش و خرمای بی‌هسته را یک دقیقه با آن تفت بده.", "پلو را با پیاز داغ، کشمش و خرما و کره و زعفران رویش سرو کن."],
+    stepsFa: ["برنج خیس‌خورده را ۷ دقیقه آب‌پز و آبکش کن و با عدس پخته مخلوط کن.", "برنج و عدس را با نصف روغن ۴۵ دقیقه دم کن.", "پیاز خلالی را در باقی روغن طلایی کن و کشمش و خرمای بی‌هسته را یک دقیقه با آن تفت بده.", "پلو را با پیاز داغ، کشمش و خرما و کره و زعفران رویش سرو کن."],
     aliases: ["عدس‌پلو", "عدس پلو با کشمش"],
   },
   {
@@ -120,7 +120,7 @@ export default [
     ingredients: [["rice_raw", 450], ["water", 700], ["parsley", 100], ["coriander", 80], ["dill", 80], ["leek", 100], ["garlic", 20], ["vegetable_oil", 100], ["white_fish", 600], ["flour_white", 30]],
     cookedWeight: 2150, serving: 450, servingEn: "plate with fish", servingFa: "یک بشقاب با ماهی",
     stepsEn: ["Parboil the soaked rice for 7 minutes, drain, and mix in the finely chopped herbs and garlic.", "Steam the rice for 50 minutes with half the oil, for a crisp tahdig.", "Dust the fish pieces with the flour and turmeric and fry them golden in the rest of the oil, about 4 minutes a side.", "Serve the herb rice with a piece of fish and a squeeze of lemon."],
-    stepsFa: ["برنج خیس‌خورده را ۷ دقیقه آب‌پز و آبکش کن و سبزی ریز خردشده و سیر را با آن قاطی کن.", "برنج را با نصف روغن ۵۰ دقیقه دم کن تا ته‌دیگ ترد بدهد.", "تکه‌های ماهی را در آرد و زردچوبه بغلتان و در باقی روغن، هر طرف حدود ۴ دقیقه طلایی سرخ کن.", "سبزی پلو را با یک تکه ماهی و کمی آب لیمو سرو کن."],
+    stepsFa: ["برنج خیس‌خورده را ۷ دقیقه آب‌پز و آبکش کن و سبزی ریز خردشده و سیر را با آن مخلوط کن.", "برنج را با نصف روغن ۵۰ دقیقه دم کن تا ته‌دیگ ترد بدهد.", "تکه‌های ماهی را در آرد و زردچوبه بغلتان و در باقی روغن، هر طرف حدود ۴ دقیقه طلایی سرخ کن.", "سبزی پلو را با یک تکه ماهی و کمی آب لیمو سرو کن."],
     aliases: ["سبزی پلو", "سبزی‌پلو ماهی"],
   },
   {
@@ -149,6 +149,15 @@ export default [
     stepsEn: ["Fry the onion in the oil with plenty of turmeric.", "Add the rinsed rice, the cooked fava beans and the water and boil until the water is almost gone.", "Stir in the dill, cover and steam 45 minutes on low heat."],
     stepsFa: ["پیاز را با زردچوبه‌ی فراوان در روغن تفت بده.", "برنجِ شسته، باقلای پخته و آب را اضافه کن و بجوشان تا آبش تقریباً کشیده شود.", "شوید را هم بزن، درش را بگذار و روی حرارت کم ۴۵ دقیقه دم کن."],
     aliases: ["دم‌پختک", "دمپختک باقالی"],
+  },
+  {
+    id: "meygoo_polo", nameEn: "Bushehri shrimp rice", nameFa: "میگو پلو",
+    meal: "lunch", minutes: 80, pair: "none", planSub: "rice", diet: "fish", allergens: ["shellfish"],
+    ingredients: [["rice_raw", 450], ["water", 700], ["shrimp", 500], ["onion", 200], ["garlic", 20], ["coriander", 60], ["tomato_paste", 30], ["vegetable_oil", 70]],
+    cookedWeight: 1950, serving: 400, servingEn: "plate", servingFa: "یک بشقاب",
+    stepsEn: ["Fry the onion golden in half the oil, add the garlic, turmeric and Bushehri spice mix, then the shrimp, and fry 5 minutes.", "Stir in the tomato paste and chopped coriander and cook 2 minutes more.", "Parboil the soaked rice for 7 minutes, drain, and layer it with the shrimp mixture in the pot.", "Steam 45 minutes with the rest of the oil."],
+    stepsFa: ["پیاز را در نصف روغن طلایی کن، سیر، زردچوبه و ادویه‌ی بوشهری و بعد میگو را اضافه کن و ۵ دقیقه تفت بده.", "رب و گشنیز خردشده را اضافه کن و ۲ دقیقه‌ی دیگر تفت بده.", "برنج خیس‌خورده را ۷ دقیقه آب‌پز و آبکش کن و لایه‌لایه با مواد میگو در قابلمه بریز.", "با باقی روغن ۴۵ دقیقه دم کن."],
+    aliases: ["میگوپلو", "میگو پلو بوشهری"],
   },
   {
     id: "makaroni", nameEn: "Persian macaroni with meat sauce", nameFa: "ماکارونی با گوشت",
@@ -186,7 +195,7 @@ export default [
     cookedWeight: 1150, serving: 250, servingEn: "plate", servingFa: "یک بشقاب",
     stepsEn: ["Fry the sliced onion golden in the oil, add the chicken pieces and turmeric and brown them on all sides.", "Add the tomato paste, then the water; cover and simmer 45 minutes.", "Add the saffron and lemon juice and cook 10 minutes more, until the sauce is thick."],
     stepsFa: ["پیاز خلالی را در روغن طلایی کن، تکه‌های مرغ و زردچوبه را اضافه کن و همه طرفشان را سرخ کن.", "رب و بعد آب را اضافه کن؛ درش را بگذار و ۴۵ دقیقه آرام بپز.", "زعفران و آبلیمو را بریز و ۱۰ دقیقه‌ی دیگر بپز تا سس غلیظ شود."],
-    aliases: ["خوراک مرغ", "خوراک مرغ زعفرانی", "مرغ پخته"],
+    aliases: ["خوراک مرغ", "خوراک مرغ زعفرانی"],
   },
   {
     id: "mahi_sorkhkardeh", nameEn: "Pan-fried fish", nameFa: "ماهی سرخ‌کرده",
@@ -221,7 +230,7 @@ export default [
     ingredients: [["beef_ground_regular_raw", 500], ["rice_raw", 100], ["split_peas", 150], ["parsley", 50], ["dill", 20], ["leek", 50], ["onion", 250], ["egg", 150], ["walnuts", 40], ["prunes", 60], ["barberries", 20], ["tomato_paste", 40], ["vegetable_oil", 40], ["water", 800]],
     cookedWeight: 2100, serving: 450, servingEn: "kofteh with broth", servingFa: "یک عدد با آبش",
     stepsEn: ["Cook the rice soft in a little water; mix it with the ground meat, cooked split peas, one grated onion, the chopped herbs and one egg, and knead for 10 minutes.", "Hard-boil the other eggs; wrap each kofteh around an egg, prunes, walnuts and barberries and close it into a large ball.", "Fry the rest of the onion in the oil, add the tomato paste and the water and bring to a boil.", "Lower the koftehs into the sauce and simmer gently for 1 hour, spooning sauce over them."],
-    stepsFa: ["برنج را در کمی آب نرم بپز؛ با گوشت چرخ‌کرده، لپه‌ی پخته، یک پیاز رنده‌شده، سبزی خردشده و یک تخم‌مرغ قاطی کن و ۱۰ دقیقه ورز بده.", "باقی تخم‌مرغ‌ها را سفت بپز؛ وسط هر کوفته یک تخم‌مرغ، آلو، گردو و زرشک بگذار و به شکل یک گلوله‌ی بزرگ ببند.", "باقی پیاز را در روغن تفت بده، رب و آب را اضافه کن و بگذار بجوشد.", "کوفته‌ها را آرام در سس بگذار و ۱ ساعت روی حرارت کم بپز و گاهی از سس رویشان بریز."],
+    stepsFa: ["برنج را در کمی آب نرم بپز؛ با گوشت چرخ‌کرده، لپه‌ی پخته، یک پیاز رنده‌شده، سبزی خردشده و یک تخم‌مرغ مخلوط کن و ۱۰ دقیقه ورز بده.", "باقی تخم‌مرغ‌ها را سفت بپز؛ وسط هر کوفته یک تخم‌مرغ، آلو، گردو و زرشک بگذار و به شکل یک گلوله‌ی بزرگ ببند.", "باقی پیاز را در روغن تفت بده، رب و آب را اضافه کن و بگذار بجوشد.", "کوفته‌ها را آرام در سس بگذار و ۱ ساعت روی حرارت کم بپز و گاهی از سس رویشان بریز."],
     aliases: ["کوفته", "کوفته‌ی تبریزی"],
   },
   {
@@ -230,7 +239,7 @@ export default [
     ingredients: [["bell_pepper", 600], ["beef_ground_regular", 250], ["rice_raw", 150], ["split_peas", 100], ["onion", 150], ["parsley", 50], ["dill", 20], ["leek", 30], ["tomato_paste", 40], ["vegetable_oil", 50], ["verjuice", 30], ["sugar", 10], ["water", 350]],
     cookedWeight: 1600, serving: 350, servingEn: "2 peppers", servingFa: "دو عدد",
     stepsEn: ["Half-cook the rice in water and drain it.", "Fry the onion in half the oil, add the ground meat, then the rice, cooked split peas, chopped herbs and half the tomato paste.", "Cut the tops off the peppers, scoop out the seeds and fill them with the mixture.", "Stand them in a pot, pour over the rest of the oil and tomato paste mixed with the water, verjuice and sugar, and simmer covered for 45 minutes."],
-    stepsFa: ["برنج را در آب نیم‌پز و آبکش کن.", "پیاز را در نصف روغن تفت بده، گوشت چرخ‌کرده و بعد برنج، لپه‌ی پخته، سبزی خردشده و نصف رب را اضافه کن.", "سر فلفل‌ها را ببر، تخمشان را خالی کن و با مواد پر کن.", "فلفل‌ها را ایستاده در قابلمه بچین، باقی روغن و رب را با آب، آبغوره و شکر قاطی کن و رویشان بریز و با درِ بسته ۴۵ دقیقه آرام بپز."],
+    stepsFa: ["برنج را در آب نیم‌پز و آبکش کن.", "پیاز را در نصف روغن تفت بده، گوشت چرخ‌کرده و بعد برنج، لپه‌ی پخته، سبزی خردشده و نصف رب را اضافه کن.", "سر فلفل‌ها را ببر، تخمشان را خالی کن و با مواد پر کن.", "فلفل‌ها را ایستاده در قابلمه بچین، باقی روغن و رب را با آب، آبغوره و شکر مخلوط کن و رویشان بریز و با درِ بسته ۴۵ دقیقه آرام بپز."],
     aliases: ["دلمه", "دلمه فلفل دلمه‌ای"],
   },
   {
@@ -283,19 +292,19 @@ export default [
   {
     id: "haleem", nameEn: "Haleem (wheat and meat porridge)", nameFa: "حلیم",
     meal: "breakfast", minutes: 240, pair: "none", planSub: "soup", diet: "meat", allergens: ["gluten", "dairy"],
-    ingredients: [["bulgur", 900], ["lamb_stew", 300], ["water", 500], ["ghee", 40], ["sugar", 40]],
+    ingredients: [["bulgur", 250], ["lamb_stew", 300], ["water", 1150], ["ghee", 40], ["sugar", 40]],
     cookedWeight: 1600, serving: 350, servingEn: "bowl", servingFa: "یک کاسه",
-    stepsEn: ["Cook the soaked wheat (or bulgur) with the lamb and the water for 3 hours on low heat until very soft.", "Take out any bones and pound or blend everything, stirring often, until thick and stretchy.", "Serve in bowls topped with the melted ghee, the sugar and cinnamon."],
-    stepsFa: ["گندمِ خیس‌خورده (یا بلغور) را با گوشت و آب ۳ ساعت روی حرارت کم بپز تا کاملاً له شود.", "استخوان‌ها را دربیاور و همه را بکوب یا با گوشت‌کوب برقی بزن و مدام هم بزن تا غلیظ و کش‌دار شود.", "در کاسه بکش و با روغن حیوانی داغ، شکر و دارچین سرو کن."],
+    stepsEn: ["Soak the bulgur (or whole wheat) overnight, then cook it with the lamb and the water for 3 hours on low heat until very soft.", "Take out any bones and pound or blend everything, stirring often, until thick and stretchy.", "Serve in bowls topped with the melted ghee, the sugar and cinnamon."],
+    stepsFa: ["بلغور (یا گندم پوست‌کنده) را یک شب خیس کن و بعد با گوشت و آب ۳ ساعت روی حرارت کم بپز تا کاملاً له شود.", "استخوان‌ها را دربیاور و همه را بکوب یا با گوشت‌کوب برقی بزن و مدام هم بزن تا غلیظ و کش‌دار شود.", "در کاسه بکش و با روغن حیوانی داغ، شکر و دارچین سرو کن."],
     aliases: ["حلیم گندم", "حلیم گوشت"],
   },
   {
     id: "eshkeneh", nameEn: "Eshkeneh (onion and egg soup)", nameFa: "اشکنه",
     meal: "dinner", minutes: 45, pair: "bread", planSub: "soup", diet: "vegetarian", allergens: ["egg", "gluten"],
-    ingredients: [["onion", 250], ["vegetable_oil", 45], ["flour_white", 20], ["fenugreek", 10], ["potato", 300], ["egg", 150], ["water", 1000]],
+    ingredients: [["onion", 250], ["vegetable_oil", 45], ["flour_white", 20], ["fenugreek", 40], ["potato", 300], ["egg", 150], ["water", 1000]],
     cookedWeight: 1500, serving: 350, servingEn: "bowl", servingFa: "یک کاسه",
-    stepsEn: ["Fry the sliced onion golden in the oil with turmeric; add the flour and the dried fenugreek and stir for 1 minute.", "Add the water and potato cubes and simmer 25 minutes until the potato is soft.", "Break the eggs into the soup one by one without stirring and cook 5 minutes until set."],
-    stepsFa: ["پیاز خلالی را با زردچوبه در روغن طلایی کن؛ آرد و شنبلیله‌ی خشک را اضافه کن و ۱ دقیقه تفت بده.", "آب و سیب‌زمینی مکعبی را اضافه کن و ۲۵ دقیقه بپز تا سیب‌زمینی نرم شود.", "تخم‌مرغ‌ها را یکی‌یکی در آش بشکن، هم نزن و ۵ دقیقه بپز تا ببندد."],
+    stepsEn: ["Fry the sliced onion golden in the oil with turmeric; add the flour and the chopped fenugreek (or a spoonful of dried) and stir for 1 minute.", "Add the water and potato cubes and simmer 25 minutes until the potato is soft.", "Break the eggs into the soup one by one without stirring and cook 5 minutes until set."],
+    stepsFa: ["پیاز خلالی را با زردچوبه در روغن طلایی کن؛ آرد و شنبلیله‌ی خردشده (یا یک قاشق شنبلیله‌ی خشک) را اضافه کن و ۱ دقیقه تفت بده.", "آب و سیب‌زمینی مکعبی را اضافه کن و ۲۵ دقیقه بپز تا سیب‌زمینی نرم شود.", "تخم‌مرغ‌ها را یکی‌یکی در آش بشکن، هم نزن و ۵ دقیقه بپز تا ببندد."],
     aliases: ["اشکنه تخم‌مرغ", "اشکنه شنبلیله"],
   },
   {
@@ -324,7 +333,7 @@ export default [
     ingredients: [["spinach", 500], ["yogurt_plain", 500], ["onion", 100], ["garlic", 10], ["vegetable_oil", 25]],
     cookedWeight: 850, serving: 200, servingEn: "bowl", servingFa: "یک کاسه",
     stepsEn: ["Wash and chop the spinach and wilt it in a dry pan; squeeze out the water and let it cool.", "Fry the onion and garlic in the oil until golden and mix them with the spinach.", "Stir everything into the yogurt with salt and pepper and chill before serving."],
-    stepsFa: ["اسفناج را بشور، خرد کن و در تابه‌ی خشک بپز تا بخوابد؛ آبش را بگیر و بگذار خنک شود.", "پیاز و سیر را در روغن طلایی کن و با اسفناج قاطی کن.", "همه را با نمک و فلفل در ماست هم بزن و قبل از سرو خنک کن."],
+    stepsFa: ["اسفناج را بشور، خرد کن و در تابه‌ی خشک بپز تا بخوابد؛ آبش را بگیر و بگذار خنک شود.", "پیاز و سیر را در روغن طلایی کن و با اسفناج مخلوط کن.", "همه را با نمک و فلفل در ماست هم بزن و قبل از سرو خنک کن."],
     aliases: ["بورانی", "ماست اسفناج"],
   },
   {
@@ -333,7 +342,7 @@ export default [
     ingredients: [["eggplant", 500], ["yogurt_plain", 500], ["garlic", 15], ["vegetable_oil", 50], ["walnuts", 20]],
     cookedWeight: 1000, serving: 200, servingEn: "bowl", servingFa: "یک کاسه",
     stepsEn: ["Slice the eggplant, fry it golden in the oil and mash it with a fork.", "Mix it with the yogurt, the crushed garlic, salt and pepper.", "Serve cold, topped with the chopped walnuts (and a little saffron or dried mint)."],
-    stepsFa: ["بادمجان را حلقه کن، در روغن طلایی سرخ کن و با چنگال له کن.", "با ماست، سیر له‌شده، نمک و فلفل قاطی کن.", "سرد و با گردوی خردشده (و کمی زعفران یا نعناع خشک) رویش سرو کن."],
+    stepsFa: ["بادمجان را حلقه کن، در روغن طلایی سرخ کن و با چنگال له کن.", "با ماست، سیر له‌شده، نمک و فلفل مخلوط کن.", "سرد و با گردوی خردشده (و کمی زعفران یا نعناع خشک) رویش سرو کن."],
     aliases: ["بورانی بادنجان", "ماست بادمجان"],
   },
   {
@@ -355,6 +364,16 @@ export default [
     aliases: ["یتیمچه بادمجان", "خوراک بادمجان"],
   },
 
+  {
+    id: "baghala_ghatogh", nameEn: "Baghala ghatogh (fava beans with dill and egg)", nameFa: "باقلا قاتق",
+    meal: "lunch", minutes: 40, pair: "rice", planSub: "legume", diet: "vegetarian", allergens: ["egg"],
+    ingredients: [["fava_beans", 600], ["dill", 100], ["garlic", 30], ["egg", 150], ["vegetable_oil", 45], ["water", 200]],
+    cookedWeight: 1000, serving: 250, servingEn: "bowl", servingFa: "یک کاسه",
+    stepsEn: ["Fry the crushed garlic in the oil with turmeric, add the chopped dill and fry 2 minutes.", "Add the cooked fava beans and the water and simmer 15 minutes.", "Break the eggs over the top, cover and cook until just set; serve with rice."],
+    stepsFa: ["سیر له‌شده را با زردچوبه در روغن تفت بده، شوید خردشده را اضافه کن و ۲ دقیقه تفت بده.", "باقلای پخته و آب را اضافه کن و ۱۵ دقیقه بپز.", "تخم‌مرغ‌ها را رویش بشکن، درش را بگذار تا تازه ببندد و با کته سرو کن."],
+    aliases: ["باقالی قاتق", "باقلاقاتق"],
+  },
+
   // ── Kuku and eggs ───────────────────────────────────────────────────────────
   {
     id: "kuku_sabzi", nameEn: "Herb kuku", nameFa: "کوکو سبزی",
@@ -371,7 +390,7 @@ export default [
     ingredients: [["potato", 600], ["egg", 200], ["onion", 100], ["flour_white", 20], ["vegetable_oil", 80]],
     cookedWeight: 850, serving: 120, servingEn: "2 patties", servingFa: "دو عدد",
     stepsEn: ["Boil, peel and grate the potatoes; grate the onion and squeeze out its juice.", "Mix them with the eggs, flour, turmeric, salt and pepper.", "Shape small patties and fry them in the oil, 3 minutes a side, until golden."],
-    stepsFa: ["سیب‌زمینی‌ها را آب‌پز کن، پوست بگیر و رنده کن؛ پیاز را رنده کن و آبش را بگیر.", "با تخم‌مرغ، آرد، زردچوبه، نمک و فلفل قاطی کن.", "کوکوهای کوچک درست کن و در روغن، هر طرف ۳ دقیقه سرخ کن تا طلایی شوند."],
+    stepsFa: ["سیب‌زمینی‌ها را آب‌پز کن، پوست بگیر و رنده کن؛ پیاز را رنده کن و آبش را بگیر.", "با تخم‌مرغ، آرد، زردچوبه، نمک و فلفل مخلوط کن.", "کوکوهای کوچک درست کن و در روغن، هر طرف ۳ دقیقه سرخ کن تا طلایی شوند."],
     aliases: ["کوکو سیب زمینی", "کوکوی سیب‌زمینی"],
   },
   {
@@ -382,15 +401,6 @@ export default [
     stepsEn: ["Fry the chopped onion in the oil until soft.", "Add the peeled, chopped tomatoes and the tomato paste and cook 10 minutes until the water is gone.", "Break in the eggs, season and stir gently for 2–3 minutes until just set."],
     stepsFa: ["پیاز خردشده را در روغن تفت بده تا نرم شود.", "گوجه‌ی پوست‌کنده و خردشده و رب را اضافه کن و ۱۰ دقیقه بپز تا آبش کشیده شود.", "تخم‌مرغ‌ها را بشکن، نمک و فلفل بزن و ۲ تا ۳ دقیقه آرام هم بزن تا تازه ببندد."],
     aliases: ["املت", "املت گوجه"],
-  },
-  {
-    id: "nimroo", nameEn: "Fried eggs (nimroo)", nameFa: "نیمرو",
-    meal: "breakfast", minutes: 8, pair: "bread", planSub: "egg", diet: "vegetarian", allergens: ["egg", "dairy"],
-    ingredients: [["egg", 200], ["butter", 20]],
-    cookedWeight: 200, serving: 100, servingEn: "2 eggs", servingFa: "دو عدد",
-    stepsEn: ["Melt the butter in a pan over medium heat.", "Break in the eggs, season with salt and pepper and cook 3–4 minutes until the whites are set."],
-    stepsFa: ["کره را در تابه روی حرارت متوسط آب کن.", "تخم‌مرغ‌ها را بشکن، نمک و فلفل بزن و ۳ تا ۴ دقیقه بپز تا سفیده ببندد."],
-    aliases: ["تخم‌مرغ نیمرو", "نیمرو با کره"],
   },
   {
     id: "khagineh", nameEn: "Khagineh (sweet saffron omelette)", nameFa: "خاگینه",
@@ -409,7 +419,7 @@ export default [
     ingredients: [["chicken_breast", 300], ["potato", 500], ["egg", 200], ["peas_green", 100], ["carrot", 100], ["cucumber", 150], ["mayonnaise", 150], ["lemon_juice", 15]],
     cookedWeight: 1500, serving: 250, servingEn: "plate", servingFa: "یک بشقاب",
     stepsEn: ["Boil the chicken, potatoes, eggs and carrots, and let them cool.", "Shred the chicken, and grate or finely dice the potatoes, eggs, carrots and cucumber (or pickles).", "Mix everything with the cooked peas, mayonnaise, lemon juice, salt and pepper and chill for 1 hour."],
-    stepsFa: ["مرغ، سیب‌زمینی، تخم‌مرغ و هویج را آب‌پز کن و بگذار خنک شوند.", "مرغ را ریش‌ریش کن و سیب‌زمینی، تخم‌مرغ، هویج و خیار (یا خیارشور) را رنده یا ریز خرد کن.", "همه را با نخودفرنگی پخته، سس مایونز، آبلیمو، نمک و فلفل قاطی کن و ۱ ساعت در یخچال بگذار."],
+    stepsFa: ["مرغ، سیب‌زمینی، تخم‌مرغ و هویج را آب‌پز کن و بگذار خنک شوند.", "مرغ را ریش‌ریش کن و سیب‌زمینی، تخم‌مرغ، هویج و خیار (یا خیارشور) را رنده یا ریز خرد کن.", "همه را با نخودفرنگی پخته، سس مایونز، آبلیمو، نمک و فلفل مخلوط کن و ۱ ساعت در یخچال بگذار."],
     aliases: ["الویه", "سالاد اولویه", "الویه مرغ"],
   },
   {
@@ -458,14 +468,5 @@ export default [
     stepsEn: ["Boil the water with the sugar, saffron and rose water into a thin syrup.", "Roast the flour in the ghee over low heat for 15 minutes, stirring, until golden and fragrant.", "Slowly pour the syrup into the flour, stirring hard, and cook 5 minutes until smooth and thick."],
     stepsFa: ["آب را با شکر، زعفران و گلاب بجوشان تا شربت رقیقی شود.", "آرد را در روغن حیوانی روی حرارت کم ۱۵ دقیقه تفت بده تا طلایی و معطر شود.", "شربت را آرام‌آرام روی آرد بریز، محکم هم بزن و ۵ دقیقه بپز تا یکدست و غلیظ شود."],
     aliases: ["کاچی زعفرانی"],
-  },
-  {
-    id: "halva", nameEn: "Saffron halva", nameFa: "حلوا",
-    meal: "snack", minutes: 50, pair: "none", planSub: "sweet", diet: "vegan", allergens: ["gluten"],
-    ingredients: [["flour_white", 300], ["vegetable_oil", 150], ["sugar", 250], ["water", 250], ["rose_water", 80], ["saffron_brewed", 30]],
-    cookedWeight: 820, serving: 50, servingEn: "2 pieces", servingFa: "دو تکه",
-    stepsEn: ["Warm the water with the sugar until it dissolves, then add the rose water and saffron.", "Roast the flour in the oil over low heat for 30 minutes, stirring, until golden brown.", "Take it off the heat, pour in the syrup a little at a time and stir until the halva comes away from the pan.", "Spread it on a plate and press a pattern into it with a spoon."],
-    stepsFa: ["آب و شکر را گرم کن تا شکر حل شود، بعد گلاب و زعفران را اضافه کن.", "آرد را در روغن روی حرارت کم ۳۰ دقیقه تفت بده تا طلایی مایل به قهوه‌ای شود.", "از روی حرارت بردار، شربت را کم‌کم اضافه کن و هم بزن تا حلوا از کناره‌ی ظرف جدا شود.", "در بشقاب پهن کن و با قاشق رویش نقش بزن."],
-    aliases: ["حلوا زعفرانی", "حلوای نذری"],
   },
 ];

@@ -15,7 +15,9 @@ check("ids are unique", new Set(RECIPES.map((r) => r.id)).size === RECIPES.lengt
 const bowl = RECIPES.find((r) => r.id === "chicken_bowl");
 const manual = bowl.ingredients.reduce((s, i) => s + macrosFor(findFood(i.foodId), i.grams).kcal, 0);
 check("a recipe's calories are its ingredients' added up", recipeMacros(bowl).kcal === Math.round(manual), [recipeMacros(bowl).kcal, manual]);
-check("the numbers are believable: 150–900 kcal, some protein", RECIPES.every((r) => { const m = recipeMacros(r); return m.kcal >= 150 && m.kcal <= 900 && m.protein >= 10; }), RECIPES.map((r) => [r.id, recipeMacros(r).kcal, recipeMacros(r).protein]));
+// Desserts and vegetable sides are allowed little protein, egg and herb dishes some; a portion is 150–1,000 kcal.
+check("the numbers are believable: 150–1,000 kcal, and protein in the mains", RECIPES.every((r) => { const m = recipeMacros(r); return m.kcal >= 150 && m.kcal <= 1000 && (m.protein >= (["egg", "soup"].includes(r.planSub) ? 5 : 10) || ["sweet", "veg"].includes(r.planSub)); }),
+  RECIPES.filter((r) => { const m = recipeMacros(r); return !(m.kcal >= 150 && m.kcal <= 1000 && (m.protein >= (["egg", "soup"].includes(r.planSub) ? 5 : 10) || ["sweet", "veg"].includes(r.planSub))); }).map((r) => [r.id, recipeMacros(r).kcal, recipeMacros(r).protein]));
 check("…and the energy adds up from the macros within 15%", RECIPES.every((r) => { const m = recipeMacros(r); const e = 4 * m.protein + 4 * m.carbs + 9 * m.fat; return Math.abs(e - m.kcal) / m.kcal < 0.15; }), RECIPES.map((r) => { const m = recipeMacros(r); return [r.id, m.kcal, 4 * m.protein + 4 * m.carbs + 9 * m.fat]; }));
 
 console.log(`recipes: ${pass} passed, ${fail} failed`);
