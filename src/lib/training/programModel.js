@@ -55,7 +55,8 @@ export function createSession({ program, day, lastPerf = {}, targets = {} }) {
       const prev = lastPerf[pe.exerciseId];
       // The progression's target (programGen.nextTargets) wins over a plain copy of last time.
       const aim = targets[pe.exerciseId];
-      const count = Math.max(pe.sets || 1, 1);
+      // A light week's target has fewer sets.
+      const count = Math.max((aim && aim.reason !== "start" && aim.sets) || pe.sets || 1, 1);
       return {
         exerciseId: pe.exerciseId,
         sets: Array.from({ length: count }, (_, i) =>

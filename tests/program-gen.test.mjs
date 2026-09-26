@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { loadExerciseCatalog } from "../src/lib/training/catalog.js";
 import { allExercises, findExercise } from "../src/lib/training/exercises.js";
 import { classify, fitsEquipment } from "../src/lib/training/patterns.js";
-import { candidates, dosage, generateProgram, nextTargets, splitFor, swapExercise } from "../src/lib/training/programGen.js";
+import { candidates, deloadTarget, dosage, generateProgram, isDeloadWeek, nextTargets, programWeek, splitFor, swapExercise } from "../src/lib/training/programGen.js";
 import { createSession } from "../src/lib/training/programModel.js";
 
 let pass = 0, fail = 0;
@@ -173,6 +173,15 @@ t = nextTargets({ sets: 3, reps: 12 }, [sets([[0, 10], [0, 9]])], bySlug("push-u
 check("bodyweight: one more rep", t.reason === "rep" && t.weight === null && t.reps === 11, t);
 t = nextTargets({ sets: 3, reps: 8 }, [[{ weight: 60, reps: 8, done: false }]], bench);
 check("sets not ticked done don't count", t.reason === "start", t);
+
+// Every fifth week is a light one.
+const made = { createdAt: new Date(Date.now() - 4 * 7 * 86400000 - 3600000).toISOString() };
+check("week 5 of a program is a light week, weeks 1–4 and 6 aren't",
+  programWeek(made) === 5 && isDeloadWeek(5) && isDeloadWeek(10) && ![1, 2, 3, 4, 6].some(isDeloadWeek), programWeek(made));
+const light = deloadTarget({ sets: 4, reps: 8 }, nextTargets({ sets: 4, reps: 8 }, [sets([[100, 8], [100, 8], [100, 8], [100, 8]])], squat), squat);
+check("a light week: about 60% of the sets at 90% of last time's weight", light.reason === "deload" && light.sets === 2 && light.weight === 90 && light.reps === 8, light);
+const lightSession = createSession({ program: { id: "p1" }, day: { id: "d1", exercises: [{ exerciseId: squat.id, sets: 4, reps: 8, restSec: 150 }] }, targets: { [squat.id]: light } });
+check("…and the session has only those sets", lightSession.exercises[0].sets.length === 2 && lightSession.exercises[0].sets[0].weight === 90);
 
 // The session starts from the target.
 const program = { id: "p1", days: [{ id: "d1", exercises: [{ exerciseId: bench.id, sets: 3, reps: 8, restSec: 120 }] }] };

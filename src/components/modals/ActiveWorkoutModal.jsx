@@ -340,6 +340,7 @@ function Current({ t, n, sep, isRtl, index, count, current, exercise, last, onPa
           {current.target?.reason === "down" && <span className="mt-1.5 text-[13px] text-muted">{t.progDown}</span>}
           {current.target?.reason === "rep" && <span className="mt-1.5 text-[13px] text-muted">{t.progRep}</span>}
           {current.target?.reason === "hold" && <span className="mt-1.5 text-[13px] text-muted">{t.progHold}</span>}
+          {current.target?.reason === "deload" && <span className="mt-1.5 text-[13px] text-accent">{t.progDeload}</span>}
           {!sets.some((s) => s.done) && (
             <button type="button" onClick={onSwap}
               className="mt-2.5 self-start h-9 px-3.5 rounded-full bg-hero-2 text-ink text-[13px] font-semibold border-0 cursor-pointer inline-flex items-center gap-1.5 active:scale-95 transition-transform">

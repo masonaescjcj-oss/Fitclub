@@ -4,6 +4,7 @@
  *   generateProgram(input) → a program in programModel's shape
  *   swapExercise(…)        → exercises that can take one's place
  *   nextTargets(…)         → the weight and reps to aim for next session
+ *   deloadTarget(…)        → the same in a light week (every fifth)
  *
  * How a week is built
  *  1. Days a week choose the split: 2–3 full body, 4 upper/lower, 5 upper/
@@ -329,4 +330,33 @@ export function nextTargets(planned, history, exercise) {
   if (short(last) && short((history?.[1] || []))) return { weight: Math.max(0, Math.round((weight * 0.9) / step) * step), reps: target, from: weight, reason: "down" };
   const best = Math.max(...last.map((s) => s.reps || 0));
   return { weight, reps: Math.min(target, best + 1), from: weight, reason: best >= target ? "hold" : "rep" };
+}
+
+/* ─────────────────────────────── the light week ─────────────────────────────── */
+
+/** Every fifth week of a program is a light one: four weeks of building, one to recover. */
+export const DELOAD_EVERY = 5;
+
+/** Which week of a program this is, from the day it was made (1-based). */
+export const programWeek = (program, now = Date.now()) =>
+  Math.floor((now - new Date(program?.createdAt || now).getTime()) / (7 * 86400000)) + 1;
+
+export const isDeloadWeek = (week) => week > 0 && week % DELOAD_EVERY === 0;
+
+/**
+ * A light week's target: about 60% of the sets at 90% of the working weight,
+ * the planned reps. `usual` is what nextTargets would have said.
+ */
+export function deloadTarget(planned, usual, exercise) {
+  const c = classify(exercise || {});
+  const dumbbell = (exercise?.equipmentSlugs || []).includes("dumbbell");
+  const step = dumbbell ? 2 : LOWER.has(c?.pattern) ? 5 : 2.5;
+  const base = usual?.from ?? usual?.weight ?? planned.weight ?? null;
+  return {
+    weight: base ? Math.max(0, Math.round((base * 0.9) / step) * step) : null,
+    reps: planned.reps || 10,
+    sets: Math.max(1, Math.round((planned.sets || 3) * 0.6)),
+    from: base,
+    reason: "deload",
+  };
 }

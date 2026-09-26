@@ -4,7 +4,7 @@ import {
   lastPerformanceFor, sessionStats, weeklyVolume,
 } from "../lib/training/programModel";
 import { loadTraining, saveTraining } from "../lib/training/trainingStore";
-import { generateProgram, nextTargets } from "../lib/training/programGen";
+import { deloadTarget, generateProgram, isDeloadWeek, nextTargets, programWeek } from "../lib/training/programGen";
 import { findExercise } from "../lib/training/exercises";
 
 /** Each planned exercise's sets in earlier finished sessions, newest first. */
@@ -95,9 +95,13 @@ export default function useTraining() {
         const program = s.programs.find((p) => p.id === programId);
         const day = program?.days.find((d) => d.id === dayId);
         if (!program || !day) return s;
-        const targets = Object.fromEntries(day.exercises.map((pe) => [
-          pe.exerciseId, nextTargets(pe, historyOf(s.sessions, pe.exerciseId), findExercise(pe.exerciseId)),
-        ]));
+        // Double progression, and every fifth week of the program a lighter one.
+        const light = isDeloadWeek(programWeek(program));
+        const targets = Object.fromEntries(day.exercises.map((pe) => {
+          const exercise = findExercise(pe.exerciseId);
+          const usual = nextTargets(pe, historyOf(s.sessions, pe.exerciseId), exercise);
+          return [pe.exerciseId, light ? deloadTarget(pe, usual, exercise) : usual];
+        }));
         draft = createSession({ program, day, lastPerf: lastPerformanceFor(s.sessions, day), targets });
         return { ...s, draft };
       });

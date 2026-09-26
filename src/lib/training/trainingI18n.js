@@ -13,6 +13,8 @@ const en = {
   progDown: "Two sessions short of the reps: a little lighter today, to build back up.",
   progRep: "Same weight as last time: aim for one more rep.",
   progHold: "Same weight: get every set to the full reps, then it goes up.",
+  progDeload: "Light week: fewer sets and a little less weight, so your body catches up. Next week you build again.",
+  deloadWeek: "light week",
 
   // The program planner (programGen.js)
   makeProgram: "Make me a program", makeShort: "Make it", makeProgramHint: "Answer five questions: a program built for your goal, time and equipment.",
@@ -97,6 +99,8 @@ const fa = {
   progDown: "دو جلسه تکرارها کامل نشد: امروز کمی سبک‌تر، تا دوباره بالا بروی.",
   progRep: "همان وزنه‌ی دفعه‌ی قبل: یک تکرار بیشتر را هدف بگیر.",
   progHold: "همان وزنه: همه‌ی ست‌ها را به تکرار کامل برسان، بعد وزنه بالا می‌رود.",
+  progDeload: "هفته‌ی سبک: ست کمتر و وزنه‌ی کمی سبک‌تر تا بدنت ریکاوری کند. از هفته‌ی بعد دوباره پیشرفت.",
+  deloadWeek: "هفته‌ی سبک",
 
   // The program planner (programGen.js)
   makeProgram: "برنامه‌ی مخصوص من را بساز", makeShort: "بساز", makeProgramHint: "به پنج سؤال جواب بده: برنامه‌ای برای هدف، وقت و وسایلت.",

@@ -6,6 +6,7 @@ import {
 import ExerciseMedia from "../../components/training/ExerciseMedia";
 import ActiveWorkoutModal from "../../components/modals/ActiveWorkoutModal";
 import ProgramGeneratorSheet from "../../components/training/ProgramGeneratorSheet";
+import { isDeloadWeek, programWeek } from "../../lib/training/programGen";
 import {
   AuthorChip, ImportSheet, ProgramBuilderSheet, ProgramMark, ShareSheet, Sheet,
 } from "../../components/training/TrainingSheets";
@@ -145,7 +146,7 @@ export default function WorkoutPage({ isRtl, onOpen, initialSegment = null, onSe
   return (
     <Screen isRtl={isRtl} tabbed>
       <PageHead
-        eyebrow={plan ? <span className="block truncate">{programName(active)}{sep}{t.weekOf(n(plan.weekNo), n(active.weeks || 1))}</span> : undefined}
+        eyebrow={plan ? <span className="block truncate">{programName(active)}{sep}{t.weekOf(n(plan.weekNo), n(active.weeks || 1))}{isDeloadWeek(programWeek(active)) ? `${sep}${t.deloadWeek}` : ""}</span> : undefined}
         title={t.title}
         right={onOpen ? (
           <IconButton label={t.workoutHistory} onClick={() => onOpen("history")}><History className="w-5 h-5" strokeWidth={2} /></IconButton>
