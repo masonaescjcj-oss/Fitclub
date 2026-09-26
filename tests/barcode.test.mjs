@@ -10,12 +10,13 @@ check("a valid EAN-13 passes, spaces and dashes dropped", cleanBarcode("54490000
 check("valid EAN-8 and UPC-A pass", cleanBarcode("96385074") === "96385074" && cleanBarcode("036000291452") === "036000291452");
 check("a wrong check digit, letters or a short number fail", cleanBarcode("5449000000997") === null && cleanBarcode("54490000abc96") === null && cleanBarcode("1234") === null);
 
-const coke = { product_name: "Coca-Cola", brands: "Coca-Cola", serving_size: "1 can (330 ml)", serving_quantity: 330,
+const coke = { product_name: "Coca-Cola", brands: "COCA-COLA SERVICES SA/NV,Coca-Cola", serving_size: "1 can (330 ml)", serving_quantity: 330,
   nutriments: { "energy-kcal_100g": 42, proteins_100g: 0, carbohydrates_100g: 10.6, fat_100g: 0, sodium_100g: 0.01 } };
 const food = productToFood(coke, "5449000000996");
 check("a product becomes a food per 100 g, sodium in mg", food.id === "off:5449000000996" && food.per100.kcal === 42 && food.per100.carbs === 10.6 && food.per100.sodium === 10, food);
 check("…its serving is the product's", food.servings[0].g === 330 && food.servings[0].en === "1 can (330 ml)");
-check("…named once, not 'Coca-Cola (Coca-Cola)'", food.nameEn === "Coca-Cola");
+check("…named once, not 'Coca-Cola (COCA-COLA SERVICES SA/NV)'", food.nameEn === "Coca-Cola");
+check("…but a brand the name doesn't mention is added", productToFood({ product_name: "Low-fat milk", brands: "Majan", nutriments: { "energy-kcal_100g": 43 } }, "6260161564450").nameEn === "Low-fat milk (Majan)");
 const milk = productToFood({ product_name_fa: "شیر کم چرب", brands: "ماجان", nutriments: { energy_100g: 180 } }, "6260161564450");
 check("a Persian-only product keeps its Persian name and brand, kJ turned to kcal", milk.nameFa === "شیر کم چرب (ماجان)" && milk.nameEn === "شیر کم چرب (ماجان)" && milk.per100.kcal === 43, milk);
 check("no calories, no food: the diary can't use it", productToFood({ product_name: "Mystery", nutriments: {} }, "5449000000996") === null);

@@ -30,7 +30,9 @@ export function productToFood(p, code) {
   const name = (p.product_name || p.product_name_en || p.generic_name || "").trim();
   const nameFa = (p.product_name_fa || "").trim();
   const brand = String(p.brands || "").split(",")[0].trim();
-  const label = (s) => (s ? (brand && !s.toLowerCase().includes(brand.toLowerCase()) ? `${s} (${brand})` : s) : brand || `#${code}`);
+  // "Coca-Cola", not "Coca-Cola (COCA-COLA SERVICES SA/NV)": the brand only when the name doesn't already say it.
+  const brandWord = brand.toLowerCase().split(/\s+/)[0] || "";
+  const label = (s) => (s ? (brand && !s.toLowerCase().includes(brandWord) ? `${s} (${brand})` : s) : brand || `#${code}`);
   const serving = n(p.serving_quantity);
   return {
     id: `off:${code}`,
