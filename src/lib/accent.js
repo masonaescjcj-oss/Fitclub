@@ -10,7 +10,7 @@ const EVENT = "fitclub:accent";
 
 export const ACCENTS = [
   { id: "soap", hex: "#F2A0B5", rgb: "242 160 181", en: "Soap", fa: "صابونی" },
-  { id: "volt", hex: "#D4FF3F", rgb: "212 255 63", en: "Volt", fa: "ولت" },
+  { id: "volt", hex: "#D4FF3F", rgb: "212 255 63", en: "Volt", fa: "فسفری" },
   { id: "lilac", hex: "#CDBDFF", rgb: "205 189 255", en: "Lilac", fa: "یاسی" },
   { id: "peach", hex: "#FFB38A", rgb: "255 179 138", en: "Peach", fa: "هلویی" },
   { id: "mint", hex: "#8FF0CF", rgb: "143 240 207", en: "Mint", fa: "نعنایی" },
