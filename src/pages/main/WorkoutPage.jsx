@@ -368,7 +368,7 @@ function ReadyPrograms({ t, n, sep, isRtl, programs, onOpen }) {
       <div className="flex flex-wrap gap-1.5">
         {PLACES.map((p) => <Chip key={p} active={place === p} onClick={() => setPlace(p)}>{t[READY_PLACES[p]]}</Chip>)}
       </div>
-      <Segmented label={t.genDays} value={days} onChange={setDays}
+      <Segmented label={t.readyDays} value={days} onChange={setDays}
         options={[{ id: "all", label: t.all }, ...WEEK_DAYS.map((d) => ({ id: String(d), label: n(d) }))]} />
       <List>
         {list.map((p) => (

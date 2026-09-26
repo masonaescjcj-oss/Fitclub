@@ -17,7 +17,7 @@ const en = {
   deloadWeek: "light week",
 
   // The program planner (programGen.js)
-  makeProgram: "Make me a program", makeShort: "Make it", readyPrograms: "Ready programs", all: "All", makeProgramHint: "Answer five questions: a program built for your goal, time and equipment.",
+  makeProgram: "Make me a program", makeShort: "Make it", readyPrograms: "Ready programs", readyDays: "Ready programs by days a week", all: "All", makeProgramHint: "Answer five questions: a program built for your goal, time and equipment.",
   madeForYou: "Made for you", genTitle: "Your program", genGoal: "Goal", genDays: "Days a week", genMinutes: "Minutes a session",
   genLevel: "Level", genWhere: "Where you train", genInjuries: "Pain or injury", genNone: "None",
   goalLoss: "Fat loss", goalMuscle: "Muscle", goalFit: "Fitness", goalStrength: "Strength",
@@ -103,7 +103,7 @@ const fa = {
   deloadWeek: "هفته‌ی سبک",
 
   // The program planner (programGen.js)
-  makeProgram: "برنامه‌ی مخصوص من را بساز", makeShort: "بساز", readyPrograms: "برنامه‌های تمرینی آماده", all: "همه", makeProgramHint: "به پنج سؤال جواب بده: برنامه‌ای برای هدف، وقت و وسایلت.",
+  makeProgram: "برنامه‌ی مخصوص من را بساز", makeShort: "بساز", readyPrograms: "برنامه‌های تمرینی آماده", readyDays: "روزهای برنامه‌های آماده", all: "همه", makeProgramHint: "به پنج سؤال جواب بده: برنامه‌ای برای هدف، وقت و وسایلت.",
   madeForYou: "ساخته‌شده برای تو", genTitle: "برنامه‌ی تو", genGoal: "هدف", genDays: "چند روز در هفته", genMinutes: "زمان هر جلسه (دقیقه)",
   genLevel: "سطح", genWhere: "کجا تمرین می‌کنی", genInjuries: "درد یا آسیب", genNone: "هیچ",
   goalLoss: "چربی‌سوزی", goalMuscle: "عضله", goalFit: "تناسب اندام", goalStrength: "قدرت",
