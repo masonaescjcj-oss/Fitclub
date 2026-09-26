@@ -197,7 +197,13 @@ export const servingsOf = (food) => [
   ...(food.servings.some((s) => s.g === 100) ? [] : [{ en: "100 g", fa: "۱۰۰ گرم", g: 100 }]),
 ];
 
-export const findFood = (id) => FOODS.find((x) => x.id === id) || null;
+// Foods from outside the bank (a scanned product), registered as the diary loads.
+const EXTRA = new Map();
+export function registerFoods(list) {
+  for (const food of list || []) if (food && food.id && food.per100) EXTRA.set(food.id, food);
+}
+
+export const findFood = (id) => FOODS.find((x) => x.id === id) || EXTRA.get(id) || null;
 
 /** Scales a food's per-100 values to an actual gram amount. */
 export function macrosFor(food, grams) {
@@ -216,7 +222,9 @@ export function macrosFor(food, grams) {
 /** Accent-insensitive-ish search across both languages. */
 export function searchFoods(query, category = null) {
   const q = query.trim().toLowerCase();
-  return FOODS.filter((food) => {
+  // Products you've scanned are found by name too, once you search.
+  const pool = q && !category ? [...FOODS, ...EXTRA.values()] : FOODS;
+  return pool.filter((food) => {
     if (category && food.cat !== category) return false;
     if (!q) return true;
     return food.nameEn.toLowerCase().includes(q) || food.nameFa.includes(q);

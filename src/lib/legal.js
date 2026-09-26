@@ -46,7 +46,7 @@ export const LEGAL = {
         {
           h: "Who we share it with",
           p: [
-            "Only the services that run FitClub: Supabase (sign-in, database and photo storage), Vercel (hosting and the coach's server), and the AI provider above for coach replies. They process data for us under their own terms and security; their servers may be outside your country.",
+            "Only the services that run FitClub: Supabase (sign-in, database and photo storage), Vercel (hosting and the coach's server), and the AI provider above for coach replies. They process data for us under their own terms and security; their servers may be outside your country. When you scan a barcode, only its number goes to Open Food Facts (openfoodfacts.org) to find the product; the camera picture never leaves your phone.",
             "Other FitClub members can see your name, username, bio and photo once they are signed in. Messages and photos you send in a chat are seen by that chat's members, and a shared checklist, its tasks and everyone's ticks by the people in it; people you chat with see when you were last online. On the leaderboards, people you share a chat or a list with see your XP, workout count and streak, and so does everyone signed in if you join the global board; challenges show your count to the chat they are in. Everything else you enter is visible only to you.",
             "We share data with authorities only when the law requires it.",
           ],
@@ -112,7 +112,7 @@ export const LEGAL = {
         {
           h: "با چه کسانی به اشتراک می‌گذاریم",
           p: [
-            "فقط با سرویس‌هایی که فیت‌کلاب روی آن‌ها کار می‌کند: Supabase (ورود، دیتابیس و نگهداری عکس)، Vercel (میزبانی اپ و سرور مربی) و سرویس هوش مصنوعی بالا برای جواب‌های مربی. این سرویس‌ها طبق شرایط و امنیت خودشان داده را برای ما پردازش می‌کنند و ممکن است سرورهایشان خارج از کشور تو باشد.",
+            "فقط با سرویس‌هایی که فیت‌کلاب روی آن‌ها کار می‌کند: Supabase (ورود، دیتابیس و نگهداری عکس)، Vercel (میزبانی اپ و سرور مربی) و سرویس هوش مصنوعی بالا برای جواب‌های مربی. این سرویس‌ها طبق شرایط و امنیت خودشان داده را برای ما پردازش می‌کنند و ممکن است سرورهایشان خارج از کشور تو باشد. وقتی بارکدی را اسکن می‌کنی، فقط شماره‌اش برای پیدا کردن محصول به Open Food Facts (openfoodfacts.org) فرستاده می‌شود؛ تصویر دوربین هرگز از گوشی‌ات بیرون نمی‌رود.
             "اعضای دیگر فیت‌کلاب بعد از ورود، نام، نام کاربری، بیو و عکست را می‌بینند. پیام‌ها و عکس‌هایی که در یک چت می‌فرستی را اعضای همان چت می‌بینند، و یک چک‌لیست مشترک، کارهایش و تیک همه را اعضای همان چک‌لیست؛ کسانی که با آن‌ها چت می‌کنی آخرین زمان آنلاین بودنت را می‌بینند. در جدول رتبه‌بندی، کسانی که با آن‌ها چت یا چک‌لیست مشترک داری امتیاز، شمار تمرین و استریکت را می‌بینند، و اگر به جدول جهانی بپیوندی همه‌ی کاربران وارد شده هم؛ چالش‌ها شمار تو را به اعضای همان چت نشان می‌دهند. بقیه‌ی چیزهایی که وارد می‌کنی فقط برای خودت دیده می‌شود.",
             "داده را فقط وقتی قانون ملزم کند در اختیار مراجع قانونی می‌گذاریم.",
           ],

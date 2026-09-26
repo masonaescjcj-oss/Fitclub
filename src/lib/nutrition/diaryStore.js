@@ -1,6 +1,6 @@
 // Food diary persistence, keyed by calendar day.
 
-import { findFood, macrosFor } from "./foods";
+import { findFood, macrosFor, registerFoods } from "./foods";
 
 const KEY = "fitclub.diary.v1";
 
@@ -82,10 +82,14 @@ function normalize(state) {
       entries: (v.entries || []).map((e) => ({ ...createEntry({}), ...e })),
     };
   }
+  // Scanned products the diary's entries refer to (./barcode.js).
+  const scanned = state.scanned && typeof state.scanned === "object" ? state.scanned : {};
+  registerFoods(Object.values(scanned));
   return {
     days,
     recentFoodIds: state.recentFoodIds || [],
     savedMeals: state.savedMeals || [],
+    scanned,
   };
 }
 
@@ -96,7 +100,7 @@ export function loadDiary() {
   } catch {
     // Corrupt or unavailable — start with an empty diary rather than crashing.
   }
-  return { days: {}, recentFoodIds: [], savedMeals: [] };
+  return { days: {}, recentFoodIds: [], savedMeals: [], scanned: {} };
 }
 
 export function saveDiary(state) {

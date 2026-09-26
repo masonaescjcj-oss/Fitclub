@@ -364,6 +364,7 @@ export default function DietPage({ isRtl, onGoToRecipe, onGoToGuide }) {
         {addingTo && (
           <FoodSearchSheet
             mealId={addingTo} isRtl={isRtl} t={t} recentIds={store.diary.recentFoodIds} kcalLeft={round(kcalLeft)}
+            onRemember={store.rememberFood}
             onPick={(food, grams) => {
               store.addEntry({ foodId: food.id, grams, meal: addingTo.id });
               setOpenMeals((s) => new Set(s).add(addingTo.id));

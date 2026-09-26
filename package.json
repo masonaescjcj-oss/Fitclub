@@ -5,6 +5,8 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.126.0",
     "@supabase/supabase-js": "^2.117.2",
+    "@zxing/browser": "^0.2.1",
+    "@zxing/library": "^0.23.0",
     "framer-motion": "^10.16.4",
     "lucide-react": "^0.292.0",
     "react": "^18.2.0",

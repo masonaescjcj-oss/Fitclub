@@ -5,6 +5,7 @@ import {
 } from "../lib/nutrition/diaryStore";
 import { loadProfile, saveProfile, targetsFor, tdee } from "../lib/nutrition/profile";
 import { DEFAULT_VIEW, loadView, saveView } from "../lib/nutrition/viewPrefs";
+import { registerFoods } from "../lib/nutrition/foods";
 
 const RECENT_LIMIT = 12;
 
@@ -58,6 +59,13 @@ export default function useNutrition() {
       d.setDate(d.getDate() + delta);
       return dayKey(d);
     }),
+
+    /** Keeps a scanned product with the diary, so its entries resolve here and on other devices. */
+    rememberFood: (food) => {
+      if (!food?.id) return;
+      registerFoods([food]);
+      setDiary((s) => ({ ...s, scanned: { ...(s.scanned || {}), [food.id]: food } }));
+    },
 
     addEntry: (patch, key = cursor) => {
       const entry = createEntry(patch);

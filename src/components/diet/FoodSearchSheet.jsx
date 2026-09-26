@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check as CheckIcon, Info, Minus, Plus, Search, X, Zap } from "lucide-react";
+import { Check as CheckIcon, Info, Minus, Plus, ScanBarcode, Search, X, Zap } from "lucide-react";
+import BarcodeScanner from "./BarcodeScanner";
 import { CATEGORIES, findFood, macrosFor, searchFoods, servingsOf } from "../../lib/nutrition/foods";
 import { Chip, IconButton, IconWell, Label, cx, num } from "../ui/kit";
 import { fmtNum, round } from "./DietBits";
@@ -38,6 +39,11 @@ function PortionPane({ food, meal, isRtl, t, onCancel, onConfirm, initialGrams }
           {food.estimate && (
             <span className="inline-flex items-center gap-1.5 text-xs text-hero-muted">
               <Info className="w-3.5 h-3.5 shrink-0" strokeWidth={2} /> {t.entryFrom}
+            </span>
+          )}
+          {food.source === "openfoodfacts" && (
+            <span className="inline-flex items-center gap-1.5 text-xs text-hero-muted">
+              <ScanBarcode className="w-3.5 h-3.5 shrink-0" strokeWidth={2} /> {t.fromOff}
             </span>
           )}
         </span>
@@ -97,8 +103,9 @@ function PortionPane({ food, meal, isRtl, t, onCancel, onConfirm, initialGrams }
  * The food log: search or browse by category, recent foods first, and a
  * quick-add escape hatch. Picking a food opens the portion card at the foot.
  */
-export default function FoodSearchSheet({ mealId, isRtl, t, recentIds, onPick, onQuickAdd, onClose, kcalLeft }) {
+export default function FoodSearchSheet({ mealId, isRtl, t, recentIds, onPick, onQuickAdd, onClose, kcalLeft, onRemember }) {
   const [query, setQuery] = useState("");
+  const [scanning, setScanning] = useState(false);
   const [category, setCategory] = useState(null);
   const [chosen, setChosen] = useState(null);
 
@@ -184,6 +191,20 @@ export default function FoodSearchSheet({ mealId, isRtl, t, recentIds, onPick, o
             </span>
             <Plus className="w-5 h-5 text-muted shrink-0" strokeWidth={2} />
           </button>
+
+          <button type="button" onClick={() => setScanning((v) => !v)} aria-expanded={scanning}
+            className="w-full min-h-[64px] rounded-3xl bg-card flex items-center gap-3 px-4 py-2.5 text-start border-0 cursor-pointer active:scale-[0.99] transition-transform">
+            <IconWell tone="inv" size={40}><ScanBarcode className="w-[18px] h-[18px]" strokeWidth={2} /></IconWell>
+            <span className="flex-1 min-w-0 flex flex-col gap-0.5">
+              <span className="text-[15px] font-semibold text-ink">{t.scanBarcode}</span>
+              <span className="text-[13px] text-muted truncate">{t.scanBarcodeHint}</span>
+            </span>
+            {scanning ? <X className="w-5 h-5 text-muted shrink-0" strokeWidth={2} /> : <Plus className="w-5 h-5 text-muted shrink-0" strokeWidth={2} />}
+          </button>
+          {scanning && (
+            <BarcodeScanner t={t} isRtl={isRtl}
+              onFound={(food) => { onRemember?.(food); setScanning(false); setChosen(food); }} />
+          )}
 
           {showRecents && (
             <>
