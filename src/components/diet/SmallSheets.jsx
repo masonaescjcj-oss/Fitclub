@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Button, Card, Chip, Field, Label, Segmented, Sheet as KitSheet, Toggle as KitToggle, cx, num } from "../ui/kit";
-import { GOALS, targetsFor } from "../../lib/nutrition/profile";
+import { GOALS, PACES, PACE_KG, targetsFor } from "../../lib/nutrition/profile";
 import { MacroDot, TrendSpark, fmtNum, round } from "./DietBits";
 
 /** Shared bottom-sheet chrome: the kit sheet, so the diet sheets match every other one. */
@@ -134,6 +134,12 @@ function ChoiceGrid({ options, value, onChange, cols = 2 }) {
   );
 }
 
+/** A weekly change in kilograms, to two decimals, with the Persian decimal sign. */
+const kgText = (v, isRtl) => {
+  const text = String(Math.round(v * 100) / 100);
+  return isRtl ? num(text, true).replace(".", "٫") : text;
+};
+
 /** Edit the stats the targets are computed from, or override the targets outright. */
 export function TargetsSheet({ profile, targets, isRtl, t, onSave, onClose }) {
   const [p, setP] = useState(profile);
@@ -169,6 +175,12 @@ export function TargetsSheet({ profile, targets, isRtl, t, onSave, onClose }) {
             </div>
           ))}
         </div>
+        {!manual && preview.pace && preview.pace.weeklyKg !== 0 && (
+          <p className="m-0 -mt-1 text-[13px] leading-snug text-muted">
+            {t.paceLine(kgText(Math.abs(preview.pace.weeklyKg), isRtl), preview.pace.weeklyKg < 0)}
+            {preview.pace.capped && <span className="block mt-0.5 text-ink font-medium">{t.paceCapped}</span>}
+          </p>
+        )}
       </Card>
 
       <Group label={t.yourStats}>
@@ -189,6 +201,13 @@ export function TargetsSheet({ profile, targets, isRtl, t, onSave, onClose }) {
         <ChoiceGrid value={p.goal} onChange={(goal) => set({ goal })}
           options={GOALS.map((g) => ({ id: g, label: t[GOAL_LABEL[g]] }))} />
       </Group>
+
+      {PACE_KG[p.goal] && (
+        <Group label={t.pace}>
+          <Segmented value={p.pace || "normal"} onChange={(pace) => set({ pace })}
+            options={PACES.map((id) => ({ id, label: t[`pace_${id}`] }))} />
+        </Group>
+      )}
 
       <Group label={t.trainingDays}>
         <Segmented value={p.frequency} onChange={(frequency) => set({ frequency })}

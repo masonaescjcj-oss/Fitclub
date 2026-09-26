@@ -213,7 +213,7 @@ function buildMeal(kind, pool, ctx) {
 
 /* ─────────────────────────────── portions ─────────────────────────────── */
 
-const WEIGHTS = { kcal: 4, protein: 3, carbs: 1, fat: 1, meal: 1.2, reg: 0.04 };
+const WEIGHTS = { kcal: 4, protein: 3, carbs: 1.5, fat: 1.2, meal: 1.2, reg: 0.04 };
 const SOLVER_COST = { economy: 0.03, medium: 0.008, free: 0 };
 const DAILY_COST_REF = 600000; // toman: scales cost against macro error
 

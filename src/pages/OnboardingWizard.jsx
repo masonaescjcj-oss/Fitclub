@@ -1,11 +1,13 @@
 import React, { useEffect, useRef, useState } from "react";
-import { applyOnboardingToProfile, targetsFor } from "../lib/nutrition/profile";
+import { PACES, PACE_KG, applyOnboardingToProfile, targetsFor } from "../lib/nutrition/profile";
 import { buildWeek, loadMealPlan, saveMealPlan } from "../lib/nutrition/mealPlanStore";
 import { dayKey } from "../lib/nutrition/diaryStore";
 import { INJURIES, SESSION_MINUTES, generateProgram } from "../lib/training/programGen";
 import { findExercise } from "../lib/training/exercises";
 import { useExerciseCatalog } from "../lib/training/useExerciseCatalog";
 import { loadTraining, saveTraining } from "../lib/training/trainingStore";
+import { ALLERGENS } from "../lib/nutrition/foodMeta";
+import { findFood } from "../lib/nutrition/foods";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Building2, Check, CheckCheck, Drumstick, Dumbbell, Flame, HeartPulse, Home, Leaf, Minus,
@@ -31,6 +33,14 @@ export function programInput(form) {
     focus: form.focusAreas || [],
   };
 }
+
+// Foods people most often leave out, offered as one tap each; the rest are in Fuel's plan settings.
+const COMMON_DISLIKES = ["lamb", "beef_lean", "white_fish", "salmon", "tuna_can", "shrimp", "eggplant", "lentils", "kidney_beans", "chickpeas", "tofu", "cottage", "broccoli", "oats", "avocado", "fesenjan", "mirza_ghasemi", "whey"];
+const shortFoodName = (id, isRtl) => {
+  const f = findFood(id);
+  if (!f) return id;
+  return isRtl ? f.nameFa.replace(/\s*پخته\s*/g, " ").replace(/\s+در آب$/, "").trim() : f.nameEn.replace(/,?\s*cooked/i, "").trim();
+};
 
 // The onboarding questionnaire: one question per step, answered on cards
 // that turn ink when picked. Single-choice steps move on by themselves; every
@@ -205,15 +215,18 @@ export default function OnboardingWizard({ onNavigate }) {
     age: 26,
     height: 174,
     weight: 76,
+    pace: "normal",
     difficulty: "moderate",
     dietType: "high_protein",
     sessionMinutes: 60,
     injuries: [],
     mealBudget: "medium",
     mealsPerDay: 4,
+    allergies: [],
+    dislikes: [],
   });
 
-  const stepsData = [
+  const allSteps = [
     {
       key: "goal",
       titleEn: "What is your main goal?",
@@ -281,6 +294,14 @@ export default function OnboardingWizard({ onNavigate }) {
       ]
     },
     {
+      key: "age",
+      titleEn: "How old are you?",
+      titleFa: "چند سال داری؟",
+      subtitleEn: "Your age changes how much you burn at rest.",
+      subtitleFa: "سن روی کالری‌ای که در حالت استراحت می‌سوزانی اثر دارد.",
+      type: "age-picker",
+    },
+    {
       key: "height",
       titleEn: "What's your height?",
       titleFa: "قد شما چقدر است؟",
@@ -291,6 +312,28 @@ export default function OnboardingWizard({ onNavigate }) {
       titleEn: "What's your current weight?",
       titleFa: "وزن فعلی شما چقدر است؟",
       type: "weight-picker",
+    },
+    {
+      key: "pace",
+      when: (f) => !!PACE_KG[f.goal],
+      titleEn: formData.goal === "Weight Loss" ? "How fast do you want to lose?" : "How fast do you want to gain?",
+      titleFa: formData.goal === "Weight Loss" ? "با چه سرعتی وزن کم کنی؟" : "با چه سرعتی وزن اضافه کنی؟",
+      subtitleEn: "Slower is easier to keep up. FitClub never goes past what is safe for you.",
+      subtitleFa: "آهسته‌تر راحت‌تر ادامه پیدا می‌کند. فیت‌کلاب هیچ‌وقت از حد سالم برای تو جلوتر نمی‌رود.",
+      type: "single",
+      options: PACES.map((id) => {
+        const kg = PACE_KG[formData.goal]?.[id] ?? 0;
+        const kgFa = num(String(kg), true).replace(".", "٫");
+        const lose = formData.goal === "Weight Loss";
+        return {
+          id,
+          recommended: id === "normal",
+          labelEn: { slow: "Slow and easy", normal: "Steady", fast: "Fast" }[id],
+          labelFa: { slow: "آهسته و راحت", normal: "معمولی", fast: "سریع" }[id],
+          descEn: `About ${kg} kg a week ${lose ? "less" : "more"}`,
+          descFa: `حدود ${kgFa} کیلو در هفته ${lose ? "کمتر" : "بیشتر"}`,
+        };
+      }),
     },
     {
       key: "equipment",
@@ -336,6 +379,14 @@ export default function OnboardingWizard({ onNavigate }) {
       type: "workout-program",
     },
     {
+      key: "foodPrefs",
+      titleEn: "Anything you don't eat?",
+      titleFa: "چیزی هست که نخوری؟",
+      subtitleEn: "Allergies and the foods you pick are left out of your meal plan. You can change them later in Fuel.",
+      subtitleFa: "حساسیت‌ها و غذاهایی که انتخاب کنی در برنامه‌ی غذایی‌ات نمی‌آیند. بعداً در بخش تغذیه هم می‌توانی عوضشان کنی.",
+      type: "food-prefs",
+    },
+    {
       key: "mealBudget",
       titleEn: "Your food budget",
       titleFa: "بودجه‌ی غذایی‌ات",
@@ -344,6 +395,8 @@ export default function OnboardingWizard({ onNavigate }) {
       type: "meal-budget",
     }
   ];
+  // A step can depend on an earlier answer: the pace only when losing or gaining.
+  const stepsData = allSteps.filter((st) => !st.when || st.when(formData));
 
   // The program the answers produce, rebuilt as the last answers change (a few ms) and once the exercise library lands.
   const catalogVersion = useExerciseCatalog();
@@ -377,7 +430,7 @@ export default function OnboardingWizard({ onNavigate }) {
       }
       try {
         const current = loadMealPlan();
-        const plan = { ...current, settings: { ...current.settings, budget: formData.mealBudget, meals: formData.mealsPerDay } };
+        const plan = { ...current, settings: { ...current.settings, budget: formData.mealBudget, meals: formData.mealsPerDay, allergies: formData.allergies, dislikes: formData.dislikes } };
         const target = targetsFor(profile);
         saveMealPlan({ ...plan, week: buildWeek({ plan, profile, targetFor: () => target, start: dayKey() }) });
       } catch {
@@ -538,7 +591,8 @@ export default function OnboardingWizard({ onNavigate }) {
                   : opt.Icon ? <Well on={on}><opt.Icon className="w-5 h-5" strokeWidth={2} /></Well> : null;
                 return (
                   <OptionRow key={opt.id} on={on} onClick={() => choose(key, opt.id)} lead={lead}
-                    label={label(opt)} desc={isRtl ? opt.descFa : opt.descEn} />
+                    label={opt.recommended ? <span className="flex items-center gap-2 flex-wrap">{label(opt)}<RecommendedTag on={on} isRtl={isRtl} /></span> : label(opt)}
+                    desc={isRtl ? opt.descFa : opt.descEn} />
                 );
               })}
             </div>
@@ -599,6 +653,12 @@ export default function OnboardingWizard({ onNavigate }) {
           )}
 
           {/* HEIGHT */}
+          {type === "age-picker" && (
+            <MeasurePicker value={formData.age} min={14} max={80} isRtl={isRtl}
+              onChange={(v) => setFormData((prev) => ({ ...prev, age: v }))}
+              format={(v) => num(v, isRtl)} unit={isRtl ? "سال" : "years"} label={isRtl ? "سن" : "Age"} />
+          )}
+
           {type === "height-picker" && (
             <>
               <Segmented value={heightUnit} onChange={setHeightUnit} className="self-center w-52"
@@ -672,6 +732,29 @@ export default function OnboardingWizard({ onNavigate }) {
                   </ul>
                 </Card>
               )}
+            </div>
+          )}
+
+          {/* FOODS LEFT OUT */}
+          {type === "food-prefs" && (
+            <div className="flex flex-col gap-5">
+              {[["allergies", isRtl ? "حساسیت" : "Allergies", ALLERGENS.map((a) => [a.id, isRtl ? a.fa : a.en])],
+                ["dislikes", isRtl ? "غذاهایی که نمی‌خوری" : "Foods you don't eat", COMMON_DISLIKES.map((id) => [id, shortFoodName(id, isRtl)])]].map(([field, title, items]) => (
+                <div key={field} className="flex flex-col gap-2">
+                  <Label>{title}</Label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {items.map(([id, name]) => {
+                      const on = formData[field].includes(id);
+                      return (
+                        <Chip key={id} active={on}
+                          onClick={() => handleOptionSelect(field, on ? formData[field].filter((x) => x !== id) : [...formData[field], id])}>
+                          {name}
+                        </Chip>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
 

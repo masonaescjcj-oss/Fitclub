@@ -17,6 +17,8 @@ export const DEFAULT_PROFILE = {
   frequency: "3_4", // training days per week
   difficulty: "moderate",
   dietType: "high_protein",
+  // How fast to lose or gain: slow | normal | fast (paceFor below).
+  pace: "normal",
   // Set once the athlete overrides the calculated numbers by hand.
   customTargets: null,
 };
@@ -27,13 +29,50 @@ const ACTIVITY = { "2_3": 1.375, "3_4": 1.465, "4_5": 1.55, "5_6": 1.725 };
 /** Harder sessions burn more; a small nudge, not a second multiplier. */
 const INTENSITY = { light: -0.05, moderate: 0, intense: 0.04, extreme: 0.08 };
 
-/** Calorie shift applied to maintenance, by goal. */
-const GOAL_FACTOR = {
-  "Weight Loss": -0.2,
-  "Muscle Gain": 0.1,
-  "Keep Fit": 0,
-  "Max Strength": 0.05,
+export const PACES = ["slow", "normal", "fast"];
+
+/**
+ * Kilograms a week, by goal and pace. Losing can go faster than gaining:
+ * muscle comes slowly, and a faster surplus is mostly fat.
+ */
+export const PACE_KG = {
+  "Weight Loss": { slow: 0.25, normal: 0.5, fast: 0.75 },
+  "Muscle Gain": { slow: 0.125, normal: 0.25, fast: 0.4 },
+  "Max Strength": { slow: 0.1, normal: 0.15, fast: 0.25 },
 };
+
+/** Energy in a kilogram of body weight change, roughly. */
+const KCAL_PER_KG = 7700;
+
+/** The lowest day FitClub prescribes without a clinician: never under these. */
+export const KCAL_FLOOR = { female: 1200, male: 1500 };
+
+/**
+ * The day's calories for a pace, with the safety limits applied:
+ *  - losing: at most 1% of body weight a week, a deficit of at most 25% of
+ *    maintenance, and never below the resting burn + 10% or the floor above;
+ *  - gaining: a surplus of at most 15% of maintenance.
+ * Returns the calories and what that pace really is after the limits.
+ */
+export function paceFor(profile, maintenance) {
+  const table = PACE_KG[profile.goal];
+  const floor = Math.max(bmr(profile) * 1.1, KCAL_FLOOR[profile.gender] || KCAL_FLOOR.male);
+  if (!table) return { kcal: Math.max(maintenance, floor), weeklyKg: 0, capped: false };
+  const wanted = table[profile.pace] ?? table.normal;
+  let kcal;
+  if (profile.goal === "Weight Loss") {
+    const kg = Math.min(wanted, (profile.weight || 70) * 0.01);
+    const deficit = Math.min((kg * KCAL_PER_KG) / 7, maintenance * 0.25);
+    kcal = Math.max(maintenance - deficit, floor);
+  } else {
+    const surplus = Math.min((wanted * KCAL_PER_KG) / 7, maintenance * 0.15);
+    kcal = Math.max(maintenance + surplus, floor);
+  }
+  const weeklyKg = Math.round(((kcal - maintenance) * 7 / KCAL_PER_KG) * 100) / 100;
+  // Capped: the limits gave a slower pace than asked for (a hair of rounding aside).
+  const capped = Math.abs(Math.abs(weeklyKg) - wanted) > 0.02;
+  return { kcal, weeklyKg, capped };
+}
 
 /** Protein in grams per kg of bodyweight. A deficit needs the most. */
 const PROTEIN_PER_KG = {
@@ -67,10 +106,9 @@ export function targetsFor(profile, { trainingDay = null, estimatedTdee = null }
   }
 
   const maintenance = estimatedTdee || tdee(profile);
-  let kcal = maintenance * (1 + (GOAL_FACTOR[profile.goal] ?? 0));
-
-  // Never prescribe below the resting burn plus a small margin.
-  kcal = Math.max(kcal, bmr(profile) * 1.1);
+  // The goal's pace, inside the safety limits (never below the resting burn plus a margin).
+  const pace = paceFor(profile, maintenance);
+  let kcal = pace.kcal;
 
   if (trainingDay === true) kcal *= 1.08;
   else if (trainingDay === false) kcal *= 0.94;
@@ -100,6 +138,7 @@ export function targetsFor(profile, { trainingDay = null, estimatedTdee = null }
     water: Math.round(profile.weight * 35),  // ml
     source: estimatedTdee ? "adaptive" : "calculated",
     maintenance: Math.round(maintenance),
+    pace: { weeklyKg: pace.weeklyKg, capped: pace.capped },
   };
 }
 
@@ -139,6 +178,7 @@ export function applyOnboardingToProfile(form) {
     ...(form.frequency ? { frequency: form.frequency } : {}),
     ...(form.difficulty ? { difficulty: form.difficulty } : {}),
     ...(form.dietType ? { dietType: form.dietType } : {}),
+    ...(form.pace ? { pace: form.pace } : {}),
     ...(Number.isFinite(+form.age) ? { age: +form.age } : {}),
     ...(Number.isFinite(+form.height) ? { height: +form.height } : {}),
     ...(Number.isFinite(+form.weight) ? { weight: +form.weight } : {}),
