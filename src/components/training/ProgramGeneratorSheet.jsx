@@ -30,9 +30,10 @@ export function generatorDefaults(programs = []) {
   };
 }
 
-export default function ProgramGeneratorSheet({ isRtl, t, programs, onUse, onClose }) {
+export default function ProgramGeneratorSheet({ isRtl, t, programs, initial = null, title, onUse, onClose }) {
   const version = useExerciseCatalog();
-  const [input, setInput] = useState(() => generatorDefaults(programs));
+  // A ready program opens with its own answers; the person's level and injuries stay theirs.
+  const [input, setInput] = useState(() => ({ ...generatorDefaults(programs), ...(initial || {}) }));
   const [seed, setSeed] = useState(7);
   const set = (patch) => setInput((x) => ({ ...x, ...patch }));
   const n = (v) => num(v, isRtl);
@@ -57,7 +58,7 @@ export default function ProgramGeneratorSheet({ isRtl, t, programs, onUse, onClo
   );
 
   return (
-    <Sheet title={t.makeProgram} isRtl={isRtl} t={t} onClose={onClose} footer={footer} tall>
+    <Sheet title={title || t.makeProgram} isRtl={isRtl} t={t} onClose={onClose} footer={footer} tall>
       <div className="flex flex-col gap-4 pb-2">
         <Field label={t.genGoal}>
           <Segmented label={t.genGoal} value={input.goal} onChange={(goal) => set({ goal })}

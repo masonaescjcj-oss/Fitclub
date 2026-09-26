@@ -35,6 +35,7 @@ export const INJURIES = [
   { id: "wrist", en: "Wrists", fa: "مچ دست" },
 ];
 export const SESSION_MINUTES = [30, 45, 60, 90];
+const faNum = (v) => String(v).replace(/\d/g, (d) => "۰۱۲۳۴۵۶۷۸۹"[d]);
 
 /* ─────────────────────────────── splits ─────────────────────────────── */
 
@@ -266,6 +267,7 @@ export function generateProgram({ goal = "Keep Fit", days = 3, minutes = 60, lev
     emoji: goal === "Max Strength" ? "🏋️" : goal === "Muscle Gain" ? "💪" : goal === "Weight Loss" ? "🔥" : "⚡",
     color: PROGRAM_COLORS[seedOf(split.id) % PROGRAM_COLORS.length],
     description: `${split.en}, ${minutes} min, ${level}, ${location === "gym" ? "gym" : location === "home" ? "home, no equipment" : "home with dumbbells and bands"}.`,
+    descriptionFa: `${split.fa}، ${faNum(minutes)} دقیقه، ${{ beginner: "مبتدی", intermediate: "متوسط", advanced: "حرفه‌ای" }[level] || level}، ${location === "gym" ? "باشگاه" : location === "home" ? "خانه بدون وسیله" : "خانه با دمبل"}.`,
     weeks: 8,
     author: { name: "FitClub", role: "coach" },
     source: "generated",

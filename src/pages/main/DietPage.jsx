@@ -19,6 +19,7 @@ import FoodSearchSheet, { macroLine } from "../../components/diet/FoodSearchShee
 import { QuickAddSheet, Sheet, TargetsSheet, ViewSheet, WeightSheet } from "../../components/diet/SmallSheets";
 import { PlanSettingsSheet, PlanTodayCard, ShoppingSheet, SwapSheet, WeekSheet } from "../../components/diet/MealPlan";
 import WeeklyReviewCard from "../../components/diet/WeeklyReview";
+import MealLibrarySheet from "../../components/diet/PlanLibrary";
 import { reviewDue, weeklyReview } from "../../lib/nutrition/weeklyReview";
 import { planDay, weekOver } from "../../lib/nutrition/mealPlanStore";
 import { ShareSheet } from "../../components/training/TrainingSheets";
@@ -74,7 +75,7 @@ export default function DietPage({ isRtl, onGoToRecipe, onGoToGuide }) {
   const [sheet, setSheet] = useState(null); // "menu" | "weight" | "targets" | "view" | "share"
   const [savingMeal, setSavingMeal] = useState(null);
   const [openMeals, setOpenMeals] = useState(() => new Set());
-  const [planSheet, setPlanSheet] = useState(null); // "settings" | "week" | "shop"
+  const [planSheet, setPlanSheet] = useState(null); // "settings" | "week" | "shop" | "library"
   const [swapping, setSwapping] = useState(null);   // { date, mealIndex, itemIndex }
 
   const cursorDate = useMemo(() => new Date(`${cursor}T00:00:00`), [cursor]);
@@ -262,6 +263,7 @@ export default function DietPage({ isRtl, onGoToRecipe, onGoToGuide }) {
           onOpenSettings={() => setPlanSheet("settings")}
           onOpenWeek={() => setPlanSheet("week")}
           onOpenShop={() => setPlanSheet("shop")}
+          onOpenLibrary={() => setPlanSheet("library")}
           onUpdate={() => store.buildMealPlan()}
           onMark={(date, mealIndex, status) => store.markPlannedMeal(date, mealIndex, status)}
           onSwap={(date, mealIndex, itemIndex) => setSwapping({ date, mealIndex, itemIndex })} />
@@ -479,6 +481,11 @@ export default function DietPage({ isRtl, onGoToRecipe, onGoToGuide }) {
             onClose={() => setPlanSheet(null)} />
         )}
         {planSheet === "shop" && <ShoppingSheet isRtl={isRtl} plan={plan} today={today} onClose={() => setPlanSheet(null)} />}
+        {planSheet === "library" && (
+          <MealLibrarySheet isRtl={isRtl} profile={profile} plan={plan}
+            onUse={(preset) => { store.applyMealPreset(preset); setPlanSheet(null); }}
+            onClose={() => setPlanSheet(null)} />
+        )}
       </AnimatePresence>
       <AnimatePresence>
         {swapItem && (

@@ -7,6 +7,7 @@ import ExerciseMedia from "../../components/training/ExerciseMedia";
 import ActiveWorkoutModal from "../../components/modals/ActiveWorkoutModal";
 import ProgramGeneratorSheet from "../../components/training/ProgramGeneratorSheet";
 import { isDeloadWeek, programWeek } from "../../lib/training/programGen";
+import { PLACES, WEEK_DAYS, workoutPresets } from "../../lib/plans/library";
 import {
   AuthorChip, ImportSheet, ProgramBuilderSheet, ProgramMark, ShareSheet, Sheet,
 } from "../../components/training/TrainingSheets";
@@ -126,7 +127,7 @@ export default function WorkoutPage({ isRtl, onOpen, initialSegment = null, onSe
   const [builder, setBuilder] = useState(undefined); // undefined closed | null new | program edit
   const [share, setShare] = useState(null);           // program to share
   const [importing, setImporting] = useState(false);
-  const [generating, setGenerating] = useState(false);
+  const [generating, setGenerating] = useState(false); // false | true | a ready program's answers
   const [trendFor, setTrendFor] = useState(null);     // exercise id
   const [menuFor, setMenuFor] = useState(null);       // program whose actions are open
   const [toast, setToast] = useState("");
@@ -212,6 +213,9 @@ export default function WorkoutPage({ isRtl, onOpen, initialSegment = null, onSe
             </div>
             <CtaButton tone="accent" isRtl={isRtl} onClick={() => setGenerating(true)}>{t.makeProgram}</CtaButton>
           </Card>
+          <ReadyPrograms t={t} n={n} sep={sep} isRtl={isRtl} programs={store.programs}
+            onOpen={(preset) => setGenerating(preset)} />
+
           <div className="grid grid-cols-2 gap-2.5">
             <Button tone="ink" icon={<Plus className="w-[18px] h-[18px]" strokeWidth={2.2} />} onClick={() => setBuilder(null)}>{t.newProgram}</Button>
             <Button tone="card" icon={<Download className="w-[18px] h-[18px]" strokeWidth={2} />} onClick={() => setImporting(true)}>{t.importShort}</Button>
@@ -239,7 +243,7 @@ export default function WorkoutPage({ isRtl, onOpen, initialSegment = null, onSe
                           <AuthorChip author={p.author} t={t} />
                         </div>
                       </div>
-                      {p.description && <p className="m-0 text-sm leading-relaxed text-muted">{p.description}</p>}
+                      {(isRtl ? p.descriptionFa : p.description) && <p className="m-0 text-sm leading-relaxed text-muted">{isRtl ? p.descriptionFa : p.description}</p>}
                       <div className="flex items-center gap-2">
                         {!isActive && (
                           <Button tone="ink" size="sm" onClick={() => { store.setActiveProgram(p.id); setSegment("plan"); }}>{t.setActive}</Button>
@@ -284,6 +288,8 @@ export default function WorkoutPage({ isRtl, onOpen, initialSegment = null, onSe
       <AnimatePresence>
         {generating && (
           <ProgramGeneratorSheet isRtl={isRtl} t={t} programs={store.programs}
+            initial={generating === true ? null : { goal: generating.goal, days: generating.days, minutes: generating.minutes, location: generating.location }}
+            title={generating === true ? null : (isRtl ? generating.nameFa : generating.name)}
             onUse={(input) => { store.generateAndUseProgram(input); setGenerating(false); setSegment("plan"); flash(t.genMade); }}
             onClose={() => setGenerating(false)} />
         )}
@@ -340,6 +346,41 @@ export default function WorkoutPage({ isRtl, onOpen, initialSegment = null, onSe
 
 // Lives in lib so the app shell can apply a shared plan without loading this page.
 export { applyMealPlan };
+
+/* ─────────────────────────────── ready programs ─────────────────────────────── */
+
+const READY_GOALS = [["Weight Loss", "goalLoss"], ["Muscle Gain", "goalMuscle"], ["Keep Fit", "goalFit"], ["Max Strength", "goalStrength"]];
+const READY_PLACES = { gym: "whereGym", home_gear: "whereGear", home: "whereHome" };
+
+/** The library's 60 programs by goal, place and days a week; each opens in the planner to preview and use. */
+function ReadyPrograms({ t, n, sep, isRtl, programs, onOpen }) {
+  const last = [...programs].reverse().find((p) => p.source === "generated" && p.generator)?.generator;
+  const [goal, setGoal] = useState(last?.goal || "Muscle Gain");
+  const [place, setPlace] = useState(last?.location || "gym");
+  const [days, setDays] = useState("all");
+  const list = workoutPresets({ goal, location: place, days: days === "all" ? null : +days });
+  return (
+    <section className="flex flex-col gap-2.5" aria-label={t.readyPrograms}>
+      <SectionHead title={t.readyPrograms} />
+      <div className="flex flex-wrap gap-1.5">
+        {READY_GOALS.map(([g, k]) => <Chip key={g} active={goal === g} onClick={() => setGoal(g)}>{t[k]}</Chip>)}
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {PLACES.map((p) => <Chip key={p} active={place === p} onClick={() => setPlace(p)}>{t[READY_PLACES[p]]}</Chip>)}
+      </div>
+      <Segmented label={t.genDays} value={days} onChange={setDays}
+        options={[{ id: "all", label: t.all }, ...WEEK_DAYS.map((d) => ({ id: String(d), label: n(d) }))]} />
+      <List>
+        {list.map((p) => (
+          <Row key={p.id} isRtl={isRtl} chevron onClick={() => onOpen(p)}
+            icon={<IconWell size={40}><span className="text-[15px] font-bold">{n(p.days)}</span></IconWell>}
+            title={isRtl ? p.nameFa : p.name}
+            subtitle={`${n(p.days)} ${t.daysWeek}${sep}${n(p.minutes)} ${t.min}`} />
+        ))}
+      </List>
+    </section>
+  );
+}
 
 /* ─────────────────────────────── charts ─────────────────────────────── */
 

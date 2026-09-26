@@ -96,6 +96,8 @@ check("a private chat is titled with the sender; a checklist previews its title"
 
 // Evening reminders: Ben (UTC+3:30) and Cara; nothing logged yet.
 await db.exec(`update public.fitclub_push_subscriptions set tz_offset = ((20 - extract(hour from now() at time zone 'UTC'))::int * 60 + 1440) % 1440 - (case when ((20 - extract(hour from now() at time zone 'UTC'))::int * 60 + 1440) % 1440 > 840 then 1440 else 0 end) where endpoint <> '${sub("dan").endpoint}'`);
+// …and Dan's morning, whatever the hour the tests run (his default, Tehran, is evening for part of the day).
+await db.exec(`update public.fitclub_push_subscriptions set tz_offset = ((8 - extract(hour from now() at time zone 'UTC'))::int * 60 + 1440) % 1440 - (case when ((8 - extract(hour from now() at time zone 'UTC'))::int * 60 + 1440) % 1440 > 840 then 1440 else 0 end) where endpoint = '${sub("dan").endpoint}'`);
 check("reminders need the secret", (await rpc(null, "push_due_reminders", "nope")).error?.includes("unauthorized"));
 await rpc(B, "publish_activity", [{ day: (await db.query(`select (now() at time zone 'UTC' + make_interval(mins => (select tz_offset from public.fitclub_push_subscriptions where endpoint = '${sub("ben").endpoint}')))::date::text as d`)).rows[0].d, workouts: 1 }], 1, 1);
 r = await rpc(null, "push_due_reminders", "s3cret-for-tests");

@@ -219,6 +219,8 @@ const DAILY_COST_REF = 600000; // toman: scales cost against macro error
 
 // On keto, fat carries most of the calories: its portions may go higher.
 const KETO_MAX = { oil: 45, nuts: 60, cheese: 120, spread: 40 };
+// …and vegetables may go smaller: two or three sides a day add up past the carb ceiling.
+const KETO_MIN = { veg: 40 };
 
 function prepare(meals, layout, dietType) {
   const vars = [];
@@ -228,14 +230,17 @@ function prepare(meals, layout, dietType) {
       const food = findFood(item.foodId);
       if (!meta || !food) return;
       const p = food.per100;
-      const typical = (meta.min + meta.max) / 2;
+      // On keto a fat's usual portion is the middle of its keto range, or the solver holds it back.
+      const top = dietType === "keto" && KETO_MAX[meta.bounds] ? KETO_MAX[meta.bounds] : meta.max;
+      const bottom = dietType === "keto" && KETO_MIN[meta.bounds] ? KETO_MIN[meta.bounds] : meta.min;
+      const typical = (bottom + top) / 2;
       vars.push({
         item, m, meta,
         e: { kcal: p.kcal / 100, protein: p.protein / 100, carbs: p.carbs / 100, fat: p.fat / 100 },
         cost: meta.pricePerG ?? 0,
-        min: meta.min,
+        min: bottom,
         // An added food (repair) stays a side: at most halfway up its range.
-        max: item.role === "extra" ? (meta.min + meta.max) / 2 : dietType === "keto" && KETO_MAX[meta.bounds] ? KETO_MAX[meta.bounds] : meta.max,
+        max: item.role === "extra" ? (meta.min + meta.max) / 2 : top,
         step: meta.step, typical: item.role === "extra" ? meta.min : typical,
         x: item.grams ?? typical,
       });
@@ -261,8 +266,9 @@ function objective(vars, target, shares, budget) {
     let r = (tot[k] - target[k]) / target[k];
     // Keto's carbs are a ceiling: under it is fine.
     if (k === "carbs" && target.carbsCap && r < 0) r = 0;
-    // Short on protein is worse than a little over.
+    // Short on protein is worse than a little over; on keto, over the carb ceiling is worse still.
     if (k === "protein" && r < 0) r *= 1.6;
+    if (k === "carbs" && target.carbsCap && r > 0) r *= 2;
     f += WEIGHTS[k] * r * r;
   }
   shares.forEach((s, m) => { f += WEIGHTS.meal * ((mk[m] - s * target.kcal) / target.kcal) ** 2; });
@@ -286,7 +292,7 @@ function descend(vars, target, shares, budget, sweeps = 60) {
         for (const u of vars) if (u !== v) rest += u.e[k] * u.x;
         const under = rest + v.e[k] * v.x < target[k];
         if (k === "carbs" && target.carbsCap && under) continue;
-        const w = WEIGHTS[k] * (k === "protein" && under ? 2.56 : 1);
+        const w = WEIGHTS[k] * (k === "protein" && under ? 2.56 : k === "carbs" && target.carbsCap ? 4 : 1);
         const T2 = target[k] * target[k];
         a += (w * v.e[k] * v.e[k]) / T2;
         b += (2 * w * v.e[k] * rest) / T2;

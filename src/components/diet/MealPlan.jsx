@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { ArrowLeftRight, CalendarDays, ChevronLeft, ChevronRight, RefreshCw, ShoppingBasket, SlidersHorizontal, Sparkles, X } from "lucide-react";
+import { ArrowLeftRight, CalendarDays, ChevronLeft, ChevronRight, LayoutGrid, RefreshCw, ShoppingBasket, SlidersHorizontal, Sparkles, X } from "lucide-react";
 import { Button, Check, Chip, Field, IconButton, Label, Segmented, cx, num } from "../ui/kit";
 import { Sheet } from "./SmallSheets";
 import { fmtNum } from "./DietBits";
@@ -14,6 +14,7 @@ import { allowedFoods, dayTotals, itemsTotals, shoppingList, swapOptions } from 
 
 const COPY = {
   en: {
+    library: "Ready meal plans",
     title: "Your meal plan", today: "Today's plan", week: "Whole week", shop: "Shopping list", settings: "Plan settings",
     emptyTitle: "A meal plan made for you",
     emptyBody: "Seven days of real meals that hit your calories and protein, at the budget you pick. Swap any food; the rest adjusts.",
@@ -36,6 +37,7 @@ const COPY = {
     days: "Days", close: "Close", cancel: "Cancel", apply: "Make the plan",
   },
   fa: {
+    library: "برنامه‌های غذایی آماده",
     title: "برنامه‌ی غذایی تو", today: "برنامه‌ی امروز", week: "کل هفته", shop: "لیست خرید", settings: "تنظیمات برنامه",
     emptyTitle: "برنامه‌ی غذایی مخصوص خودت",
     emptyBody: "هفت روز غذای واقعی که به کالری و پروتئینت می‌رسد، با بودجه‌ای که خودت انتخاب می‌کنی. هر غذا را می‌توانی عوض کنی؛ بقیه خودش تنظیم می‌شود.",
@@ -101,7 +103,7 @@ export function amountLabel(foodId, grams, isRtl) {
 /* ─────────────────────────────── today ─────────────────────────────── */
 
 /** Today's planned meals, or the invitation to make a plan. */
-export function PlanTodayCard({ isRtl, plan, day, stale, onBuild, onOpenSettings, onOpenWeek, onOpenShop, onMark, onSwap, onUpdate }) {
+export function PlanTodayCard({ isRtl, plan, day, stale, onBuild, onOpenSettings, onOpenWeek, onOpenShop, onOpenLibrary, onMark, onSwap, onUpdate }) {
   const c = usePlanCopy(isRtl);
   const n = (v) => num(v, isRtl);
   if (!plan.week) {
@@ -111,6 +113,7 @@ export function PlanTodayCard({ isRtl, plan, day, stale, onBuild, onOpenSettings
         <h2 className="m-0 font-display font-extrabold text-[24px] leading-tight tracking-[-0.02em]">{c.emptyTitle}</h2>
         <p className="m-0 text-sm leading-[1.5] text-hero-fg/80">{c.emptyBody}</p>
         <Button tone="accent" size="lg" block onClick={onOpenSettings}>{c.build}</Button>
+        {onOpenLibrary && <Button tone="hero" block onClick={onOpenLibrary}>{c.library}</Button>}
       </section>
     );
   }
@@ -145,6 +148,9 @@ export function PlanTodayCard({ isRtl, plan, day, stale, onBuild, onOpenSettings
         <Button tone="soft" icon={<CalendarDays className="w-4 h-4" strokeWidth={2} />} onClick={onOpenWeek}>{c.week}</Button>
         <Button tone="soft" icon={<ShoppingBasket className="w-4 h-4" strokeWidth={2} />} onClick={onOpenShop}>{c.shop}</Button>
       </div>
+      {onOpenLibrary && (
+        <Button tone="ghost" size="sm" icon={<LayoutGrid className="w-4 h-4" strokeWidth={2} />} onClick={onOpenLibrary}>{c.library}</Button>
+      )}
     </section>
   );
 }

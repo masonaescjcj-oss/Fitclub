@@ -75,6 +75,20 @@ export default function useNutrition() {
         return { ...next, week: buildWeek({ plan: next, profile, targetFor: () => t, start }) };
       });
     },
+    /**
+     * A ready plan (lib/plans/library.js) made the plan: its goal and diet go
+     * to the profile, its budget and meal count to the planner, and a new
+     * week is built on the targets those give.
+     */
+    applyMealPreset: (preset) => {
+      const nextProfile = { ...profile, goal: preset.goal, dietType: preset.dietType };
+      setProfile((p) => ({ ...p, goal: preset.goal, dietType: preset.dietType }));
+      const t = targetsFor(nextProfile, { estimatedTdee: profile.useAdaptive ? estimate?.tdee ?? null : null });
+      setMealPlan((plan) => {
+        const next = { ...plan, preset: preset.id, settings: { ...plan.settings, budget: preset.budget, meals: preset.meals } };
+        return { ...next, week: buildWeek({ plan: next, profile: nextProfile, targetFor: () => t, start: dayKey() }) };
+      });
+    },
     updateMealPlanSettings: (patch) => setMealPlan((plan) => ({ ...plan, settings: { ...plan.settings, ...patch } })),
     clearMealPlan: () => setMealPlan((plan) => ({ ...plan, week: null })),
 

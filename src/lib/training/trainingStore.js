@@ -17,7 +17,7 @@ function builtinPrograms() {
     createProgram({
       id: "prog_athletic", name: "Athletic Explosive Power", nameFa: "توان انفجاری و چابکی ورزشی",
       emoji: "⚡", color: "#844783", weeks: 6, source: "builtin", author: AUTHOR,
-      description: "Power, agility and strength across four sessions a week.",
+      description: "Power, agility and strength across four sessions a week.", descriptionFa: "توان، چابکی و قدرت در چهار جلسه در هفته.",
       days: [
         day("Explosiveness", "تمرین انفجاری", [ex("ex1", 5, 5), ex("ex2", 3, 5, 100, 150), ex("ex3", 4, 30), ex("ex4", 4, 8, 80, 120), ex("ex5", 3, 12, 120), ex("ex6", 3, 10, 24)]),
         day("Agility", "چابکی", [ex("ladder", 4, 45, null, 60), ex("cone_hops", 3, 12, null, 60), ex("mb_slam", 4, 15, 8), ex("box_jump", 4, 8), ex("plank_taps", 3, 20, null, 45)]),
@@ -30,7 +30,7 @@ function builtinPrograms() {
     createProgram({
       id: "prog_ppl", name: "Push Pull Legs Hypertrophy", nameFa: "پوش پول لگز حجم",
       emoji: "💪", color: "#e0567d", weeks: 8, source: "builtin", author: AUTHOR,
-      description: "Six days, each muscle twice a week.",
+      description: "Six days, each muscle twice a week.", descriptionFa: "شش روز، هر عضله دو بار در هفته.",
       days: [
         day("Push A", "پوش A", [ex("bench_press", 4, 8, 60, 120), ex("ohp", 3, 8, 40), ex("incline_db", 3, 10, 22), ex("lateral_raise", 3, 15, 8, 60), ex("rope_pushdown", 3, 12, 25, 60)]),
         day("Pull A", "پول A", [ex("ex2", 3, 5, 100, 150), ex("pullup", 4, 8), ex("barbell_row", 4, 10, 50), ex("face_pull", 3, 15, 15, 60), ex("bb_curl", 3, 12, 20, 60)]),
@@ -44,7 +44,7 @@ function builtinPrograms() {
     createProgram({
       id: "prog_fullbody", name: "Full Body Functional Strength", nameFa: "فول بادی فانکشنال",
       emoji: "🔥", color: "#f59e0b", weeks: 4, source: "builtin", author: AUTHOR,
-      description: "Three full-body sessions for all levels.",
+      description: "Three full-body sessions for all levels.", descriptionFa: "سه جلسه‌ی فول بادی برای همه‌ی سطح‌ها.",
       days: [
         day("Full Body A", "فول بادی A", [ex("ex4", 3, 8, 70, 120), ex("bench_press", 3, 8, 55, 120), ex("barbell_row", 3, 10, 45), ex("plank", 3, 45, null, 45)]),
         rest(),
@@ -57,7 +57,7 @@ function builtinPrograms() {
     createProgram({
       id: "prog_calisthenics", name: "Bodyweight Master", nameFa: "کالیستنیکس",
       emoji: "🤸", color: "#10b981", weeks: 6, source: "builtin", author: AUTHOR,
-      description: "No equipment beyond a bar.",
+      description: "No equipment beyond a bar.", descriptionFa: "بدون وسیله، جز یک میله‌ی بارفیکس.",
       days: [
         day("Upper", "بالاتنه", [ex("pullup", 4, 6, null, 120), ex("pushup", 4, 15, null, 60), ex("dips", 3, 8), ex("plank", 3, 45, null, 45)]),
         day("Lower", "پایین‌تنه", [ex("ex1", 4, 10, null, 60), ex("lunge", 3, 12), ex("box_jump", 4, 8), ex("calf_raise", 4, 20, null, 45)]),
@@ -152,9 +152,14 @@ function normalize(state) {
     ...p,
     days: (p.days || []).map((d) => ({ ...createDay(), ...d, exercises: (d.exercises || []).map((e) => ({ ...createProgramExercise(), ...e })) })),
   }));
-  // Built-ins are re-seeded if an older save predates one of them.
+  // Built-ins are re-seeded if an older save predates one of them, and pick up text added since (a Persian description).
   const have = new Set(programs.map((p) => p.id));
-  for (const b of builtinPrograms()) if (!have.has(b.id)) programs.push(b);
+  const builtins = builtinPrograms();
+  for (const b of builtins) if (!have.has(b.id)) programs.push(b);
+  for (const p of programs) {
+    const b = p.source === "builtin" && builtins.find((x) => x.id === p.id);
+    if (b && !p.descriptionFa) p.descriptionFa = b.descriptionFa;
+  }
   return {
     programs: withoutTemplateWeights(programs),
     activeProgramId: programs.some((p) => p.id === state.activeProgramId) ? state.activeProgramId : programs[0]?.id ?? null,

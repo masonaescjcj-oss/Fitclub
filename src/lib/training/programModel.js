@@ -228,7 +228,7 @@ const MAX_BYTES = 64 * 1024;
 export function compactProgram(p) {
   return {
     t: "program", v: 1,
-    n: p.name, nf: p.nameFa || "", e: p.emoji, c: p.color, d: p.description || "", w: p.weeks,
+    n: p.name, nf: p.nameFa || "", e: p.emoji, c: p.color, d: p.description || "", ...(p.descriptionFa ? { df: p.descriptionFa } : {}), w: p.weeks,
     a: { n: p.author?.name || "", r: p.author?.role || "user" },
     days: p.days.map((day) => ({
       t: day.title, tf: day.titleFa || "", r: day.type === "rest" ? 1 : 0,
@@ -240,7 +240,7 @@ export function compactProgram(p) {
 export function expandProgram(c) {
   return createProgram({
     name: c.n, nameFa: c.nf, emoji: c.e || "🏋️", color: c.c || PROGRAM_COLORS[0],
-    description: c.d || "", weeks: c.w || 6,
+    description: c.d || "", descriptionFa: c.df || "", weeks: c.w || 6,
     author: { name: c.a?.n || "", role: c.a?.r === "coach" ? "coach" : "user" },
     source: "imported",
     days: (c.days || []).map((d) =>
