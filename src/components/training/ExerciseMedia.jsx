@@ -24,10 +24,12 @@ export default function ExerciseMedia({ exerciseId, name, className = "", thumb 
   const mp4 = mediaUrl(m?.mp4);
   const poster = mediaUrl(m?.poster);
 
-  // Thumbnails stay still when they can; the full view moves.
+  // Thumbnails stay still when they can; the full view moves. A browser that
+  // can't play the library's H.264 MP4s shows the still instead.
+  const video = mp4 && canPlayMp4();
   let kind = null;
-  if (thumb) kind = poster ? "poster" : webp || gif ? "image" : mp4 ? "video" : null;
-  else kind = mp4 ? "video" : webp || gif ? "image" : poster ? "poster" : null;
+  if (thumb) kind = poster ? "poster" : webp || gif ? "image" : video ? "video" : null;
+  else kind = video ? "video" : webp || gif ? "image" : poster ? "poster" : null;
 
   const fallback = <ExerciseGraphic exerciseId={exerciseId} name={name} className={className} />;
   if (!kind) return fallback;
@@ -38,11 +40,22 @@ export default function ExerciseMedia({ exerciseId, name, className = "", thumb 
   );
 }
 
-function MediaWell({ kind, gif, webp, mp4, poster, name, thumb, className, fallback }) {
+let mp4Support = null;
+/** Whether this browser plays H.264 video (every phone does; some desktop Linux builds don't). */
+function canPlayMp4() {
+  if (mp4Support === null) {
+    try { mp4Support = !!document.createElement("video").canPlayType('video/mp4; codecs="avc1.64001E"'); } catch { mp4Support = true; }
+  }
+  return mp4Support;
+}
+
+function MediaWell({ kind: wanted, gif, webp, mp4, poster, name, thumb, className, fallback }) {
   const [state, setState] = useState("loading"); // loading | ready | failed
+  // An animation that won't load falls back to the exercise's still, then to the drawing.
+  const [kind, setKind] = useState(wanted);
   if (state === "failed") return fallback;
   const ready = () => setState("ready");
-  const failed = () => setState("failed");
+  const failed = () => { if (kind !== "poster" && poster) { setKind("poster"); setState("loading"); } else setState("failed"); };
   const fill = cx("absolute inset-0 w-full h-full object-contain mix-blend-multiply transition-opacity duration-300",
     state === "ready" ? "opacity-100" : "opacity-0");
   const alt = thumb ? "" : name || "";
