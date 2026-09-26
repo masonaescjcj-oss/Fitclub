@@ -102,6 +102,22 @@ function MainAppShell({ onNavigate }) {
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
   useEffect(() => { if (joinCode) { clearJoinFromLocation(); setSubPage(null); setActiveTab("club"); } }, [joinCode]);
+  // A tapped notification opens its chat: "?chat=<id>" on a cold start, or a
+  // message from the service worker when the app is already open.
+  useEffect(() => {
+    const openFrom = (href) => {
+      const id = new URL(href, window.location.origin).searchParams.get("chat");
+      if (!id) return;
+      setOpenTarget({ chatId: id }); setSubPage(null); setActiveTab("club");
+    };
+    if (new URLSearchParams(window.location.search).get("chat")) {
+      openFrom(window.location.href);
+      try { window.history.replaceState(null, "", window.location.pathname); } catch { /* read-only history */ }
+    }
+    const onMessage = (e) => { if (e.data && e.data.type === "fitclub:open" && e.data.url) openFrom(e.data.url); };
+    navigator.serviceWorker?.addEventListener("message", onMessage);
+    return () => navigator.serviceWorker?.removeEventListener("message", onMessage);
+  }, []);
   useEffect(() => { if (!flash) return undefined; const id = setTimeout(() => setFlash(""), 1800); return () => clearTimeout(id); }, [flash]);
 
   // Two tabs open full screen, without the shell's bar. The messenger keeps

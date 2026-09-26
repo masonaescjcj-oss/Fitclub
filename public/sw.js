@@ -8,8 +8,10 @@
  * - Google Fonts: stale-while-revalidate, so type still renders offline.
  * - Everything else (the messenger server, the coach API) goes straight to
  *   the network and is never cached.
+ * - Push (supabase/migrations/0008, api/push-*.js): a notification per
+ *   message or reminder; tapping it opens or focuses the app at its link.
  */
-const VERSION = "fitclub-v2";
+const VERSION = "fitclub-v3";
 const SHELL = ["/", "/index.html", "/manifest.json", "/icons/icon-192.png", "/icons/icon-512.png"];
 
 self.addEventListener("install", (event) => {
@@ -78,4 +80,34 @@ self.addEventListener("fetch", (event) => {
   if (url.hostname === "fonts.googleapis.com" || url.hostname === "fonts.gstatic.com") {
     event.respondWith(staleWhileRevalidate(request));
   }
+});
+
+self.addEventListener("push", (event) => {
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; } catch { data = { body: event.data ? event.data.text() : "" }; }
+  const title = data.title || "FitClub";
+  event.waitUntil(self.registration.showNotification(title, {
+    body: data.body || "",
+    icon: "/icons/icon-192.png",
+    badge: "/icons/icon-192.png",
+    tag: data.tag || undefined,
+    renotify: !!data.tag,
+    data: { url: data.url || "/" },
+  }));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = new URL((event.notification.data && event.notification.data.url) || "/", self.location.origin).href;
+  event.waitUntil((async () => {
+    const open = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    for (const client of open) {
+      if (new URL(client.url).origin === self.location.origin) {
+        await client.focus();
+        client.postMessage({ type: "fitclub:open", url });
+        return;
+      }
+    }
+    await self.clients.openWindow(url);
+  })());
 });

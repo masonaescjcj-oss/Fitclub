@@ -7,6 +7,12 @@
     "api/coach.js": {
       "maxDuration": 60,
       "supportsCancellation": true
+    },
+    "api/push-message.js": {
+      "maxDuration": 15
+    },
+    "api/push-reminders.js": {
+      "maxDuration": 60
     }
   },
   "rewrites": [
@@ -50,6 +56,12 @@
           "value": "strict-origin-when-cross-origin"
         }
       ]
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/push-reminders",
+      "schedule": "30 15 * * *"
     }
   ]
 }

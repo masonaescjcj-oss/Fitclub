@@ -13,6 +13,7 @@ import { SUPABASE_SERVER, createSupabaseApi } from "../lib/chat/supabaseApi";
 import { TRANSCRIPTS } from "../lib/chat/extras";
 import { setPhotoResolver } from "../lib/chat/photos";
 import { fitJpeg, toDataUrl } from "../lib/image";
+import { notifyMessage } from "../lib/push";
 import { uid } from "../lib/chat/chatModel";
 
 /**
@@ -259,7 +260,7 @@ export default function useChat(lang = "en") {
           ? { title: message.checklist.title, othersCanMark: message.checklist.othersCanMark, othersCanAdd: message.checklist.othersCanAdd, items: message.checklist.items.map((i) => i.text) }
           : undefined;
         client.send(chatId, { text, kind, replyTo, media, poll, voice, silent, clientId, checklist })
-          .then((saved) => upsertMessage(toLocalMessage(saved, latest.current.__myId)))
+          .then((saved) => { upsertMessage(toLocalMessage(saved, latest.current.__myId)); notifyMessage(saved.id); })
           .catch(() => patchMessage(message.id, (m) => ({ ...m, status: "failed" })));
         return message;
       }
@@ -319,6 +320,7 @@ export default function useChat(lang = "en") {
         const { path } = await client.uploadPhoto(chatId, blob);
         const saved = await client.send(chatId, { kind: "photo", text: "", media: { path, width, height }, clientId: message.clientId });
         upsertMessage(toLocalMessage(saved, latest.current.__myId));
+        notifyMessage(saved.id);
       } catch {
         patchMessage(message.id, (m) => ({ ...m, status: "failed" }));
       }
@@ -373,7 +375,7 @@ export default function useChat(lang = "en") {
         .catch((e) => { patchMessage(id, () => before); throw e; });
     },
     /** A message the server made on this account's behalf (a challenge card), shown at once. */
-    acceptServerMessage: (saved) => { if (saved) upsertMessage(toLocalMessage(saved, latest.current.__myId)); },
+    acceptServerMessage: (saved) => { if (saved) { upsertMessage(toLocalMessage(saved, latest.current.__myId)); notifyMessage(saved.id); } },
 
     /** Adds a task to a checklist message; the same round trip as markTask. */
     addTask: (id, text) => {

@@ -14,6 +14,7 @@ import { useTrainingStore } from "../../lib/training/trainingContext";
 import { useNutritionStore } from "../../lib/nutrition/nutritionContext";
 import { useChecklistStore } from "../../lib/checklistContext";
 import { overallBest, overallStreak } from "../../lib/checklistModel";
+import NotificationSettings from "../../components/NotificationSettings";
 
 // Profile and settings in one screen: who you are and what you've done on
 // top, then the account pages, then appearance (theme, accent, language).
@@ -286,6 +287,13 @@ export default function ProfilePage({ onNavigate, onBack, isRtl }) {
             </div>
           </div>
         </Card>
+
+        {backendOn && (
+          <>
+            <Label as="h3" className="m-0 px-1">{isRtl ? "اعلان‌ها" : "Notifications"}</Label>
+            <NotificationSettings isRtl={isRtl} />
+          </>
+        )}
 
         <Label as="h3" className="m-0 px-1">{c.preferences}</Label>
         <List>
