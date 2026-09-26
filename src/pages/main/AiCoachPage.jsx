@@ -80,7 +80,8 @@ function Markdown({ text }) {
 /* ──────────────────────────── pieces ──────────────────────────── */
 
 /** Who wrote a live reply: the model the server reported, Claude when it didn't say. */
-const liveTag = (model, t) => (!model || model.startsWith("claude") ? t.poweredBy : model.startsWith("you.com") ? "You.com" : model);
+// Which model wrote a reply is known once it's finished: no label until then, rather than a guess.
+const liveTag = (model, t) => (!model ? null : model.startsWith("claude") ? t.poweredBy : model.startsWith("you.com") ? "You.com" : model);
 
 function Bubble({ msg, isRtl, t, streaming }) {
   const isAi = msg.role === "assistant";
