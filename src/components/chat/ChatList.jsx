@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { motion } from "framer-motion";
-import { Archive, Loader2, MessageCircle, MoreHorizontal, PenSquare, Pin, Search, VolumeX, X } from "lucide-react";
+import { Archive, Loader2, MessageCircle, MoreHorizontal, Pin, Search, VolumeX, X } from "lucide-react";
 import { ME, lastMessage, previewOf, relativeTime } from "../../lib/chat/chatModel";
 import { DEMO_WORLD, STORIES_SHOWN, findUser } from "../../lib/chat/chatStore";
 import { globalSearch } from "../../lib/chat/search";
@@ -274,11 +274,14 @@ function SearchResults({ query, store, people, isRtl, t, onOpen, onOpenUser, onJ
   );
 }
 
-export default function ChatList({ store, isRtl, t, onOpen, onOpenAt, onMenu, onCompose, onOpenStory, onOpenUser, onJoin, people = [] }) {
+export default function ChatList({ store, isRtl, t, onOpen, onOpenAt, onMenu, onOpenStory, onOpenUser, onJoin, people = [] }) {
   const [editing, setEditing] = useState(false);
   const [query, setQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const searching = searchOpen || query.trim().length > 0;
+  const searchRef = useRef(null);
+  // The search button opens the field and puts the cursor in it.
+  useEffect(() => { if (searchOpen) searchRef.current?.focus(); }, [searchOpen]);
 
   const rows = useMemo(() => store.orderedChats
     .map((chat) => ({ chat, message: lastMessage(store.messages, chat.id), unread: store.unreadOf(chat), mentions: store.mentionsOf(chat) }))
@@ -349,7 +352,7 @@ export default function ChatList({ store, isRtl, t, onOpen, onOpenAt, onMenu, on
 
   return (
     <div dir={isRtl ? "rtl" : "ltr"} className="ui w-full min-h-[100dvh] pb-32">
-      {/* Navigation bar: Edit · stories and title · compose */}
+      {/* Navigation bar: Edit · stories and title · search. New chats start from Contacts, below. */}
       <header className="sticky top-0 z-20 px-5 pb-2 bg-canvas" style={{ paddingTop: HEAD_TOP }}>
         <div className="h-11 grid grid-cols-[1fr_auto_1fr] items-center gap-2">
           <button type="button" onClick={() => setEditing((v) => !v)} aria-pressed={editing}
@@ -373,9 +376,11 @@ export default function ChatList({ store, isRtl, t, onOpen, onOpenAt, onMenu, on
             )}
           </h1>
           <div className="justify-self-end flex items-center gap-2">
-            <IconButton label={t.newChat} tone="jet" onClick={onCompose}>
-              <PenSquare className="w-[19px] h-[19px]" strokeWidth={2} />
-            </IconButton>
+            {!searching && (
+              <IconButton label={t.searchPh} tone="jet" onClick={() => setSearchOpen(true)}>
+                <Search className="w-[19px] h-[19px]" strokeWidth={2} />
+              </IconButton>
+            )}
           </div>
         </div>
       </header>
@@ -398,12 +403,13 @@ export default function ChatList({ store, isRtl, t, onOpen, onOpenAt, onMenu, on
         </motion.div>
       )}
 
+      {/* Search — by name, @username or a pasted link; opened from the navigation bar */}
+      {searching && (
       <div className="px-5 pt-1.5 pb-3 flex flex-col gap-3">
-        {/* Search — by name, @username or a pasted link */}
         <div className="flex items-center gap-3">
           <label className="flex-1 h-11 rounded-2xl bg-card flex items-center gap-2.5 px-3.5 transition-shadow focus-within:ring-2 focus-within:ring-inset focus-within:ring-ink">
             <Search className="w-[18px] h-[18px] shrink-0 text-muted" strokeWidth={2} />
-            <input value={query} onChange={(e) => setQuery(e.target.value)} onFocus={() => setSearchOpen(true)}
+            <input ref={searchRef} value={query} onChange={(e) => setQuery(e.target.value)} onFocus={() => setSearchOpen(true)}
               placeholder={t.searchPh} aria-label={t.searchPh} type="text" role="searchbox" enterKeyHint="search"
               className="flex-1 min-w-0 h-full border-0 bg-transparent text-[15px] text-ink outline-none focus-visible:outline-none placeholder:text-muted/80" />
             {query && (
@@ -413,12 +419,11 @@ export default function ChatList({ store, isRtl, t, onOpen, onOpenAt, onMenu, on
               </button>
             )}
           </label>
-          {searching && (
-            <button type="button" onClick={closeSearch}
-              className="h-11 border-0 bg-transparent px-1 text-[15px] font-semibold text-ink cursor-pointer">{t.cancel}</button>
-          )}
+          <button type="button" onClick={closeSearch}
+            className="h-11 border-0 bg-transparent px-1 text-[15px] font-semibold text-ink cursor-pointer">{t.cancel}</button>
         </div>
       </div>
+      )}
 
       {/* Folder tabs, pinned under the navigation bar */}
       {!searching && (

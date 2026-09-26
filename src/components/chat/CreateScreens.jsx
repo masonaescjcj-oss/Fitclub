@@ -1,7 +1,7 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import {
-  ArrowLeft, ArrowRight, Check, Copy, QrCode, RefreshCw, Search, ShieldCheck, UserMinus, X,
+  ArrowLeft, ArrowRight, Camera, Check, Copy, Loader2, QrCode, RefreshCw, Search, ShieldCheck, Trash2, UserMinus, X,
 } from "lucide-react";
 import { ME, LINK_HOST, chatLink, relativeTime, validateUsername } from "../../lib/chat/chatModel";
 import { PEOPLE_SHOWN, findUser } from "../../lib/chat/chatStore";
@@ -10,6 +10,7 @@ import {
 } from "../ui/kit";
 import { Avatar, NameBadges } from "./ChatBits";
 import { appLinkFor } from "../../lib/chat/search";
+import { squareJpeg } from "../../lib/image";
 
 /*
  * Making and running groups and channels, laid out like the Android client:
@@ -74,29 +75,81 @@ function TextArea({ label, value, onChange, maxLength, rows = 3 }) {
   );
 }
 
+const PHOTO_COPY = {
+  en: {
+    add: "Add a photo", change: "Change photo", title: "Photo", choose: "Choose a new photo", remove: "Remove photo",
+    hint: "Add a photo, or the picture is drawn from the name.", hintSet: "Tap the photo to change it.",
+  },
+  fa: {
+    add: "افزودن عکس", change: "تغییر عکس", title: "عکس", choose: "انتخاب عکس تازه", remove: "حذف عکس",
+    hint: "یک عکس بگذار، وگرنه تصویر از روی نام ساخته می‌شود.", hintSet: "برای عوض کردن عکس رویش ضربه بزن.",
+  },
+};
+
 /**
- * Step one for a channel, step two for a group: the picture (drawn from the
- * name), the name and an optional description. `nextIcon` says whether the
- * action moves on or finishes.
+ * Step one for a channel, step two for a group: the picture, the name and
+ * an optional description. The picture is a photo picked from the phone,
+ * cropped square and shrunk here, or an icon drawn from the name. `onNext`
+ * gets `photoChange` only when it changed: the new picture as a JPEG blob,
+ * or null when it was taken down. `nextIcon` says whether the action moves
+ * on or finishes.
  */
 export function ChatDetailsScreen({ kind, initial = {}, title, isRtl, t, onBack, onNext, nextIcon = ArrowRight, nextLabel }) {
   const [name, setName] = useState(initial.title || "");
   const [description, setDescription] = useState(initial.description || "");
-  // The stored picture values ride along unchanged; the avatar itself is an icon on the name's tone.
+  // The stored picture values ride along unchanged; without a photo the avatar is an icon on the name's tone.
   const emoji = initial.emoji || (kind === "channel" ? "📣" : "👥");
   const color = initial.color || (kind === "channel" ? "#f59e0b" : "#2fa6ff");
   const isChannel = kind === "channel";
-  const preview = { id: initial.id || `new-${kind}`, type: kind, crew: initial.crew, title: name.trim() || title, titleFa: name.trim() || title };
+  const p = PHOTO_COPY[isRtl ? "fa" : "en"];
+  const [photo, setPhoto] = useState(initial.photo || null);
+  const [photoChange, setPhotoChange] = useState(undefined);
+  const [photoSheet, setPhotoSheet] = useState(false);
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const fileRef = useRef(null);
+  // A picked photo is shown from memory until it's saved; let it go when it's replaced or the screen closes.
+  useEffect(() => () => { if (photo?.startsWith("blob:")) URL.revokeObjectURL(photo); }, [photo]);
+  const pickPhoto = () => { setPhotoSheet(false); fileRef.current?.click(); };
+  const onPhoto = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setPhotoBusy(true);
+    try {
+      const blob = await squareJpeg(file, 512);
+      setPhotoChange(blob);
+      setPhoto(URL.createObjectURL(blob));
+    } catch {
+      // Not a picture the phone can read: keep what was there.
+    } finally {
+      setPhotoBusy(false);
+    }
+  };
+  const dropPhoto = () => { setPhotoSheet(false); setPhotoChange(null); setPhoto(null); };
+  const preview = { id: initial.id || `new-${kind}`, type: kind, crew: initial.crew, title: name.trim() || title, titleFa: name.trim() || title, photo };
   return (
     <StepScreen title={title} isRtl={isRtl} t={t} onBack={onBack}
-      fab={() => onNext({ title: name.trim(), description: description.trim(), emoji, color })}
-      fabDisabled={!name.trim()} fabIcon={nextIcon} fabLabel={nextLabel || t.next}>
+      fab={() => onNext({ title: name.trim(), description: description.trim(), emoji, color, ...(photoChange !== undefined ? { photoChange } : {}) })}
+      fabDisabled={!name.trim() || photoBusy} fabIcon={nextIcon} fabLabel={nextLabel || t.next}>
       <div className="flex flex-col items-center gap-3 pt-2 pb-1">
-        <Avatar chat={preview} size={96} />
-        <span className="text-[13px] text-muted text-center max-w-[260px]">
-          {isRtl ? "تصویر از روی نام ساخته می‌شود." : "The picture is drawn from the name."}
-        </span>
+        <button type="button" onClick={() => (photo ? setPhotoSheet(true) : pickPhoto())} disabled={photoBusy}
+          aria-label={photo ? p.change : p.add} aria-busy={photoBusy}
+          className="relative rounded-full border-0 p-0 bg-transparent cursor-pointer transition-transform active:scale-[0.97] disabled:cursor-wait">
+          <Avatar chat={preview} size={96} />
+          <span aria-hidden="true" className="absolute -end-0.5 bottom-0.5 w-8 h-8 rounded-full bg-jet text-accent flex items-center justify-center ring-[3px] ring-canvas">
+            {photoBusy ? <Loader2 className="w-4 h-4 animate-spin" strokeWidth={2.4} /> : <Camera className="w-4 h-4" strokeWidth={2.2} />}
+          </span>
+        </button>
+        <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onPhoto} aria-hidden="true" tabIndex={-1} />
+        <span className="text-[13px] text-muted text-center max-w-[260px]">{photo ? p.hintSet : p.hint}</span>
       </div>
+      <Sheet open={photoSheet} title={p.title} isRtl={isRtl} onClose={() => setPhotoSheet(false)} closeLabel={t.close} z={90}>
+        <List>
+          <Row isRtl={isRtl} icon={<IconWell tone="sunk" size={36}><Camera className="w-[18px] h-[18px]" strokeWidth={2} /></IconWell>} title={p.choose} onClick={pickPhoto} />
+          <Row isRtl={isRtl} danger icon={<IconWell tone="alert" size={36}><Trash2 className="w-[18px] h-[18px]" strokeWidth={2} /></IconWell>}
+            title={p.remove} onClick={dropPhoto} />
+        </List>
+      </Sheet>
       <Field label={isChannel ? t.channelName : t.groupName} aria-label={isChannel ? t.channelName : t.groupName}
         value={name} onChange={(e) => setName(e.target.value)} autoFocus maxLength={64} />
       <TextArea label={t.descriptionOptional} value={description} onChange={setDescription} maxLength={255} />

@@ -2,6 +2,7 @@
 // live event stream. Everything here mirrors server/index.js one to one.
 
 import { ME } from "./chatModel";
+import { publicAvatarUrl } from "../backend/supabase";
 
 const KEY = "fitclub.chat.server";
 
@@ -33,7 +34,9 @@ export class ApiError extends Error {
  */
 export function toLocalChat(chat, myId) {
   const swap = (id) => (id === myId ? ME : id);
-  return { ...chat, members: (chat.members || []).map(swap), admins: (chat.admins || []).map(swap), createdBy: swap(chat.createdBy), remote: true };
+  // A group's photo comes as a path in the public avatars bucket (supabase/migrations/0012).
+  const photo = chat.photo ? publicAvatarUrl(chat.photo) : null;
+  return { ...chat, photo, members: (chat.members || []).map(swap), admins: (chat.admins || []).map(swap), createdBy: swap(chat.createdBy), remote: true };
 }
 export function toLocalMessage(m, myId) {
   const swap = (id) => (id === myId ? ME : id);

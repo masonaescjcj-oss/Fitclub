@@ -343,14 +343,20 @@ export default function CommunityPage({ isRtl, onExit, joinCode = null, onJoinHa
   /* ── groups & channels ── */
   const startGroup = () => setCreating({ kind: "group", step: "members", draft: { memberIds: [] } });
   const startChannel = () => setCreating({ kind: "channel", step: "details", draft: { inviteLink: makeInviteLink(), isPublic: false, username: "" } });
-  const finishCreate = (draft) => {
+  // A group's photo goes up once the chat exists; a failed upload leaves the icon and says so.
+  const savePhoto = (chatId, blob) => {
+    store.setChatPhoto(chatId, blob).then((ok) => { if (!ok) setToast(isRtl ? "عکس ذخیره نشد. دوباره امتحان کن." : "Couldn't save the photo. Try again."); });
+  };
+  const finishCreate = ({ photoChange, ...draft }) => {
     const result = draft.kind === "channel" ? store.createChannel(draft) : store.createGroup(draft);
     setCreating(null);
     store.setScreen("list");
     if (result && result.remote) {
-      result.promise.then((chatId) => store.openChat(chatId)).catch((e) => setToast(e.code === "username_taken" ? t.linkTaken : `${t.connectFailed} ${e.message || ""}`));
+      result.promise.then((chatId) => { if (photoChange) savePhoto(chatId, photoChange); store.openChat(chatId); })
+        .catch((e) => setToast(e.code === "username_taken" ? t.linkTaken : `${t.connectFailed} ${e.message || ""}`));
       return;
     }
+    if (photoChange) savePhoto(result, photoChange);
     store.openChat(result);
   };
   const advance = (patch) => {
@@ -398,7 +404,6 @@ export default function CommunityPage({ isRtl, onExit, joinCode = null, onJoinHa
           onOpen={store.openChat}
           onOpenAt={openAt}
           onMenu={setMenuChat}
-          onCompose={() => store.setScreen("contacts")}
           onOpenStory={openStory}
           people={addablePeople(store)}
           onOpenUser={(u) => store.openOrCreatePrivateChat(u)}
@@ -503,7 +508,11 @@ export default function CommunityPage({ isRtl, onExit, joinCode = null, onJoinHa
           <ChatDetailsScreen key="edit-details" kind={editingChat.type} initial={editingChat} isRtl={isRtl} t={t}
             title={t.edit} nextIcon={Check} nextLabel={t.saveChanges}
             onBack={() => setEditing(null)}
-            onNext={(patch) => { store.updateChatInfo(editingChat.id, patch); setEditing(null); setToast(t.chatInfoSaved); }} />
+            onNext={({ photoChange, ...patch }) => {
+              store.updateChatInfo(editingChat.id, patch);
+              if (photoChange !== undefined) savePhoto(editingChat.id, photoChange);
+              setEditing(null); setToast(t.chatInfoSaved);
+            }} />
         )}
         {editingChat && editing.screen === "type" && (
           <ChatTypeScreen key="edit-type" kind={editingChat.type} draft={editingChat} chats={store.chats} selfId={editingChat.id} isRtl={isRtl} t={t}

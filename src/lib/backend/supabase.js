@@ -25,6 +25,12 @@ export const RPC_USERNAME_AVAILABLE = "fitclub_username_available";
 export const AVATAR_BUCKET = "fitclub-avatars";
 export const CHAT_MEDIA_BUCKET = "fitclub-chat-media";
 
+/** A file in the public avatars bucket (a group's photo, chats/<id>/…) as the address browsers load. */
+export function publicAvatarUrl(path) {
+  if (!path || /^(https?:|data:|blob:)/i.test(path)) return path || null;
+  return `${URL.replace(/\/+$/, "")}/storage/v1/object/public/${AVATAR_BUCKET}/${path}`;
+}
+
 export const supabase = backendOn
   ? createClient(URL, ANON_KEY, {
       auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: "pkce", storageKey: "fitclub.auth" },

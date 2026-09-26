@@ -45,6 +45,7 @@ const persian = () => {
 function faceOf(chat, user) {
   if (chat?.id === "saved" && !user) return { icon: Bookmark, tone: "bg-jet", fill: true };
   if (user?.avatar === "🎭") return { icon: VenetianMask, tone: toneOf(user.id || user.name) };
+  if (!user && chat?.photo) return null; // a group's or channel's own photo
   if (!user && chat) {
     if (chat.type === "bot") return { icon: Bot, tone: "bg-accent" };
     if (chat.type === "channel") return { icon: Megaphone, tone: toneOf(chat.title), square: true };
@@ -90,7 +91,7 @@ export function Avatar({ chat, user, size = 48, ring, showStatus = true, classNa
     );
   } else {
     body = <KitAvatar name={name || source?.name || ""} size={size} tone={self ? "bg-sand" : toneOf(toneKey)}
-      src={self ? loadSession().avatarUrl : user?.photo} />;
+      src={self ? loadSession().avatarUrl : user ? user.photo : chat?.photo} />;
   }
 
   return (

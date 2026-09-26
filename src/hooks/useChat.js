@@ -560,6 +560,32 @@ export default function useChat(lang = "en") {
       setState((s) => ({ ...s, chats: [...s.chats, chat], messages: [...s.messages, createdSystemMessage(chat)] }));
       return chat.id;
     },
+    /**
+     * A group's or channel's photo: a new picture (a JPEG blob), or null to
+     * take it down. On the server the file goes up first, then the chat
+     * points at it; the demo keeps it on the device. Resolves true when saved.
+     */
+    setChatPhoto: async (chatId, blob) => {
+      const client = remote(chatId);
+      if (client?.uploadChatPhoto) {
+        try {
+          if (blob) {
+            const photo = await client.uploadChatPhoto(chatId, blob);
+            upsertChat(toLocalChat(await client.updateChat(chatId, { photo }), latest.current.__myId));
+          } else {
+            upsertChat(toLocalChat(await client.updateChat(chatId, { photo: null }), latest.current.__myId));
+            await client.removeChatPhoto(chatId).catch(() => {});
+          }
+          return true;
+        } catch {
+          return false;
+        }
+      }
+      if (client) return false;
+      const photo = blob ? await toDataUrl(blob) : null;
+      patchChat(chatId, (c) => ({ ...c, photo }));
+      return true;
+    },
     /** Name, description, picture, type and link — whatever the settings screen changed. */
     updateChatInfo: (chatId, patch) => {
       const client = remote(chatId);
@@ -749,6 +775,7 @@ export default function useChat(lang = "en") {
         (async () => {
           // Its photos first: once the chat is gone, nobody can list its folder.
           if (client.clearPhotos && (chat?.type === "private" || chat?.createdBy === ME)) await client.clearPhotos(chatId).catch(() => {});
+          if (client.removeChatPhoto && chat?.photo && chat?.createdBy === ME) await client.removeChatPhoto(chatId).catch(() => {});
           // Someone else's group can't be deleted, only left, as Telegram's "Delete and leave".
           await client.deleteChat(chatId).catch((e) => (e?.code === "owner_only" ? client.leave(chatId) : null));
         })().catch(() => {});

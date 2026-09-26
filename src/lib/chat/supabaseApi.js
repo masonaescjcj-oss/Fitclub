@@ -7,7 +7,7 @@
 //   - the person's own inbox (a chat to reload, a removal, a read receipt);
 //   - one shared signal channel for presence (who is online) and typing.
 
-import { CHAT_MEDIA_BUCKET, supabase } from "../backend/supabase";
+import { AVATAR_BUCKET, CHAT_MEDIA_BUCKET, supabase } from "../backend/supabase";
 import { saveProfile } from "../backend/account";
 import { ApiError } from "./api";
 
@@ -165,6 +165,21 @@ export function createSupabaseApi({ me, client = supabase }) {
       const { error } = await client.storage.from(CHAT_MEDIA_BUCKET).upload(path, blob, { contentType: "image/jpeg", cacheControl: "31536000" });
       if (error) throw toApiError(error);
       return { path };
+    },
+    /**
+     * A group's or channel's photo (supabase/migrations/0012), one file per
+     * chat in the public avatars bucket. Returns the path the chat keeps; its
+     * version makes every device fetch the new picture, not a cached one.
+     */
+    async uploadChatPhoto(chatId, blob) {
+      const path = `chats/${chatId}/photo.jpg`;
+      const { error } = await client.storage.from(AVATAR_BUCKET).upload(path, blob, { upsert: true, contentType: "image/jpeg", cacheControl: "31536000" });
+      if (error) throw toApiError(error);
+      return `${path}?v=${Date.now()}`;
+    },
+    async removeChatPhoto(chatId) {
+      const { error } = await client.storage.from(AVATAR_BUCKET).remove([`chats/${chatId}/photo.jpg`]);
+      if (error) throw toApiError(error);
     },
     /** Takes photos down with their messages. Skips any this account may not remove. */
     async removePhotos(paths) {
