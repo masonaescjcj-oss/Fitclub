@@ -61,7 +61,7 @@ export default function DeleteAccountSheet({ isRtl, onClose, onDeleted }) {
         </Button>
       )}>
       <p className="m-0 text-[15px] leading-[1.45] font-semibold text-ink">{c.lead}</p>
-      <ul className="m-0 ps-5 flex flex-col gap-1.5 text-[14px] leading-[1.45] text-ink">
+      <ul className="m-0 ps-5 list-disc marker:text-muted flex flex-col gap-1.5 text-[14px] leading-[1.45] text-ink">
         {c.goes.map((line) => <li key={line}>{line}</li>)}
       </ul>
       <p className="m-0 text-[14px] leading-[1.45] text-muted">{c.passes}</p>
