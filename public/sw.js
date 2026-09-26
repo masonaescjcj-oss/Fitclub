@@ -11,7 +11,7 @@
  * - Push (supabase/migrations/0008, api/push-*.js): a notification per
  *   message or reminder; tapping it opens or focuses the app at its link.
  */
-const VERSION = "fitclub-v4";
+const VERSION = "fitclub-v5";
 const SHELL = ["/", "/index.html", "/manifest.json", "/icons/icon-192.png", "/icons/icon-512.png"];
 
 self.addEventListener("install", (event) => {
