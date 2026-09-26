@@ -75,6 +75,12 @@ function onVisibility() {
   }
 }
 
+// Back online after working offline: send what was saved meanwhile, then take what changed elsewhere.
+function onOnline() {
+  if (!sync) return;
+  sync.flush().catch(() => {}).finally(() => catchUp());
+}
+
 /** Starts syncing this device for `user`. Returns the local keys the first pull changed. */
 async function attach(user, { timeoutMs }) {
   if (sync?.userId !== user.id) {
@@ -83,6 +89,7 @@ async function attach(user, { timeoutMs }) {
     unhook = hookWrites(window.localStorage, (key) => sync.noteWrite(key));
     document.addEventListener("visibilitychange", onVisibility);
     window.addEventListener("pagehide", onVisibility);
+    window.addEventListener("online", onOnline);
     const me = deviceId();
     channel = supabase
       .channel(`fitclub_user_state:${user.id}`)
@@ -103,6 +110,7 @@ function detach({ clear }) {
   channel = null;
   document.removeEventListener("visibilitychange", onVisibility);
   window.removeEventListener("pagehide", onVisibility);
+  window.removeEventListener("online", onOnline);
 }
 
 const PROFILE_COLUMNS = "username, name, bio, avatar_url, lang, onboarded";
@@ -157,9 +165,12 @@ export async function boot({ timeoutMs = 4000 } = {}) {
   const { data, error } = await supabase.auth.getSession();
   const user = data.session?.user || null;
   if (!user) return { user: null, profile: null, offline: Boolean(error) && errorCode(error) === "network" };
+  // Offline there is nothing to wait for: open from this device's copy at
+  // once; the sync catches up when the connection is back.
+  const wait = typeof navigator !== "undefined" && navigator.onLine === false ? 0 : timeoutMs;
   const [profile] = await Promise.all([
-    Promise.race([loadProfile(user).catch(() => null), after(timeoutMs)]),
-    attach(user, { timeoutMs }),
+    Promise.race([loadProfile(user).catch(() => null), after(wait)]),
+    attach(user, { timeoutMs: wait }),
   ]);
   const known = profile || lastKnownProfile(user);
   mirror(user, known);
