@@ -3,6 +3,7 @@
 // same numbers as the diary, and adding it logs exactly those ingredients.
 
 import { findFood, macrosFor } from "./foods";
+import { DISH_RECIPES } from "./foodsIr";
 
 const r = (id, titleEn, titleFa, tag, minutes, meal, ingredients, stepsEn, stepsFa) =>
   ({ id, titleEn, titleFa, tag, minutes, meal, ingredients: ingredients.map(([foodId, grams]) => ({ foodId, grams })), stepsEn, stepsFa });
@@ -15,7 +16,7 @@ export const RECIPE_TAGS = {
   post: { en: "After training", fa: "بعد از تمرین" },
 };
 
-export const RECIPES = [
+const QUICK_RECIPES = [
   r("chicken_bowl", "Chicken rice bowl", "کاسه‌ی مرغ و برنج", "protein", 20, "lunch",
     [["chicken_breast", 150], ["rice_white", 180], ["broccoli", 100], ["olive_oil", 5]],
     ["Season the chicken and cook it in the oil, 6 to 7 minutes a side.", "Steam the broccoli for 5 minutes.", "Slice the chicken and serve it over the rice with the broccoli."],
@@ -58,7 +59,14 @@ export const RECIPES = [
     ["همه را با هم در مخلوط‌کن بزن تا یکدست شود."]),
 ];
 
-/** A recipe's total calories and macros, from its ingredients. */
+// The Iranian dishes (scripts/data/dishes-ir.mjs): each is a whole pot, `portions`
+// servings of `serving` grams, and the dish is also a food of its own (same id).
+export const RECIPES = [...QUICK_RECIPES, ...DISH_RECIPES];
+
+/**
+ * A recipe's calories and macros, from its ingredients: the whole recipe,
+ * or one portion for a dish cooked as a pot.
+ */
 export function recipeMacros(recipe) {
   const total = { kcal: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 };
   for (const { foodId, grams } of recipe.ingredients) {
@@ -67,5 +75,6 @@ export function recipeMacros(recipe) {
     const m = macrosFor(food, grams);
     for (const k of Object.keys(total)) total[k] += m[k] || 0;
   }
-  return Object.fromEntries(Object.entries(total).map(([k, v]) => [k, Math.round(v)]));
+  const per = recipe.portions > 0 ? recipe.portions : 1;
+  return Object.fromEntries(Object.entries(total).map(([k, v]) => [k, Math.round(v / per)]));
 }

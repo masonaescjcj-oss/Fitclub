@@ -19,6 +19,7 @@
  */
 
 import { MARKET_PRICES } from "./prices";
+import { DISH_RECIPES, FOODS_IR } from "./foodsIr";
 
 /** Portion range per meal, in grams as eaten, by group. */
 const BOUNDS = {
@@ -115,8 +116,15 @@ const RAW = {
   doogh: ["drink", "dairy", "ld", "drink", { allergens: ["dairy"] }],
 };
 
+// The Iranian dishes (foodsIr.js) join the planner as lunch and dinner dishes; the sweet ones stay out.
+for (const r of DISH_RECIPES) {
+  if (RAW[r.id] || r.planSub === "sweet" || !["lunch", "dinner"].includes(r.meal)) continue;
+  RAW[r.id] = ["dish", r.planSub || "dish", "ld", "dish", { meat: r.diet === "meat" || r.diet === "fish", pair: r.pair || "none", allergens: r.allergens || [] }];
+}
+const IR_PRICES = Object.fromEntries(FOODS_IR.filter((f) => f.price > 0).map((f) => [f.id, { price: f.price, est: !!f.priceEst }]));
+
 const META = Object.fromEntries(Object.entries(RAW).map(([id, [group, sub, slots, bounds, x]]) => {
-  const market = MARKET_PRICES[id];
+  const market = MARKET_PRICES[id] || IR_PRICES[id];
   const y = x.yield || 1;
   return [id, {
     id, group, sub, slots, ...BOUNDS[bounds], bounds,

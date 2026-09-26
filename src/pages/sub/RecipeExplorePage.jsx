@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import { Clock, Flame, Plus } from "lucide-react";
-import { Button, Card, Label, Screen, Sheet, Tag, Toast, TopBar, cx, num } from "../../components/ui/kit";
+import { Button, Card, Chip, Field, Label, Screen, Sheet, Tag, Toast, TopBar, cx, num } from "../../components/ui/kit";
 import { RECIPES, RECIPE_TAGS, recipeMacros } from "../../lib/nutrition/recipes";
-import { findFood } from "../../lib/nutrition/foods";
+import { findFood, normalizeText } from "../../lib/nutrition/foods";
 import { MEALS, dayKey } from "../../lib/nutrition/diaryStore";
 import { useNutritionStore } from "../../lib/nutrition/nutritionContext";
 
@@ -16,11 +16,14 @@ function RecipeSheet({ recipe, isRtl, onAdd, onClose }) {
   const [meal, setMeal] = useState(recipe.meal);
   const m = recipeMacros(recipe);
   const steps = isRtl ? recipe.stepsFa : recipe.stepsEn;
+  // A dish is cooked as a pot and eaten by the portion.
+  const pot = recipe.portions > 0;
   return (
     <Sheet title={isRtl ? recipe.titleFa : recipe.titleEn} isRtl={isRtl} onClose={onClose} closeLabel={isRtl ? "بستن" : "Close"} tall
       footer={<Button tone="ink" size="lg" block onClick={() => onAdd(meal)} icon={<Plus className="w-[18px] h-[18px] text-accent dark:text-on-inv" strokeWidth={2.4} />}>
-        {isRtl ? "افزودن به امروز" : "Add to today"}
+        {pot ? (isRtl ? `افزودن یک پرس (${n(recipe.serving)} گرم) به امروز` : `Add one portion (${recipe.serving} g) to today`) : (isRtl ? "افزودن به امروز" : "Add to today")}
       </Button>}>
+      {pot && <p className="m-0 px-1 text-[13px] text-muted">{isRtl ? `عددها برای یک پرس ${n(recipe.serving)} گرمی است.` : `Numbers are for one ${recipe.serving} g portion.`}</p>}
       <div className="flex flex-wrap gap-1.5">
         <Tag><Flame className="w-3.5 h-3.5" strokeWidth={2} />{n(m.kcal)} {isRtl ? "کالری" : "kcal"}</Tag>
         <Tag tone="inv" className="font-semibold">{isRtl ? `پروتئین ${n(m.protein)} گرم` : `Protein ${m.protein} g`}</Tag>
@@ -28,7 +31,9 @@ function RecipeSheet({ recipe, isRtl, onAdd, onClose }) {
         <Tag>{isRtl ? `چربی ${n(m.fat)} گرم` : `Fat ${m.fat} g`}</Tag>
       </div>
 
-      <Label as="h3" className="m-0 mt-2 px-1">{isRtl ? "مواد لازم" : "Ingredients"}</Label>
+      <Label as="h3" className="m-0 mt-2 px-1">
+        {pot ? (isRtl ? `مواد لازم برای ${n(Math.round(recipe.portions))} پرس` : `Ingredients for ${Math.round(recipe.portions)} portions`) : (isRtl ? "مواد لازم" : "Ingredients")}
+      </Label>
       <ul className="m-0 p-0 list-none rounded-3xl bg-card divide-y divide-hair">
         {recipe.ingredients.map(({ foodId, grams }) => {
           const food = findFood(foodId);
@@ -61,16 +66,25 @@ function RecipeSheet({ recipe, isRtl, onAdd, onClose }) {
         ))}
       </div>
       <p className="m-0 px-1 text-[13px] text-muted">
-        {isRtl ? "هر ماده جدا در دفترچه ثبت می‌شود و بعد می‌توانی مقدارش را تغییر دهی." : "Each ingredient goes into your diary on its own, so you can change amounts after."}
+        {pot
+          ? (isRtl ? "یک پرس از این غذا در دفترچه ثبت می‌شود؛ بعد می‌توانی مقدارش را تغییر دهی." : "One portion of the dish goes into your diary; you can change the amount after.")
+          : (isRtl ? "هر ماده جدا در دفترچه ثبت می‌شود و بعد می‌توانی مقدارش را تغییر دهی." : "Each ingredient goes into your diary on its own, so you can change amounts after.")}
       </p>
     </Sheet>
   );
 }
 
-export default function RecipeExplorePage({ onBack, isRtl }) {
+export default function RecipeExplorePage({ onBack, isRtl, initialId = null }) {
   const n = (v) => num(v, isRtl);
   const store = useNutritionStore();
-  const [open, setOpen] = useState(null);
+  const [open, setOpen] = useState(() => RECIPES.find((r) => r.id === initialId) || null);
+  const [tag, setTag] = useState("all");
+  const [q, setQ] = useState("");
+  const list = useMemo(() => {
+    const words = normalizeText(q).split(" ").filter(Boolean);
+    return RECIPES.filter((r) => (tag === "all" || r.tag === tag)
+      && words.every((w) => normalizeText(`${r.titleFa} ${r.titleEn} ${(r.ingredients || []).map((i) => findFood(i.foodId)?.nameFa || "").join(" ")}`).includes(w)));
+  }, [tag, q]);
   const [flash, setFlash] = useState(null);
   useEffect(() => {
     if (!flash) return undefined;
@@ -80,7 +94,9 @@ export default function RecipeExplorePage({ onBack, isRtl }) {
 
   const add = (recipe, meal) => {
     const today = dayKey();
-    for (const { foodId, grams } of recipe.ingredients) if (findFood(foodId)) store.addEntry({ foodId, grams, meal }, today);
+    // A dish is one food of its own; a quick recipe logs its ingredients.
+    if (recipe.portions > 0 && findFood(recipe.id)) store.addEntry({ foodId: recipe.id, grams: recipe.serving, meal }, today);
+    else for (const { foodId, grams } of recipe.ingredients) if (findFood(foodId)) store.addEntry({ foodId, grams, meal }, today);
     const mealName = MEALS.find((x) => x.id === meal);
     setFlash(isRtl ? `به ${mealName?.fa || ""} امروز اضافه شد` : `Added to today's ${(mealName?.en || "").toLowerCase()}`);
     setOpen(null);
@@ -93,8 +109,16 @@ export default function RecipeExplorePage({ onBack, isRtl }) {
         {isRtl ? "وعده‌های ساده و پرپروتئین؛ کالری و درشت‌مغذی‌ها از روی مواد لازم حساب شده‌اند." : "Simple, high-protein meals; calories and macros are worked out from the ingredients."}
       </p>
 
+      <Field type="search" placeholder={isRtl ? "جست‌وجوی غذا یا ماده" : "Search a dish or ingredient"} aria-label={isRtl ? "جست‌وجوی دستور پخت" : "Search recipes"}
+        value={q} onChange={(e) => setQ(e.target.value)} />
+      <div className="flex flex-wrap gap-1.5">
+        <Chip active={tag === "all"} onClick={() => setTag("all")}>{isRtl ? "همه" : "All"}</Chip>
+        {Object.entries(RECIPE_TAGS).map(([id, t]) => <Chip key={id} active={tag === id} onClick={() => setTag(id)}>{isRtl ? t.fa : t.en}</Chip>)}
+      </div>
+      <span className="text-[13px] text-muted">{isRtl ? `${n(list.length)} دستور پخت` : `${list.length} recipes`}</span>
+
       <ul className="m-0 p-0 list-none flex flex-col gap-2.5">
-        {RECIPES.map((r) => {
+        {list.map((r) => {
           const m = recipeMacros(r);
           return (
             <li key={r.id}>

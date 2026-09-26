@@ -11,6 +11,8 @@
  * plain gram option added at runtime.
  */
 
+import { FOODS_IR } from "./foodsIr";
+
 export const CATEGORIES = [
   { id: "protein", en: "Protein", fa: "پروتئین", emoji: "🍗" },
   { id: "carbs", en: "Grains & Starch", fa: "غلات و نشاسته", emoji: "🍚" },
@@ -22,6 +24,8 @@ export const CATEGORIES = [
   { id: "dish", en: "Persian Dishes", fa: "غذاهای ایرانی", emoji: "🍲" },
   { id: "supp", en: "Supplements", fa: "مکمل‌ها", emoji: "🥤" },
   { id: "drink", en: "Drinks", fa: "نوشیدنی", emoji: "🧃" },
+  { id: "sweet", en: "Sweets & snacks", fa: "شیرینی و تنقلات", emoji: "🍬" },
+  { id: "condiment", en: "Sauces & seasonings", fa: "سس و چاشنی", emoji: "🧂" },
 ];
 
 const f = (id, cat, nameEn, nameFa, kcal, p, c, fat, fiber, sodium, servings, estimate) => ({
@@ -31,7 +35,7 @@ const f = (id, cat, nameEn, nameFa, kcal, p, c, fat, fiber, sodium, servings, es
   estimate: !!estimate,
 });
 
-export const FOODS = [
+const BASE_FOODS = [
   /* ── protein ── */
   f("chicken_breast", "protein", "Chicken breast, cooked", "سینه مرغ پخته", 165, 31, 0, 3.6, 0, 74,
     [{ en: "breast", fa: "عدد", g: 172 }, { en: "100 g", fa: "۱۰۰ گرم", g: 100 }]),
@@ -193,6 +197,9 @@ export const FOODS = [
     [{ en: "tbsp", fa: "قاشق غذاخوری", g: 21 }]),
 ];
 
+// The Iranian food bank (generated from scripts/data by scripts/build-foods.mjs), after the hand-kept foods above.
+export const FOODS = [...BASE_FOODS, ...FOODS_IR];
+
 /** Every food can also be logged in plain grams. */
 export const servingsOf = (food) => [
   ...food.servings,
@@ -221,14 +228,43 @@ export function macrosFor(food, grams) {
   };
 }
 
-/** Accent-insensitive-ish search across both languages. */
+/**
+ * Text as typed and as stored, made comparable: Arabic ي/ك and Persian
+ * ی/ک alike, no zero-width joiners or diacritics, one space, lower case.
+ */
+export const normalizeText = (s) => String(s || "")
+  .replace(/[يى]/g, "ی").replace(/ك/g, "ک").replace(/[ۀة]/g, "ه").replace(/[أإآ]/g, "ا")
+  .replace(/[\u064B-\u0652\u0670]/g, "").replace(/[\u200c\u200f\u200e]/g, " ")
+  .replace(/\s+/g, " ").trim().toLowerCase();
+
+const searchText = new WeakMap();
+const textOf = (food) => {
+  let t = searchText.get(food);
+  if (!t) {
+    t = [food.nameFa, food.nameEn, ...(food.aliases || [])].map(normalizeText);
+    searchText.set(food, t);
+  }
+  return t;
+};
+
+/**
+ * Search across both languages and each food's other names: every word of
+ * the query must appear; names that start with it come first, then shorter
+ * names (the plain food before its variants).
+ */
 export function searchFoods(query, category = null) {
-  const q = query.trim().toLowerCase();
+  const q = normalizeText(query);
   // Products you've scanned are found by name too, once you search.
   const pool = q && !category ? [...FOODS, ...EXTRA.values()] : FOODS;
-  return pool.filter((food) => {
-    if (category && food.cat !== category) return false;
-    if (!q) return true;
-    return food.nameEn.toLowerCase().includes(q) || food.nameFa.includes(q);
-  });
+  if (!q) return category ? pool.filter((food) => food.cat === category) : pool;
+  const words = q.split(" ");
+  const hits = [];
+  for (const food of pool) {
+    if (category && food.cat !== category) continue;
+    const names = textOf(food);
+    if (!words.every((w) => names.some((n) => n.includes(w)))) continue;
+    const starts = names.some((n) => n.startsWith(q)) ? 0 : names.some((n) => n.split(" ").some((part) => part.startsWith(words[0]))) ? 1 : 2;
+    hits.push({ food, rank: starts * 1000 + Math.min(...names.map((n) => n.length)) });
+  }
+  return hits.sort((a, b) => a.rank - b.rank).map((h) => h.food);
 }

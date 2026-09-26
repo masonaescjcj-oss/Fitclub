@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { ArrowLeftRight, CalendarDays, ChevronLeft, ChevronRight, LayoutGrid, RefreshCw, ShoppingBasket, SlidersHorizontal, Sparkles, X } from "lucide-react";
+import { ArrowLeftRight, BookOpen, CalendarDays, ChevronLeft, ChevronRight, LayoutGrid, RefreshCw, ShoppingBasket, SlidersHorizontal, Sparkles, X } from "lucide-react";
 import { Button, Check, Chip, Field, IconButton, Label, Segmented, cx, num } from "../ui/kit";
 import { Sheet } from "./SmallSheets";
 import { fmtNum } from "./DietBits";
@@ -7,6 +7,7 @@ import { findFood, FOODS } from "../../lib/nutrition/foods";
 import { ALLERGENS, foodMeta } from "../../lib/nutrition/foodMeta";
 import { PRICES_AS_OF } from "../../lib/nutrition/prices";
 import { allowedFoods, dayTotals, itemsTotals, shoppingList, swapOptions } from "../../lib/nutrition/planEngine";
+import { RECIPES } from "../../lib/nutrition/recipes";
 
 // The meal plan in Fuel: today's planned meals (tick what you ate, tap a
 // food to swap it), the whole week, the shopping list and the planner's
@@ -14,7 +15,7 @@ import { allowedFoods, dayTotals, itemsTotals, shoppingList, swapOptions } from 
 
 const COPY = {
   en: {
-    library: "Ready meal plans",
+    library: "Ready meal plans", recipe: "Recipe",
     title: "Your meal plan", today: "Today's plan", week: "Whole week", shop: "Shopping list", settings: "Plan settings",
     emptyTitle: "A meal plan made for you",
     emptyBody: "Seven days of real meals that hit your calories and protein, at the budget you pick. Swap any food; the rest adjusts.",
@@ -37,7 +38,7 @@ const COPY = {
     days: "Days", close: "Close", cancel: "Cancel", apply: "Make the plan",
   },
   fa: {
-    library: "برنامه‌های غذایی آماده",
+    library: "برنامه‌های غذایی آماده", recipe: "دستور پخت",
     title: "برنامه‌ی غذایی تو", today: "برنامه‌ی امروز", week: "کل هفته", shop: "لیست خرید", settings: "تنظیمات برنامه",
     emptyTitle: "برنامه‌ی غذایی مخصوص خودت",
     emptyBody: "هفت روز غذای واقعی که به کالری و پروتئینت می‌رسد، با بودجه‌ای که خودت انتخاب می‌کنی. هر غذا را می‌توانی عوض کنی؛ بقیه خودش تنظیم می‌شود.",
@@ -191,7 +192,7 @@ function PlannedMeal({ meal, isRtl, c, onMark, onSwap, readOnly = false }) {
 
 /* ─────────────────────────────── swap ─────────────────────────────── */
 
-export function SwapSheet({ isRtl, item, slot, profile, settings, onPick, onClose }) {
+export function SwapSheet({ isRtl, item, slot, profile, settings, onPick, onOpenRecipe, onClose }) {
   const c = usePlanCopy(isRtl);
   const n = (v) => num(v, isRtl);
   const [scope, setScope] = useState("once");
@@ -205,6 +206,10 @@ export function SwapSheet({ isRtl, item, slot, profile, settings, onPick, onClos
   return (
     <Sheet title={`${c.swapTitle}: ${foodName(item.foodId, isRtl)}`} isRtl={isRtl} t={c} onClose={onClose}>
       <p className="m-0 -mt-2 text-sm text-muted">{amountLabel(item.foodId, item.grams, isRtl)}</p>
+      {/* A dish opens its recipe: the ingredients, the steps, the numbers per portion. */}
+      {onOpenRecipe && RECIPES.some((r) => r.id === item.foodId) && (
+        <Button tone="soft" size="sm" className="self-start" icon={<BookOpen className="w-4 h-4" strokeWidth={2} />} onClick={() => onOpenRecipe(item.foodId)}>{c.recipe}</Button>
+      )}
       <div className="flex flex-col gap-2">
         <Label>{c.scope}</Label>
         <Segmented value={scope} onChange={setScope}

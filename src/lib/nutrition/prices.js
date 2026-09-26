@@ -98,4 +98,6 @@ export const MARKET_PRICES = {
   doogh: { price: 60000, est: true },
   orange_juice: { price: 150000, est: true },
   honey: { price: 900000, est: true },
+  tea_black: { price: 8000, est: true },          // brewed: ~2 g of 600k/kg leaf per glass
+  creatine: { price: 3500000, est: true },
 };

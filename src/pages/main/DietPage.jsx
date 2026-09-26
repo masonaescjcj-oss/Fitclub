@@ -490,6 +490,7 @@ export default function DietPage({ isRtl, onGoToRecipe, onGoToGuide }) {
       <AnimatePresence>
         {swapItem && (
           <SwapSheet isRtl={isRtl} profile={profile} settings={plan.settings}
+            onOpenRecipe={onGoToRecipe ? (id) => { setSwapping(null); onGoToRecipe(id); } : undefined}
             item={swapItem.items[swapping.itemIndex]} slot={swapItem.id[0]}
             onPick={(option, scope) => {
               store.swapPlannedFood({ ...swapping, foodId: option.foodId, grams: option.grams, scope });

@@ -99,6 +99,7 @@ export default function MainAppLayout({ onNavigate }) {
 function MainAppShell({ onNavigate }) {
   const [activeTab, setActiveTab] = useState("today");
   const [subPage, setSubPage] = useState(null);
+  const [recipeId, setRecipeId] = useState(null); // a recipe to open straight away (a dish from the meal plan)
   // A Train segment to open on, once (the profile's exercise guide opens the library).
   const [trainSegment, setTrainSegment] = useState(null);
   // A plan shared by link lands here; the sheet decides whether it is a
@@ -216,7 +217,7 @@ function MainAppShell({ onNavigate }) {
           {subPage === "team" && <TeamPage onBack={() => setSubPage(null)} isRtl={isRtl} onOpenClub={() => { setSubPage(null); setActiveTab("club"); }} />}
           {subPage === "wallet" && <WalletPage onBack={() => setSubPage(null)} isRtl={isRtl} />}
           {subPage === "subscription" && <SubscriptionPage onBack={() => setSubPage(null)} isRtl={isRtl} />}
-          {subPage === "recipeExplore" && <RecipeExplorePage onBack={() => setSubPage(null)} isRtl={isRtl} />}
+          {subPage === "recipeExplore" && <RecipeExplorePage onBack={() => { setSubPage(null); setRecipeId(null); }} isRtl={isRtl} initialId={recipeId} />}
           {subPage === "dietGuide" && <DietGuidePage onBack={() => setSubPage(null)} isRtl={isRtl} />}
           {(subPage === "privacy" || subPage === "terms") && <LegalPage kind={subPage} isRtl={isRtl} onBack={() => setSubPage("profile")} />}
           {subPage === "checklist" && <ChecklistPage isRtl={isRtl} onBack={() => setSubPage(null)} onGoToStreak={() => setSubPage("streakDetail")} />}
@@ -227,7 +228,7 @@ function MainAppShell({ onNavigate }) {
               {activeTab === "today" && <TodayPage isRtl={isRtl} alerts={alerts} onOpen={handleSubNavigate} onTab={setActiveTab} />}
               {activeTab === "train" && <WorkoutPage isRtl={isRtl} onOpen={handleSubNavigate}
                 initialSegment={trainSegment} onSegmentShown={() => setTrainSegment(null)} />}
-              {activeTab === "fuel" && <DietPage isRtl={isRtl} onGoToRecipe={() => setSubPage("recipeExplore")} onGoToGuide={() => setSubPage("dietGuide")} />}
+              {activeTab === "fuel" && <DietPage isRtl={isRtl} onGoToRecipe={(id) => { setRecipeId(typeof id === "string" ? id : null); setSubPage("recipeExplore"); }} onGoToGuide={() => setSubPage("dietGuide")} />}
               {activeTab === "coach" && <AiCoachPage isRtl={isRtl} onClose={goHome} />}
               {activeTab === "club" && <CommunityPage isRtl={isRtl} onExit={goHome} joinCode={joinCode} onJoinHandled={() => setJoinCode(null)}
                 openTarget={openTarget} onOpenHandled={() => setOpenTarget(null)} />}
