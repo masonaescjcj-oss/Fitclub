@@ -14,7 +14,7 @@
 }
 
 /*
- * "Ink & Volt" — the redesign's tokens, as RGB channels for Tailwind's alpha
+ * "Ink & Soap" — the redesign's tokens, as RGB channels for Tailwind's alpha
  * modifiers (see tailwind.config.js). Paper is the default; night swaps the
  * surfaces. --ui-accent is the athlete's pick (src/lib/accent.js).
  */
@@ -33,7 +33,7 @@
   --ui-hero-2: 38 39 34;
   --ui-hero-fg: 243 242 236;
   --ui-hero-muted: 167 169 158;
-  --ui-accent: 212 255 63;
+  --ui-accent: 242 160 181;
   --ui-on-accent: 18 19 16;
   --ui-coach: 205 189 255;
   --ui-alert: 194 58 38;

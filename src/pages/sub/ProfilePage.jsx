@@ -273,7 +273,7 @@ export default function ProfilePage({ onNavigate, onBack, isRtl }) {
           </div>
           <div className="flex flex-col gap-3 pt-4 border-t border-hair">
             <span id="accent-label" className="text-[15px] font-medium">{c.accent}</span>
-            <div role="radiogroup" aria-labelledby="accent-label" className="grid grid-cols-4 gap-2">
+            <div role="radiogroup" aria-labelledby="accent-label" className="grid grid-cols-5 gap-2">
               {ACCENTS.map((a) => {
                 const on = a.id === accent;
                 const label = isRtl ? a.fa : a.en;

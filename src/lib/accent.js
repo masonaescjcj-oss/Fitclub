@@ -1,4 +1,4 @@
-// The athlete's accent colour. Volt is the default; the pick is kept in
+// The athlete's accent colour. Soap pink is the default; the pick is kept in
 // localStorage and written to --ui-accent on <html>, which every redesigned
 // screen reads through Tailwind's `accent` colour. index.html applies it
 // before the first paint for the same reason the theme does.
@@ -9,6 +9,7 @@ const KEY = "fitclub.accent";
 const EVENT = "fitclub:accent";
 
 export const ACCENTS = [
+  { id: "soap", hex: "#F2A0B5", rgb: "242 160 181", en: "Soap", fa: "صابونی" },
   { id: "volt", hex: "#D4FF3F", rgb: "212 255 63", en: "Volt", fa: "ولت" },
   { id: "lilac", hex: "#CDBDFF", rgb: "205 189 255", en: "Lilac", fa: "یاسی" },
   { id: "peach", hex: "#FFB38A", rgb: "255 179 138", en: "Peach", fa: "هلویی" },
@@ -22,7 +23,7 @@ export function loadAccent() {
   } catch {
     // Storage unavailable — fall back to the default below.
   }
-  return "volt";
+  return "soap";
 }
 
 export function applyAccent(id) {

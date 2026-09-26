@@ -27,7 +27,7 @@
         document.documentElement.dataset.theme = theme;
         document.documentElement.classList.toggle("dark", theme === "dark");
         document.documentElement.style.colorScheme = theme;
-        var accents = { volt: "212 255 63", lilac: "205 189 255", peach: "255 179 138", mint: "143 240 207" };
+        var accents = { soap: "242 160 181", volt: "212 255 63", lilac: "205 189 255", peach: "255 179 138", mint: "143 240 207" };
         try { var a = accents[localStorage.getItem("fitclub.accent")]; if (a) document.documentElement.style.setProperty("--ui-accent", a); } catch (e) {}
         var fa = false;
         try { fa = localStorage.getItem("language") === "fa"; } catch (e) {}
