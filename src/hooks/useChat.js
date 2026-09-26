@@ -192,12 +192,13 @@ export default function useChat(lang = "en") {
   }, [server?.url, server?.token]);
 
   // A network that blocks the live stream (some do) still gets its messages, every few seconds.
+  // With the stream up, a slower catch-up, and one on coming back to the app, cover any event it dropped.
   useEffect(() => {
-    if (server?.kind !== SUPABASE_SERVER || !server.token || live) return undefined;
-    const id = setInterval(() => {
-      if (document.visibilityState === "visible") syncNow(lastSync.current).catch(() => {});
-    }, 5000);
-    return () => clearInterval(id);
+    if (server?.kind !== SUPABASE_SERVER || !server.token) return undefined;
+    const catchUp = () => { if (document.visibilityState === "visible") syncNow(lastSync.current).catch(() => {}); };
+    const id = setInterval(catchUp, live ? 30000 : 5000);
+    document.addEventListener("visibilitychange", catchUp);
+    return () => { clearInterval(id); document.removeEventListener("visibilitychange", catchUp); };
   }, [server?.kind, server?.token, live, syncNow]);
 
   /** Signs in (creating the account on first sight) and switches this device online. */

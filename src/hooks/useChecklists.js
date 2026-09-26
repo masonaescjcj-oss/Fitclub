@@ -8,6 +8,7 @@ import { createListsApi } from "../lib/listsApi";
 // While the live stream is down (a blocked network, a sleeping tab), shared
 // lists are fetched this often instead.
 const POLL_MS = 8000;
+const SAFETY_MS = 30000;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 /** A list's settings with an edit applied; a changed schedule re-anchors the period. */
@@ -181,15 +182,20 @@ export default function useChecklists() {
       clearTimeout(soon.get(key));
       soon.set(key, setTimeout(() => { soon.delete(key); if (listId) refetch(listId); else syncAll(); }, 250));
     };
+    let lastSync = 0;
+    const sync = () => { lastSync = Date.now(); syncAll(); };
     const stop = api.subscribe(onChange, (status) => {
       open = status === "open";
       setLive(open);
-      if (open) syncAll();
+      if (open) sync();
     });
-    syncAll();
+    sync();
     api.contacts().then(setContacts).catch(() => {});
-    const poll = setInterval(() => { if (!open && !document.hidden) syncAll(); }, POLL_MS);
-    const onVisible = () => { if (!document.hidden) syncAll(); };
+    // Without the live stream, every few seconds; with it, now and then, in case it dropped an event.
+    const poll = setInterval(() => {
+      if (!document.hidden && (!open || Date.now() - lastSync >= SAFETY_MS)) sync();
+    }, POLL_MS);
+    const onVisible = () => { if (!document.hidden) sync(); };
     document.addEventListener("visibilitychange", onVisible);
     window.addEventListener("focus", onVisible);
     return () => {
