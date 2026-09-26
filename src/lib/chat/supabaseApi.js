@@ -7,12 +7,12 @@
 //   - the person's own inbox (a chat to reload, a removal, a read receipt);
 //   - one shared signal channel for presence (who is online) and typing.
 
-import { supabase } from "../backend/supabase";
+import { CHAT_MEDIA_BUCKET, supabase } from "../backend/supabase";
 import { saveProfile } from "../backend/account";
 import { ApiError } from "./api";
 
 export const SUPABASE_SERVER = "supabase";
-export const CHAT_MEDIA_BUCKET = "fitclub-chat-media";
+export { CHAT_MEDIA_BUCKET };
 
 const iso = (ts) => (ts ? new Date(ts).toISOString() : null);
 

@@ -3,9 +3,9 @@
 // signed-in person. Every function is a no-op that reports "offline" when
 // the backend isn't configured, so the demo build keeps working unchanged.
 
-import { AVATAR_BUCKET, RPC_USERNAME_AVAILABLE, TABLES, backendOn, supabase } from "./supabase";
+import { AVATAR_BUCKET, CHAT_MEDIA_BUCKET, RPC_USERNAME_AVAILABLE, TABLES, backendOn, supabase } from "./supabase";
 import { createSync, hookWrites } from "./sync";
-import { clearSession, landingFor, loadSession, saveSession } from "../session";
+import { clearSession, landingFor, loadSession, resetSession, saveSession } from "../session";
 
 export { landingFor };
 
@@ -113,6 +113,19 @@ function detach({ clear }) {
   window.removeEventListener("online", onOnline);
 }
 
+// What this device keeps about an account besides the synced documents.
+const ACCOUNT_KEYS = ["fitclub.chat.v1", "fitclub.push.v1"];
+
+/** Forgets a deleted account on this device: its data, its chats, its session. */
+function forgetAccountHere() {
+  detach({ clear: true });
+  try { ACCOUNT_KEYS.forEach((k) => window.localStorage.removeItem(k)); } catch { /* storage off: nothing kept */ }
+  resetSession();
+}
+
+// boot() learns the account is gone when the database refuses to recreate its profile.
+const DELETED = Object.freeze({ deleted: true });
+
 const PROFILE_COLUMNS = "username, name, bio, avatar_url, lang, onboarded";
 const BLANK_PROFILE = { username: null, name: "", bio: "", avatar_url: null, lang: "fa", onboarded: false };
 
@@ -169,9 +182,15 @@ export async function boot({ timeoutMs = 4000 } = {}) {
   // once; the sync catches up when the connection is back.
   const wait = typeof navigator !== "undefined" && navigator.onLine === false ? 0 : timeoutMs;
   const [profile] = await Promise.all([
-    Promise.race([loadProfile(user).catch(() => null), after(wait)]),
+    Promise.race([loadProfile(user).catch((e) => (String(e?.message).includes("account_deleted") ? DELETED : null)), after(wait)]),
     attach(user, { timeoutMs: wait }),
   ]);
+  // The account was deleted on another device since this one signed in.
+  if (profile === DELETED) {
+    forgetAccountHere();
+    await supabase.auth.signOut({ scope: "local" }).catch(() => {});
+    return { user: null, profile: null };
+  }
   const known = profile || lastKnownProfile(user);
   mirror(user, known);
   return { user, profile: known };
@@ -305,4 +324,43 @@ export async function signOut() {
     await supabase.auth.signOut().catch(() => {});
   }
   clearSession();
+}
+
+const PHOTO_BATCH = 100;
+
+/** This browser's push address goes too; the server's copy went with the account. */
+async function dropPushHere() {
+  try {
+    if (!("serviceWorker" in navigator)) return;
+    const reg = await Promise.race([navigator.serviceWorker.ready, after(2000)]);
+    const sub = reg && (await reg.pushManager?.getSubscription());
+    if (sub) await sub.unsubscribe();
+  } catch { /* nothing left to send to anyway */ }
+}
+
+/**
+ * Deletes everything FitClub keeps about the signed-in person
+ * (supabase/migrations/0011). Photos first, through Storage, which SQL
+ * can't clear; then the rest in one call. The sign-in itself is shared with
+ * other apps and stays; signing in again starts an empty account. This
+ * device forgets the account and signs out. Nothing is lost if it fails
+ * halfway: the photos can be asked for again, and the call is all or nothing.
+ */
+export async function deleteAccount() {
+  if (!backendOn) return offline;
+  const failed = (error) => ({ error: errorCode(error) === "network" ? "network" : "unknown" });
+  const { data: photos, error: listError } = await supabase.rpc("fitclub_my_photos");
+  if (listError) return failed(listError);
+  for (const [bucket, names] of [[AVATAR_BUCKET, photos?.avatars], [CHAT_MEDIA_BUCKET, photos?.chat]]) {
+    const all = Array.isArray(names) ? names : [];
+    for (let i = 0; i < all.length; i += PHOTO_BATCH) {
+      await supabase.storage.from(bucket).remove(all.slice(i, i + PHOTO_BATCH)).catch(() => {});
+    }
+  }
+  const { error } = await supabase.rpc("fitclub_delete_me", { p_confirm: "delete" });
+  if (error) return failed(error);
+  forgetAccountHere();
+  await dropPushHere();
+  await supabase.auth.signOut().catch(() => {});
+  return { error: null };
 }

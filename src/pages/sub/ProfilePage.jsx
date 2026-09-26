@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Award, BarChart3, Camera, Check as CheckIcon, Crown, Dumbbell, FileText, Loader2, Trash2, Flame, GraduationCap, Languages, LogOut, Moon,
-  LifeBuoy, Settings, ShieldCheck, Sun, Trophy, Users, Wallet, Watch,
+  LifeBuoy, Settings, ShieldCheck, Sun, Trophy, UserX, Users, Wallet, Watch,
 } from "lucide-react";
 import { AnimatePresence } from "framer-motion";
 import FeedbackSheet from "../../components/FeedbackSheet";
+import DeleteAccountSheet from "../../components/DeleteAccountSheet";
 import { Avatar, Card, IconButton, IconWell, Label, List, Row, Screen, Segmented, Sheet, Toast, TopBar, cx, num } from "../../components/ui/kit";
 import { useTheme } from "../../lib/theme";
 import { ACCENTS, useAccent } from "../../lib/accent";
@@ -36,7 +37,7 @@ const COPY = {
     devices: "Connected wearables & devices", devicesSub: "Apple Health, Health Connect, Garmin: with the phone app", team: "Teams & clubs", teamSub: "Weekly team challenges",
     appearance: "Appearance", theme: "Theme", paper: "Paper", night: "Night", accent: "Accent",
     preferences: "Preferences", language: "App language", languageName: "English",
-    logout: "Log out", privacy: "Privacy policy", terms: "Terms of use",
+    logout: "Log out", deleteAccount: "Delete account", deleteAccountSub: "Everything FitClub keeps about you", privacy: "Privacy policy", terms: "Terms of use",
     photo: "Profile photo", addPhoto: "Add a profile photo", changePhoto: "Change profile photo", newPhoto: "Choose a new photo",
     removePhoto: "Remove photo", photoFailed: "Couldn't save the photo. Try again.", close: "Close",
   },
@@ -54,7 +55,7 @@ const COPY = {
     devices: "دستگاه‌ها و ساعت‌های هوشمند", devicesSub: "اپل هلث، هلث کانکت، گارمین: با اپ گوشی", team: "تیم‌ها و کلوب‌ها", teamSub: "چالش‌های تیمی هفتگی",
     appearance: "ظاهر برنامه", theme: "تم", paper: "روشن", night: "تیره", accent: "رنگ اصلی",
     preferences: "ترجیحات", language: "زبان برنامه", languageName: "فارسی",
-    logout: "خروج از حساب کاربری", privacy: "حریم خصوصی", terms: "شرایط استفاده",
+    logout: "خروج از حساب کاربری", deleteAccount: "حذف حساب", deleteAccountSub: "هر چه فیت‌کلاب از تو نگه داشته", privacy: "حریم خصوصی", terms: "شرایط استفاده",
     photo: "عکس پروفایل", addPhoto: "افزودن عکس پروفایل", changePhoto: "تغییر عکس پروفایل", newPhoto: "انتخاب عکس تازه",
     removePhoto: "حذف عکس", photoFailed: "عکس ذخیره نشد. دوباره امتحان کن.", close: "بستن",
   },
@@ -77,6 +78,7 @@ export default function ProfilePage({ onNavigate, onBack, isRtl }) {
   const [photoBusy, setPhotoBusy] = useState(false);
   const [photoSheet, setPhotoSheet] = useState(false);
   const [feedback, setFeedback] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [toast, setToast] = useState("");
   const fileRef = useRef(null);
   useEffect(() => { if (!toast) return undefined; const id = setTimeout(() => setToast(""), 2200); return () => clearTimeout(id); }, [toast]);
@@ -315,6 +317,10 @@ export default function ProfilePage({ onNavigate, onBack, isRtl }) {
         <List>
           <Row isRtl={isRtl} danger icon={<IconWell tone="alert" size={36}><LogOut className="w-[18px] h-[18px] rtl:-scale-x-100" strokeWidth={2} /></IconWell>}
             title={c.logout} onClick={() => go("welcome")} />
+          {backendOn && (
+            <Row isRtl={isRtl} danger icon={<IconWell tone="alert" size={36}><UserX className="w-[18px] h-[18px]" strokeWidth={2} /></IconWell>}
+              title={c.deleteAccount} subtitle={c.deleteAccountSub} onClick={() => setDeleting(true)} />
+          )}
         </List>
       </div>
       <Sheet open={photoSheet} title={c.photo} isRtl={isRtl} onClose={() => setPhotoSheet(false)} closeLabel={c.close}>
@@ -326,6 +332,8 @@ export default function ProfilePage({ onNavigate, onBack, isRtl }) {
       </Sheet>
       <AnimatePresence>
         {feedback && <FeedbackSheet isRtl={isRtl} onClose={() => setFeedback(false)} onSent={(msg) => { setFeedback(false); setToast(msg); }} />}
+        {/* A fresh start from the top, so nothing of the account stays in memory. */}
+        {deleting && <DeleteAccountSheet isRtl={isRtl} onClose={() => setDeleting(false)} onDeleted={() => window.location.replace("/")} />}
       </AnimatePresence>
       {toast && <Toast check={false}>{toast}</Toast>}
     </Screen>

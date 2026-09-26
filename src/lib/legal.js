@@ -3,7 +3,7 @@
 // feature that alters what is collected, where it goes, or who sees it.
 // Both are drafts until reviewed by a lawyer; the page says so.
 
-export const LEGAL_UPDATED = { en: "25 September 2026", fa: "۳ مهر ۱۴۰۵" };
+export const LEGAL_UPDATED = { en: "26 September 2026", fa: "۴ مهر ۱۴۰۵" };
 
 // Filled in before launch; the pages say so where they would be used.
 const CONTACT = {
@@ -61,7 +61,8 @@ export const LEGAL = {
           h: "Keeping and deleting",
           p: [
             "Your data is kept while your account exists. You can delete entries, lists, coach conversations, the messages and photos you sent, and the chats and lists you own in the app at any time.",
-            `To delete your account and everything in it, write to ${CONTACT.en}. We delete it within 30 days.`,
+            "To delete your account, open Profile, then Delete account. Everything FitClub keeps about you goes at once, on every device: your profile, photos and synced data, your activity and scores, your notification addresses, feedback and error reports. The messages you sent are emptied and show as deleted, your private chats are deleted for both sides, and groups, channels and shared lists you own pass to their longest-standing admin or member.",
+            `Your email sign-in stays, so you can start again with an empty account; we keep only a note of when the account was deleted, so a device still signed in from before can't bring its data back. To have the sign-in removed too, or if you can't use the app, write to ${CONTACT.en}. We delete it within 30 days.`,
           ],
         },
         {
@@ -129,7 +130,8 @@ export const LEGAL = {
           h: "نگهداری و پاک کردن",
           p: [
             "داده‌هایت تا وقتی حسابت هست نگه داشته می‌شود. هر وقت بخواهی می‌توانی ثبت‌ها، لیست‌ها، گفتگوهای مربی، پیام‌ها و عکس‌هایی که فرستاده‌ای، و چت‌ها و لیست‌هایی که ساخته‌ای را در خود اپ پاک کنی.",
-            `برای پاک کردن کامل حساب و همه‌ی داده‌هایش به ${CONTACT.fa} پیام بده. ظرف ۳۰ روز پاک می‌شود.`,
+            "برای حذف حساب، پروفایل را باز کن و «حذف حساب» را بزن. هر چه فیت‌کلاب از تو نگه داشته همان لحظه و روی همه‌ی دستگاه‌ها پاک می‌شود: پروفایل، عکس‌ها و داده‌های همگام‌شده، فعالیت و امتیازها، نشانی‌های اعلان، بازخوردها و گزارش‌های خطا. پیام‌هایی که فرستاده‌ای خالی می‌شوند و پاک‌شده دیده می‌شوند، چت‌های خصوصی‌ات برای هر دو طرف پاک می‌شوند، و گروه‌ها، کانال‌ها و لیست‌های مشترکی که مال توست به قدیمی‌ترین مدیر یا عضوشان می‌رسد.",
+            `ورودت با ایمیل می‌ماند تا بتوانی با حسابی خالی دوباره شروع کنی؛ فقط یادداشتی از زمان حذف حساب نگه می‌داریم تا دستگاهی که از قبل وارد مانده نتواند داده‌هایش را برگرداند. اگر می‌خواهی ورودت هم پاک شود، یا نمی‌توانی از اپ استفاده کنی، به ${CONTACT.fa} پیام بده. ظرف ۳۰ روز پاک می‌شود.`,
           ],
         },
         {
@@ -193,7 +195,7 @@ export const LEGAL = {
         },
         {
           h: "Ending",
-          p: [`You can stop using FitClub at any time and ask us to delete your account at ${CONTACT.en}. We may close accounts that break these terms.`],
+          p: [`You can stop using FitClub at any time and delete your account in Profile, or ask us to at ${CONTACT.en}. We may close accounts that break these terms.`],
         },
         {
           h: "Liability",
@@ -247,7 +249,7 @@ export const LEGAL = {
         },
         {
           h: "پایان استفاده",
-          p: [`هر وقت بخواهی می‌توانی استفاده از فیت‌کلاب را کنار بگذاری و با ${CONTACT.fa} پاک شدن حسابت را بخواهی. ممکن است حساب‌هایی را که این شرایط را زیر پا بگذارند ببندیم.`],
+          p: [`هر وقت بخواهی می‌توانی استفاده از فیت‌کلاب را کنار بگذاری و حسابت را در پروفایل حذف کنی، یا از ${CONTACT.fa} بخواهی این کار را بکنیم. ممکن است حساب‌هایی را که این شرایط را زیر پا بگذارند ببندیم.`],
         },
         {
           h: "مسئولیت",

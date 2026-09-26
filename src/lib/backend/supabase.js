@@ -23,6 +23,7 @@ export const backendOn = Boolean(URL && ANON_KEY);
 export const TABLES = { profiles: "fitclub_profiles", state: "fitclub_user_state" };
 export const RPC_USERNAME_AVAILABLE = "fitclub_username_available";
 export const AVATAR_BUCKET = "fitclub-avatars";
+export const CHAT_MEDIA_BUCKET = "fitclub-chat-media";
 
 export const supabase = backendOn
   ? createClient(URL, ANON_KEY, {
