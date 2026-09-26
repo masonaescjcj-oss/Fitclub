@@ -47,16 +47,19 @@ const KCAL_PER_KG = 7700;
 /** The lowest day FitClub prescribes without a clinician: never under these. */
 export const KCAL_FLOOR = { female: 1200, male: 1500 };
 
+/** Never under the resting burn, nor the floor above. */
+export const kcalFloor = (profile) => Math.max(bmr(profile), KCAL_FLOOR[profile.gender] || KCAL_FLOOR.male);
+
 /**
  * The day's calories for a pace, with the safety limits applied:
  *  - losing: at most 1% of body weight a week, a deficit of at most 25% of
- *    maintenance, and never below the resting burn + 10% or the floor above;
+ *    maintenance, and never below the resting burn or the floor above;
  *  - gaining: a surplus of at most 15% of maintenance.
  * Returns the calories and what that pace really is after the limits.
  */
 export function paceFor(profile, maintenance) {
   const table = PACE_KG[profile.goal];
-  const floor = Math.max(bmr(profile) * 1.1, KCAL_FLOOR[profile.gender] || KCAL_FLOOR.male);
+  const floor = kcalFloor(profile);
   if (!table) return { kcal: Math.max(maintenance, floor), weeklyKg: 0, capped: false };
   const wanted = table[profile.pace] ?? table.normal;
   let kcal;
@@ -108,7 +111,9 @@ export function targetsFor(profile, { trainingDay = null, estimatedTdee = null }
   const maintenance = estimatedTdee || tdee(profile);
   // The goal's pace, inside the safety limits (never below the resting burn plus a margin).
   const pace = paceFor(profile, maintenance);
-  let kcal = pace.kcal;
+  // The weekly review's correction (weeklyReview.js), still never under the floor.
+  const adjust = Math.round(profile.kcalAdjust || 0);
+  let kcal = Math.max(pace.kcal + adjust, kcalFloor(profile));
 
   if (trainingDay === true) kcal *= 1.08;
   else if (trainingDay === false) kcal *= 0.94;
@@ -139,6 +144,7 @@ export function targetsFor(profile, { trainingDay = null, estimatedTdee = null }
     source: estimatedTdee ? "adaptive" : "calculated",
     maintenance: Math.round(maintenance),
     pace: { weeklyKg: pace.weeklyKg, capped: pace.capped },
+    adjust,
   };
 }
 

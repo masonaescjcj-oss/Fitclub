@@ -36,7 +36,7 @@ ok(targetsFor({...DEFAULT_PROFILE, goal:'Muscle Gain'}).kcal > keep, 'bulk is ab
 
 // a deep cut must never dip under the safety floor
 const tiny = targetsFor({...DEFAULT_PROFILE, goal:'Weight Loss', weight:45, height:150, age:60, gender:'female'});
-ok(tiny.kcal >= bmr({gender:'female',weight:45,height:150,age:60})*1.1 - 1, 'never prescribes below BMR*1.1', tiny.kcal);
+ok(tiny.kcal >= Math.max(bmr({gender:'female',weight:45,height:150,age:60}), 1200) - 1, 'never prescribes below the resting burn or 1,200 kcal', tiny.kcal);
 
 // keto keeps carbs low and fat high
 const keto = targetsFor({...DEFAULT_PROFILE, dietType:'keto'});

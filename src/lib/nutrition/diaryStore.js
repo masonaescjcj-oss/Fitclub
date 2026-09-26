@@ -139,7 +139,7 @@ const KCAL_PER_KG = 7700; // energy in roughly a kilo of body mass
  * understate a cut and quietly inflate the estimated burn. A regression over
  * the raw points has no such lag while still ignoring day-to-day noise.
  */
-function weightSlope(points) {
+export function weightSlope(points) {
   if (points.length < 2) return null;
   const t0 = new Date(`${points[0].key}T00:00:00`).getTime();
   const xs = points.map((p) => (new Date(`${p.key}T00:00:00`).getTime() - t0) / 86400000);

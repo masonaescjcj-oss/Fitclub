@@ -7,7 +7,7 @@ import { loadProfile, saveProfile, targetsFor, tdee } from "../lib/nutrition/pro
 import { DEFAULT_VIEW, loadView, saveView } from "../lib/nutrition/viewPrefs";
 import { registerFoods } from "../lib/nutrition/foods";
 import { buildWeek, loadMealPlan, saveMealPlan } from "../lib/nutrition/mealPlanStore";
-import { applySwap } from "../lib/nutrition/planEngine";
+import { applySwap, retargetDay } from "../lib/nutrition/planEngine";
 
 const RECENT_LIMIT = 12;
 
@@ -109,6 +109,28 @@ export default function useNutrition() {
     removeMealPlanRule: (from) => setMealPlan((plan) => ({ ...plan, rules: plan.rules.filter((r) => r.from !== from) })),
 
     /**
+     * A weekly check-in (weeklyReview.js) kept: its calorie change lands in
+     * the targets, and the days of the plan still ahead are re-portioned to
+     * them (same foods, new grams). Dismissed, it is only remembered.
+     */
+    applyReview: (review) => {
+      const delta = review.delta || 0;
+      const next = { ...profile, kcalAdjust: (profile.kcalAdjust || 0) + delta };
+      setProfile((p) => ({ ...p, kcalAdjust: (p.kcalAdjust || 0) + delta, reviews: [...(p.reviews || []), { ...review, applied: true }].slice(-12) }));
+      if (!delta) return;
+      const t = targetsFor(next, { estimatedTdee: profile.useAdaptive ? estimate?.tdee ?? null : null });
+      const today = dayKey();
+      setMealPlan((plan) => {
+        if (!plan.week) return plan;
+        const opts = { budget: plan.settings.budget, dietType: profile.dietType || "standard" };
+        // Today too, unless a meal of it is already ticked.
+        const ahead = (d) => d.date > today || (d.date === today && d.meals.every((m) => !m.status));
+        return { ...plan, week: { ...plan.week, days: plan.week.days.map((d) => (ahead(d) ? retargetDay(d, t, opts) : d)) } };
+      });
+    },
+    dismissReview: (review) => setProfile((p) => ({ ...p, reviews: [...(p.reviews || []), { ...review, applied: false }].slice(-12) })),
+
+    /**
      * Ticks a planned meal: "ate" logs its foods into the diary meal it
      * belongs to, "skipped" logs nothing, null undoes either.
      */
@@ -138,7 +160,7 @@ export default function useNutrition() {
         },
       }));
     },
-  }), [mealPlan, planTargets, patchDay, profile]);
+  }), [mealPlan, planTargets, patchDay, profile, estimate]);
 
   const api = useMemo(() => ({
     goToDay: (key) => setCursor(key),

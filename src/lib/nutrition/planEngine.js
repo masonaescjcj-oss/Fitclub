@@ -555,6 +555,15 @@ export function applySwap(day, { mealIndex, itemIndex, foodId, grams, budget = "
   return solveDay({ ...day, meals }, { budget, dietType, fixed: [`${foodId}@${mealIndex}`] });
 }
 
+/**
+ * The same day's foods re-portioned for new targets (a weekly review moved
+ * the calories): nothing is swapped, only the grams change.
+ */
+export function retargetDay(day, target, { budget = "medium", dietType = "standard" } = {}) {
+  const next = { ...roundTarget(target), ...(dietType === "keto" ? { carbsCap: true } : {}) };
+  return solveDay({ ...day, target: next }, { budget, dietType });
+}
+
 /* ─────────────────────────────── shopping ─────────────────────────────── */
 
 /**

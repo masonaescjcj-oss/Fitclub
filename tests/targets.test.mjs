@@ -28,7 +28,7 @@ const problems = [];
 for (const p of people) {
   const t = targetsFor(p);
   const m = tdee(p);
-  const floor = Math.max(bmr(p) * 1.1, KCAL_FLOOR[p.gender]);
+  const floor = Math.max(bmr(p), KCAL_FLOOR[p.gender]);
   const who = `${p.gender} ${p.age}y ${p.weight}kg ${p.goal} ${p.pace} ${p.dietType}`;
   const say = (what) => problems.push(`${who}: ${what}`);
   if (t.kcal < floor - 1) say(`${t.kcal} kcal is under the floor ${Math.round(floor)}`);

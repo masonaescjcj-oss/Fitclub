@@ -18,6 +18,8 @@ import { CalorieRing, MACRO_COLORS, MacroBar, MacroDot, Stat, TrendSpark, fmtNum
 import FoodSearchSheet, { macroLine } from "../../components/diet/FoodSearchSheet";
 import { QuickAddSheet, Sheet, TargetsSheet, ViewSheet, WeightSheet } from "../../components/diet/SmallSheets";
 import { PlanSettingsSheet, PlanTodayCard, ShoppingSheet, SwapSheet, WeekSheet } from "../../components/diet/MealPlan";
+import WeeklyReviewCard from "../../components/diet/WeeklyReview";
+import { reviewDue, weeklyReview } from "../../lib/nutrition/weeklyReview";
 import { planDay, weekOver } from "../../lib/nutrition/mealPlanStore";
 import { ShareSheet } from "../../components/training/TrainingSheets";
 import { compactMealPlan } from "../../lib/training/programModel";
@@ -124,6 +126,16 @@ export default function DietPage({ isRtl, onGoToRecipe, onGoToGuide }) {
   const stale = !!planned && (Math.abs(planned.target.kcal - baseline.kcal) > baseline.kcal * 0.03
     || Math.abs(planned.target.protein - baseline.protein) > baseline.protein * 0.05);
   const swapItem = swapping && planDay(plan, swapping.date)?.meals[swapping.mealIndex];
+
+  // The weekly check-in, once a week after starting.
+  const review = useMemo(() => {
+    if (!reviewDue({ reviews: profile.reviews || [], days: store.diary.days, plan, today })) return null;
+    const active = training.activeProgram;
+    return weeklyReview({
+      profile, days: store.diary.days, plan: plan.week ? plan : null, sessions: training.sessions, today,
+      plannedWorkouts: active ? active.days.filter((d) => d.type !== "rest" && d.exercises.length).length : 0,
+    });
+  }, [profile, store.diary.days, plan, today, training.activeProgram, training.sessions]);
 
   return (
     <Screen isRtl={isRtl} tabbed>
@@ -237,6 +249,12 @@ export default function DietPage({ isRtl, onGoToRecipe, onGoToGuide }) {
         </div>
         <p className="m-0 text-center text-[13px] text-muted">{t.dayTypeHint}</p>
       </div>
+
+      {/* ── Weekly check-in ─────────────────────────────────────── */}
+      {review && isToday && !profile.customTargets && (
+        <WeeklyReviewCard review={review} goal={profile.goal} isRtl={isRtl}
+          onApply={(r) => store.applyReview(r)} onDismiss={(r) => store.dismissReview(r)} />
+      )}
 
       {/* ── Meal plan ──────────────────────────────────────────── */}
       {(planned || (!plan.week && isToday)) && (
