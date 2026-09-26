@@ -282,7 +282,8 @@ export default function ChatList({ store, isRtl, t, onOpen, onOpenAt, onMenu, on
 
   const rows = useMemo(() => store.orderedChats
     .map((chat) => ({ chat, message: lastMessage(store.messages, chat.id), unread: store.unreadOf(chat), mentions: store.mentionsOf(chat) }))
-    .filter(({ chat, unread }) => matchesFolder(chat, store.folder, unread)), [store]);
+    // A real account has only the built-in folders; one kept from the demo reads as All.
+    .filter(({ chat, unread }) => matchesFolder(chat, DEMO_WORLD || ["all", "unread", "archived"].includes(store.folder) ? store.folder : "all", unread)), [store]);
 
   const archivedCount = store.chats.filter((c) => c.archived).length;
   const stories = useMemo(() => {
@@ -423,8 +424,8 @@ export default function ChatList({ store, isRtl, t, onOpen, onOpenAt, onMenu, on
       {!searching && (
         <div className="sticky z-20 bg-canvas" style={stickTop}>
           <div role="tablist" aria-label={t.foldersLabel} className="flex px-3 overflow-x-auto scrollbar-hide border-b border-line">
-            {FOLDERS.filter((f) => f.id !== "archived" || archivedCount > 0).map((f) => {
-              const active = store.folder === f.id;
+            {FOLDERS.filter((f) => (f.id === "archived" ? archivedCount > 0 : DEMO_WORLD || f.id === "all" || f.id === "unread")).map((f) => {
+              const active = store.folder === f.id || (!DEMO_WORLD && f.id === "all" && !["unread", "archived"].includes(store.folder));
               return (
                 <button key={f.id} type="button" role="tab" aria-selected={active} onClick={() => store.setFolder(f.id)}
                   className={cx("relative h-11 px-3 shrink-0 inline-flex items-center gap-1.5 border-0 bg-transparent text-[15px] whitespace-nowrap cursor-pointer transition-colors",

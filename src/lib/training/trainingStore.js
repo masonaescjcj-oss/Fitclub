@@ -111,8 +111,34 @@ function seedSessions(programs) {
  * history of its own; the demo build shows a few past sessions so Progress
  * has something in it.
  */
+/**
+ * A built-in program's suggested weights are a stranger's: fine for the demo,
+ * not for a real athlete's first session. For a real account they start
+ * empty, and each exercise then starts from what was lifted last time. Only
+ * weights still equal to the template's are cleared, so an athlete's own
+ * edits stay.
+ */
+function withoutTemplateWeights(programs, demo = !backendOn) {
+  if (demo) return programs;
+  const templates = new Map(builtinPrograms().map((b) => [b.id, b]));
+  return programs.map((p) => {
+    const tpl = p.source === "builtin" ? templates.get(p.id) : null;
+    if (!tpl) return p;
+    return {
+      ...p,
+      days: p.days.map((d, di) => ({
+        ...d,
+        exercises: d.exercises.map((e, ei) => {
+          const t = tpl.days[di]?.exercises?.[ei];
+          return t && t.exerciseId === e.exerciseId && t.weight != null && e.weight === t.weight ? { ...e, weight: null } : e;
+        }),
+      })),
+    };
+  });
+}
+
 export function seed({ demo = !backendOn } = {}) {
-  const programs = builtinPrograms();
+  const programs = withoutTemplateWeights(builtinPrograms(), demo);
   return { programs, activeProgramId: programs[0].id, sessions: demo ? seedSessions(programs) : [], draft: null, coachMode: false };
 }
 
@@ -130,7 +156,7 @@ function normalize(state) {
   const have = new Set(programs.map((p) => p.id));
   for (const b of builtinPrograms()) if (!have.has(b.id)) programs.push(b);
   return {
-    programs,
+    programs: withoutTemplateWeights(programs),
     activeProgramId: programs.some((p) => p.id === state.activeProgramId) ? state.activeProgramId : programs[0]?.id ?? null,
     sessions: state.sessions || [],
     draft: state.draft || null,

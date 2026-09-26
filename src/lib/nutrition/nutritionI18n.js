@@ -117,6 +117,7 @@ const en = {
   dietVegetarian: "Vegetarian",
   dietKeto: "Keto / low carb",
   localOnly: "Your diary is stored on this device only.",
+  syncedNote: "Your diary is saved to your account and syncs to your other devices.",
 
   // Ink & Volt layout
   fuel: "Fuel",
@@ -276,6 +277,7 @@ const fa = {
   dietVegetarian: "گیاه‌خواری",
   dietKeto: "کتوژنیک / کم کربوهیدرات",
   localOnly: "دفترچه غذایی شما فقط روی همین دستگاه ذخیره می‌شود.",
+  syncedNote: "دفترچه غذایی‌ات در حسابت ذخیره می‌شود و روی دستگاه‌های دیگرت هم هست.",
 
   // Ink & Volt layout
   fuel: "تغذیه",

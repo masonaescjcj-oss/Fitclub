@@ -22,6 +22,7 @@ import { compactMealPlan } from "../../lib/training/programModel";
 import { useTrainingStore } from "../../lib/training/trainingContext";
 import { useTrainingT } from "../../lib/training/trainingI18n";
 import { loadSession } from "../../lib/session";
+import { backendOn } from "../../lib/backend/supabase";
 
 // Fuel: what's left to eat today, the meals that got it there, and the
 // habits around them (water, weight, the coach's read on your burn).
@@ -355,7 +356,7 @@ export default function DietPage({ isRtl, onGoToRecipe, onGoToGuide }) {
       <div className="flex flex-col items-center gap-1 pt-1 text-xs text-muted text-center">
         {/* Sodium is worth watching but doesn't deserve a bar of its own. */}
         {totals.sodium > 0 && <span>{t.sodium} {fmtNum(totals.sodium, isRtl)} {t.mg}</span>}
-        <span className="inline-flex items-center gap-1.5"><Info className="w-3.5 h-3.5" strokeWidth={2} /> {t.localOnly}</span>
+        <span className="inline-flex items-center gap-1.5"><Info className="w-3.5 h-3.5" strokeWidth={2} /> {backendOn && loadSession().userId ? t.syncedNote : t.localOnly}</span>
       </div>
 
       {/* ── Sheets ──────────────────────────────────────────────── */}

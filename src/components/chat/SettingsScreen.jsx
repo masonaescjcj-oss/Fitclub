@@ -149,7 +149,7 @@ function GiftPicker({ me, isRtl, t, onPick, onClose }) {
 
 // A real account sees only settings that are true and do something; the
 // demo keeps Telegram's full list, its privacy facts and its UI-only toggles.
-const SHOWN_ROWS = DEMO_WORLD ? SETTINGS_ROWS : SETTINGS_ROWS.filter((r) => ["account", "chatSettings", "folders", "devices"].includes(r.id));
+const SHOWN_ROWS = DEMO_WORLD ? SETTINGS_ROWS : SETTINGS_ROWS.filter((r) => ["account", "chatSettings", "devices"].includes(r.id));
 
 /** A small dot for the server's state: accent on ink when online. */
 function StatusDot({ status }) {

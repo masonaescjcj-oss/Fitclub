@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { BadgeCheck, EyeOff, Sparkles, X } from "lucide-react";
 import { CtaButton, IconButton, IconWell, Ring, Screen, cx } from "../../components/ui/kit";
+import { backendOn } from "../../lib/backend/supabase";
 
 // FitClub Pro: an ink hero that bleeds to the screen edges, what Pro adds,
 // the plans as radio cards, and one call to action.
@@ -11,12 +12,18 @@ const COPY = {
     lead: "Unlock all AI features. Everything in FitClub, with no limit on what you can ask.",
     features: ["Unlimited AI workout & nutrition", "A Pro badge everywhere you appear", "No sponsored posts in channels"],
     plan: "Plan", popular: "Most popular", cta: "Activate VIP Membership", checkout: "Proceeding to checkout!",
+    soonTitle: "Coming soon",
+    soonBody: "Pro isn't on sale yet. Until it is, everything in FitClub is free, and nothing you use today will be taken away.",
+    realFeatures: ["More coach questions every day", "A Pro badge on your profile and in chats"],
   },
   fa: {
     close: "بستن", tag: "FITCLUB PRO", title: ["مربی‌ات،", "بدون سقف."],
     lead: "همه‌ی قابلیت‌های هوش مصنوعی را باز کن. همه‌چیزِ فیت‌کلاب، بدون محدودیت در پرسیدن.",
     features: ["دسترسی نامحدود به مربی و رژیم AI", "نشان پرو هر جا که دیده می‌شوی", "بدون پست‌های تبلیغاتی در کانال‌ها"],
     plan: "پلن", popular: "محبوب‌ترین", cta: "فعال‌سازی اشتراک VIP", checkout: "ورود به درگاه پرداخت ثبت شد!",
+    soonTitle: "به‌زودی",
+    soonBody: "پرو هنوز فروخته نمی‌شود. تا آن موقع همه‌ی فیت‌کلاب رایگان است و چیزی که امروز استفاده می‌کنی از تو گرفته نمی‌شود.",
+    realFeatures: ["سؤال‌های بیشتر از مربی در هر روز", "نشان پرو روی پروفایل و در چت‌ها"],
   },
 };
 
@@ -58,7 +65,7 @@ export default function SubscriptionPage({ onBack, isRtl }) {
       </section>
 
       <ul className="m-0 mt-1 p-0 py-1 list-none rounded-3xl bg-card divide-y divide-hair">
-        {c.features.map((f, i) => {
+        {(backendOn ? c.realFeatures : c.features).map((f, i) => {
           const { Icon, tone } = FEATURE_ICONS[i];
           return (
             <li key={f} className="min-h-[56px] flex items-center gap-3.5 px-4 py-2">
@@ -69,6 +76,12 @@ export default function SubscriptionPage({ onBack, isRtl }) {
         })}
       </ul>
 
+      {backendOn ? (
+        <div className="rounded-3xl bg-card px-5 py-4 flex flex-col gap-1.5">
+          <span className="font-display font-extrabold text-[22px] leading-none tracking-[-0.02em] text-ink">{c.soonTitle}</span>
+          <p className="m-0 text-[15px] leading-[1.45] text-muted">{c.soonBody}</p>
+        </div>
+      ) : (<>
       <div role="radiogroup" aria-label={c.plan} className="flex flex-col gap-2.5">
         {plans.map((p) => {
           const isSelected = selectedPlan === p.id;
@@ -97,6 +110,7 @@ export default function SubscriptionPage({ onBack, isRtl }) {
       </div>
 
       <CtaButton isRtl={isRtl} className="mt-2" onClick={() => alert(c.checkout)}>{c.cta}</CtaButton>
+      </>)}
     </Screen>
   );
 }
