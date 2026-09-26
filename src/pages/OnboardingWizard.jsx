@@ -2,14 +2,35 @@ import React, { useEffect, useRef, useState } from "react";
 import { applyOnboardingToProfile, targetsFor } from "../lib/nutrition/profile";
 import { buildWeek, loadMealPlan, saveMealPlan } from "../lib/nutrition/mealPlanStore";
 import { dayKey } from "../lib/nutrition/diaryStore";
+import { INJURIES, SESSION_MINUTES, generateProgram } from "../lib/training/programGen";
+import { findExercise } from "../lib/training/exercises";
+import { useExerciseCatalog } from "../lib/training/useExerciseCatalog";
+import { loadTraining, saveTraining } from "../lib/training/trainingStore";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Building2, Check, CheckCheck, Drumstick, Dumbbell, Flame, Footprints, HeartPulse, Home, Leaf, Minus,
+  Building2, Check, CheckCheck, Drumstick, Dumbbell, Flame, HeartPulse, Home, Leaf, Minus,
   PersonStanding, Plus, Scale, Scan, Star, Trees, TrendingDown, Utensils, WheatOff, Zap as Lightning,
 } from "lucide-react";
 import { Card, Chip, CtaButton, IconButton, IconWell, Label, Segmented, cx, num } from "../components/ui/kit";
 import { TrainIcon } from "../components/ui/icons";
 import Header, { FlowFooter, FlowScreen, FlowTitle } from "../components/Header";
+
+/** The questionnaire's answers as the workout planner's input. */
+export function programInput(form) {
+  const days = { "2_3": 3, "3_4": 4, "4_5": 5, "5_6": 6 }[form.frequency] || 3;
+  const location = form.location === "gym" || (form.equipment === "full_gym" && form.location !== "outdoor") ? "gym"
+    : form.equipment === "dumbbells" ? "home_gear" : "home";
+  return {
+    goal: form.goal || "Keep Fit",
+    // A beginner starts on at most four days a week.
+    days: form.level === "beginner" ? Math.min(days, 4) : days,
+    minutes: form.sessionMinutes || 60,
+    level: form.level || "intermediate",
+    location,
+    injuries: form.injuries || [],
+    focus: form.focusAreas || [],
+  };
+}
 
 // The onboarding questionnaire: one question per step, answered on cards
 // that turn ink when picked. Single-choice steps move on by themselves; every
@@ -47,7 +68,6 @@ const FemaleIcon = (p) => <Glyph {...p}><circle cx="12" cy="9" r="5.5" /><path d
 const optionTone = (on) => (on ? "bg-inv text-on-inv" : "bg-card text-ink");
 const wellTone = (on) => (on ? "bg-on-inv/10 text-accent dark:bg-jet" : "bg-sunk text-ink");
 const subTone = (on) => (on ? "text-on-inv/65" : "text-muted");
-const tagTone = (on) => (on ? "bg-on-inv/10 text-on-inv/85" : "bg-sunk text-ink");
 const pressable = "border-0 cursor-pointer text-start transition-[background-color,color,transform] duration-150 active:scale-[0.98]";
 const tagCls = "h-7 px-3 rounded-full inline-flex items-center gap-1 text-xs font-semibold whitespace-nowrap";
 
@@ -187,7 +207,8 @@ export default function OnboardingWizard({ onNavigate }) {
     weight: 76,
     difficulty: "moderate",
     dietType: "high_protein",
-    workoutProgram: "full_body",
+    sessionMinutes: 60,
+    injuries: [],
     mealBudget: "medium",
     mealsPerDay: 4,
   });
@@ -308,11 +329,11 @@ export default function OnboardingWizard({ onNavigate }) {
     },
     {
       key: "workoutProgram",
-      titleEn: "Select your workout program",
-      titleFa: "برنامه تمرینی خود را انتخاب کنید",
-      subtitleEn: "Based on your goals, location and equipment, these programs are recommended:",
-      subtitleFa: "بر اساس اهداف، محل تمرین و تجهیزات شما، این برنامه‌ها پیشنهاد شده‌اند:",
-      type: "workout-program-picker",
+      titleEn: "Your workout program",
+      titleFa: "برنامه‌ی تمرینی تو",
+      subtitleEn: "Built from your answers. Set how long a session can be and anything that hurts.",
+      subtitleFa: "از روی جواب‌هایت ساخته شده. زمان هر جلسه و هر دردی را که داری مشخص کن.",
+      type: "workout-program",
     },
     {
       key: "mealBudget",
@@ -324,41 +345,12 @@ export default function OnboardingWizard({ onNavigate }) {
     }
   ];
 
-  const workoutPrograms = [
-    {
-      id: "full_body",
-      recommended: true,
-      Icon: Dumbbell,
-      titleEn: "Full Body Plus - 4 Days",
-      titleFa: "فول بادی پلاس - ۴ روز در هفته",
-      descEn: "Full body strength with an extra conditioning day.",
-      descFa: "تمرینات استقامتی کامل بدن به همراه یک روز چابکی اضافه.",
-      badge1En: "Duration: 30 Days", badge1Fa: "مدت: ۳۰ روز",
-      badge2En: "Target Days/Week: 4 days", badge2Fa: "تمرین: ۴ روز در هفته"
-    },
-    {
-      id: "agility_power",
-      recommended: false,
-      Icon: Lightning,
-      titleEn: "Agility & Power - 4 Days",
-      titleFa: "چابکی و قدرت - ۴ روز در هفته",
-      descEn: "Enhance sports performance and reflex speed.",
-      descFa: "افزایش عملکرد ورزشی، توان انفجاری و سرعت رفلکس.",
-      badge1En: "Duration: 30 Days", badge1Fa: "مدت: ۳۰ روز",
-      badge2En: "Target Days/Week: 4 days", badge2Fa: "تمرین: ۴ روز در هفته"
-    },
-    {
-      id: "runner_conditioning",
-      recommended: false,
-      Icon: Footprints,
-      titleEn: "Runner Conditioning - 4 Days",
-      titleFa: "آمادگی و چابکی دونده - ۴ روز در هفته",
-      descEn: "Mix of long runs and HIIT for performance.",
-      descFa: "ترکیب دویدن‌های استقامتی و HIIT برای آمادگی بالا.",
-      badge1En: "Duration: 30 Days", badge1Fa: "مدت: ۳۰ روز",
-      badge2En: "Target Days/Week: 4 days", badge2Fa: "تمرین: ۴ روز در هفته"
-    }
-  ];
+  // The program the answers produce, rebuilt as the last answers change (a few ms) and once the exercise library lands.
+  const catalogVersion = useExerciseCatalog();
+  const previewProgram = React.useMemo(() => {
+    if (stepsData[stepIndex]?.type !== "workout-program") return null;
+    try { return generateProgram({ ...programInput(formData), seed: 7 }); } catch { return null; }
+  }, [formData, stepIndex, catalogVersion]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const mealBudgets = [
     { id: "economy", Icon: Scale, titleEn: "Economy", titleFa: "اقتصادی",
@@ -376,6 +368,13 @@ export default function OnboardingWizard({ onNavigate }) {
     if (stepIndex === totalSteps - 1) {
       // The answers set the diet tab's targets, and the first week of meals is built from them.
       const profile = applyOnboardingToProfile(formData);
+      try {
+        const program = generateProgram({ ...programInput(formData), seed: Date.now() % 100000 });
+        const training = loadTraining();
+        saveTraining({ ...training, programs: [...training.programs.filter((p) => p.source !== "generated"), program], activeProgramId: program.id });
+      } catch {
+        // Train still has its ready programs.
+      }
       try {
         const current = loadMealPlan();
         const plan = { ...current, settings: { ...current.settings, budget: formData.mealBudget, meals: formData.mealsPerDay } };
@@ -637,29 +636,42 @@ export default function OnboardingWizard({ onNavigate }) {
           )}
 
           {/* WORKOUT PROGRAM */}
-          {type === "workout-program-picker" && (
-            <div className="flex flex-col gap-2.5">
-              {workoutPrograms.map((prog) => {
-                const on = formData.workoutProgram === prog.id;
-                return (
-                  <button key={prog.id} type="button" aria-pressed={on} onClick={() => handleOptionSelect("workoutProgram", prog.id)}
-                    className={cx("w-full rounded-3xl p-4 flex flex-col gap-3.5", pressable, optionTone(on))}>
-                    <span className="w-full flex items-start gap-3.5">
-                      <Well on={on}><prog.Icon className="w-5 h-5" strokeWidth={2} /></Well>
-                      <span className="flex-1 min-w-0 flex flex-col gap-1">
-                        <span className="text-[17px] font-bold leading-snug">{isRtl ? prog.titleFa : prog.titleEn}</span>
-                        <span className={cx("text-[13px] leading-snug", subTone(on))}>{isRtl ? prog.descFa : prog.descEn}</span>
-                      </span>
-                      <Tick on={on} />
-                    </span>
-                    <span className="flex flex-wrap gap-1.5">
-                      {prog.recommended && <RecommendedTag on={on} isRtl={isRtl} />}
-                      <span className={cx(tagCls, tagTone(on))}>{isRtl ? prog.badge1Fa : prog.badge1En}</span>
-                      <span className={cx(tagCls, tagTone(on))}>{isRtl ? prog.badge2Fa : prog.badge2En}</span>
-                    </span>
-                  </button>
-                );
-              })}
+          {type === "workout-program" && (
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-2">
+                <Label>{isRtl ? "زمان هر جلسه (دقیقه)" : "Minutes a session"}</Label>
+                <Segmented value={String(formData.sessionMinutes)} onChange={(v) => handleOptionSelect("sessionMinutes", +v)}
+                  options={SESSION_MINUTES.map((m) => ({ id: String(m), label: num(m, isRtl) }))} />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label>{isRtl ? "درد یا آسیب" : "Pain or injury"}</Label>
+                <div className="flex flex-wrap gap-1.5">
+                  {INJURIES.map((inj) => {
+                    const on = formData.injuries.includes(inj.id);
+                    return (
+                      <Chip key={inj.id} active={on}
+                        onClick={() => handleOptionSelect("injuries", on ? formData.injuries.filter((x) => x !== inj.id) : [...formData.injuries, inj.id])}>
+                        {isRtl ? inj.fa : inj.en}
+                      </Chip>
+                    );
+                  })}
+                </div>
+              </div>
+              {previewProgram && (
+                <Card className="flex flex-col gap-3">
+                  <span className="text-[17px] font-bold leading-snug">{isRtl ? previewProgram.nameFa : previewProgram.name}</span>
+                  <ul className="m-0 p-0 list-none flex flex-col gap-2.5">
+                    {previewProgram.days.filter((d) => d.type !== "rest").map((d) => (
+                      <li key={d.id} className="flex flex-col gap-0.5">
+                        <span className="text-sm font-semibold">{isRtl ? d.titleFa : d.title}</span>
+                        <span className="text-[13px] text-muted leading-snug">
+                          {d.exercises.map((e) => { const x = findExercise(e.exerciseId); return x ? (isRtl ? x.nameFa : x.nameEn) : ""; }).filter(Boolean).join(isRtl ? "، " : ", ")}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </Card>
+              )}
             </div>
           )}
 

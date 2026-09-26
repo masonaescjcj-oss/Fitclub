@@ -40,7 +40,7 @@ export const createSet = (patch = {}) => ({ weight: null, reps: null, done: fals
  * program's targets, or the athlete's last performance where one exists —
  * the single most useful thing a logger can do is remember last time.
  */
-export function createSession({ program, day, lastPerf = {} }) {
+export function createSession({ program, day, lastPerf = {}, targets = {} }) {
   return {
     id: uid(),
     programId: program?.id || null,
@@ -53,17 +53,22 @@ export function createSession({ program, day, lastPerf = {} }) {
     durationSec: 0,
     exercises: (day?.exercises || []).map((pe) => {
       const prev = lastPerf[pe.exerciseId];
+      // The progression's target (programGen.nextTargets) wins over a plain copy of last time.
+      const aim = targets[pe.exerciseId];
       const count = Math.max(pe.sets || 1, 1);
       return {
         exerciseId: pe.exerciseId,
         sets: Array.from({ length: count }, (_, i) =>
-          createSet({
-            weight: prev?.[i]?.weight ?? prev?.[prev.length - 1]?.weight ?? pe.weight ?? null,
-            reps: prev?.[i]?.reps ?? pe.reps ?? null,
-          })
+          createSet(aim && aim.reason !== "start"
+            ? { weight: aim.weight ?? null, reps: aim.reps ?? pe.reps ?? null }
+            : {
+              weight: prev?.[i]?.weight ?? prev?.[prev.length - 1]?.weight ?? pe.weight ?? null,
+              reps: prev?.[i]?.reps ?? pe.reps ?? null,
+            })
         ),
         restSec: pe.restSec ?? 90,
         note: pe.note || "",
+        ...(aim && aim.reason !== "start" ? { target: aim } : {}),
       };
     }),
     prs: [],

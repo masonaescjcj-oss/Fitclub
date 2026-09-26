@@ -4,6 +4,20 @@ import {
   lastPerformanceFor, sessionStats, weeklyVolume,
 } from "../lib/training/programModel";
 import { loadTraining, saveTraining } from "../lib/training/trainingStore";
+import { generateProgram, nextTargets } from "../lib/training/programGen";
+import { findExercise } from "../lib/training/exercises";
+
+/** Each planned exercise's sets in earlier finished sessions, newest first. */
+function historyOf(sessions, exerciseId, limit = 3) {
+  const out = [];
+  const done = [...sessions].filter((x) => x.finishedAt).sort((a, b) => (a.startedAt < b.startedAt ? 1 : -1));
+  for (const sess of done) {
+    const ex = sess.exercises.find((e) => e.exerciseId === exerciseId);
+    if (ex) out.push(ex.sets);
+    if (out.length >= limit) break;
+  }
+  return out;
+}
 
 /** Owns programs, the in-progress workout, and the logged history. */
 export default function useTraining() {
@@ -22,6 +36,24 @@ export default function useTraining() {
   const api = useMemo(() => ({
     setActiveProgram: (id) => setState((s) => ({ ...s, activeProgramId: id })),
     setCoachMode: (on) => setState((s) => ({ ...s, coachMode: !!on })),
+
+    /** A program built for this person (programGen.js), made the active one. */
+    generateAndUseProgram: (input) => {
+      const program = generateProgram({ seed: Date.now() % 100000, ...input });
+      // A new one replaces the last one made for them; programs they built or imported stay.
+      setState((s) => ({ ...s, programs: [...s.programs.filter((p) => p.source !== "generated"), program], activeProgramId: program.id }));
+      return program;
+    },
+
+    /** One exercise of the workout in progress swapped for another: its sets start again from the planned reps. */
+    swapDraftExercise: (index, exerciseId) => setState((s) => {
+      if (!s.draft) return s;
+      const exercises = s.draft.exercises.map((e, i) => (i !== index ? e : {
+        ...e, exerciseId, swappedFrom: e.swappedFrom || e.exerciseId, target: undefined,
+        sets: e.sets.map((set) => ({ ...set, weight: null, done: false })),
+      }));
+      return { ...s, draft: { ...s.draft, exercises } };
+    }),
 
     addProgram: (patch) => {
       const program = createProgram({ source: "mine", ...patch });
@@ -63,7 +95,10 @@ export default function useTraining() {
         const program = s.programs.find((p) => p.id === programId);
         const day = program?.days.find((d) => d.id === dayId);
         if (!program || !day) return s;
-        draft = createSession({ program, day, lastPerf: lastPerformanceFor(s.sessions, day) });
+        const targets = Object.fromEntries(day.exercises.map((pe) => [
+          pe.exerciseId, nextTargets(pe, historyOf(s.sessions, pe.exerciseId), findExercise(pe.exerciseId)),
+        ]));
+        draft = createSession({ program, day, lastPerf: lastPerformanceFor(s.sessions, day), targets });
         return { ...s, draft };
       });
       return draft;

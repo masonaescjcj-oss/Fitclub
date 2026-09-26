@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, ArrowRight, Check, ChevronDown, Clock, Dumbbell, Flag, Flame, Minus, Plus, Timer, Trophy, X } from "lucide-react";
+import { ArrowLeft, ArrowLeftRight, ArrowRight, Check, ChevronDown, Clock, Dumbbell, Flag, Flame, Minus, Plus, Timer, Trophy, X } from "lucide-react";
 import ExerciseMedia from "../training/ExerciseMedia";
-import { CtaButton, Label, Ring, cx, num } from "../ui/kit";
+import { CtaButton, Label, Ring, Sheet, cx, num } from "../ui/kit";
+import { swapExercise } from "../../lib/training/programGen";
 import { equipmentLabel, exerciseName, findExercise, unitOf } from "../../lib/training/exercises";
 import { estimateCalories, lastPerformance, sessionSetsDone, sessionVolume } from "../../lib/training/programModel";
 import { useTrainingT } from "../../lib/training/trainingI18n";
@@ -43,6 +44,7 @@ export default function ActiveWorkoutModal({ store, isRtl, onClose, onFinished }
   const [rest, setRest] = useState(null);
   const [restTotal, setRestTotal] = useState(0);
   const [finished, setFinished] = useState(null);
+  const [swapping, setSwapping] = useState(false);
   const n = (v) => num(v, isRtl);
   const sep = isRtl ? "، " : " · ";
 
@@ -61,6 +63,11 @@ export default function ActiveWorkoutModal({ store, isRtl, onClose, onFinished }
   const exercises = draft?.exercises || [];
   const current = exercises[index] || null;
   const exercise = current ? findExercise(current.exerciseId) : null;
+  // Swaps stay within what the program was built for: the place, the level, the injuries.
+  const built = store.programs?.find((p) => p.id === draft?.programId)?.generator || {};
+  const swapOptions = useMemo(() => (swapping && exercise
+    ? swapExercise(exercise, { location: built.location || "gym", level: built.level || "advanced", injuries: built.injuries || [] })
+    : []), [swapping, exercise, built.location, built.level, built.injuries]);
   const elapsed = draft ? Math.max(Math.floor((now - new Date(draft.startedAt).getTime()) / 1000), 0) : 0;
   const setsDone = draft ? sessionSetsDone(draft) : 0;
   const calories = estimateCalories(elapsed, setsDone);
@@ -158,7 +165,8 @@ export default function ActiveWorkoutModal({ store, isRtl, onClose, onFinished }
             {current ? (
               <Current t={t} n={n} sep={sep} isRtl={isRtl} index={index} count={exercises.length}
                 current={current} exercise={exercise} last={last}
-                onPatch={patchSet} onToggle={toggleDone} onAdd={addSet} onRemove={removeSet} />
+                onPatch={patchSet} onToggle={toggleDone} onAdd={addSet} onRemove={removeSet}
+                onSwap={() => setSwapping(true)} />
             ) : (
               <p className="m-0 mt-10 text-[15px] text-muted">{t.noDays}</p>
             )}
@@ -230,6 +238,23 @@ export default function ActiveWorkoutModal({ store, isRtl, onClose, onFinished }
           </>
         )}
       </div>
+      <Sheet open={swapping} z={95} title={t.swapTitle} isRtl={isRtl} onClose={() => setSwapping(false)} closeLabel={t.close}>
+        <p className="m-0 -mt-2 text-sm text-muted">{t.swapHint}</p>
+        <ul className="m-0 p-0 list-none rounded-3xl bg-card divide-y divide-hair">
+          {swapOptions.map((ex) => (
+            <li key={ex.id}>
+              <button type="button" onClick={() => { store.swapDraftExercise(index, ex.id); setSwapping(false); }}
+                className="w-full min-h-[64px] px-3 py-2 flex items-center gap-3 text-start bg-transparent border-0 cursor-pointer active:bg-sunk">
+                <span className="w-12 h-12 rounded-xl overflow-hidden shrink-0"><ExerciseMedia exercise={ex} exerciseId={ex.id} name={ex.nameEn} thumb /></span>
+                <span className="flex-1 min-w-0 flex flex-col gap-0.5">
+                  <span className="text-[15px] font-semibold text-ink">{exerciseName(ex, isRtl)}</span>
+                  <span className="text-[13px] text-muted truncate">{equipmentLabel(ex, isRtl)}</span>
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </Sheet>
     </div>
   );
 }
@@ -258,7 +283,7 @@ function PrimaryAction({ t, n, current, index, count, Forward, onComplete, onNex
 }
 
 /** The exercise being lifted: its name, the working set on a card, and every set. */
-function Current({ t, n, sep, isRtl, index, count, current, exercise, last, onPatch, onToggle, onAdd, onRemove }) {
+function Current({ t, n, sep, isRtl, index, count, current, exercise, last, onPatch, onToggle, onAdd, onRemove, onSwap }) {
   const sets = current.sets;
   const focusIdx = sets.findIndex((s) => !s.done);
   const allDone = focusIdx === -1;
@@ -311,6 +336,16 @@ function Current({ t, n, sep, isRtl, index, count, current, exercise, last, onPa
             </span>
           )}
           {current.note && <span className="mt-1 text-[13px] text-muted">{current.note}</span>}
+          {current.target?.reason === "up" && <span className="mt-1.5 text-[13px] text-accent">{t.progUp(n(round2(current.target.weight - (current.target.from ?? current.target.weight))))}</span>}
+          {current.target?.reason === "down" && <span className="mt-1.5 text-[13px] text-muted">{t.progDown}</span>}
+          {current.target?.reason === "rep" && <span className="mt-1.5 text-[13px] text-muted">{t.progRep}</span>}
+          {current.target?.reason === "hold" && <span className="mt-1.5 text-[13px] text-muted">{t.progHold}</span>}
+          {!sets.some((s) => s.done) && (
+            <button type="button" onClick={onSwap}
+              className="mt-2.5 self-start h-9 px-3.5 rounded-full bg-hero-2 text-ink text-[13px] font-semibold border-0 cursor-pointer inline-flex items-center gap-1.5 active:scale-95 transition-transform">
+              <ArrowLeftRight className="w-3.5 h-3.5" strokeWidth={2.2} />{t.swap}
+            </button>
+          )}
         </div>
         <span className="mt-1 w-16 h-16 rounded-2xl overflow-hidden shrink-0 ring-1 ring-line">
           <ExerciseMedia exerciseId={current.exerciseId} name={exercise?.nameEn} />

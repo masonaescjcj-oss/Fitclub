@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import {
-  Copy, Download, Dumbbell, History, Moon, MoreHorizontal, Pencil, Play, Plus, Search, Share2, Trash2, TrendingDown, TrendingUp, Trophy,
+  Copy, Download, Dumbbell, History, Moon, MoreHorizontal, Pencil, Play, Plus, Search, Share2, Sparkles, Trash2, TrendingDown, TrendingUp, Trophy,
 } from "lucide-react";
 import ExerciseMedia from "../../components/training/ExerciseMedia";
 import ActiveWorkoutModal from "../../components/modals/ActiveWorkoutModal";
+import ProgramGeneratorSheet from "../../components/training/ProgramGeneratorSheet";
 import {
   AuthorChip, ImportSheet, ProgramBuilderSheet, ProgramMark, ShareSheet, Sheet,
 } from "../../components/training/TrainingSheets";
@@ -124,6 +125,7 @@ export default function WorkoutPage({ isRtl, onOpen, initialSegment = null, onSe
   const [builder, setBuilder] = useState(undefined); // undefined closed | null new | program edit
   const [share, setShare] = useState(null);           // program to share
   const [importing, setImporting] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [trendFor, setTrendFor] = useState(null);     // exercise id
   const [menuFor, setMenuFor] = useState(null);       // program whose actions are open
   const [toast, setToast] = useState("");
@@ -169,6 +171,18 @@ export default function WorkoutPage({ isRtl, onOpen, initialSegment = null, onSe
         </Card>
       )}
 
+      {/* Until a program is made for them, the plan offers it first. */}
+      {segment === "plan" && plan && !store.programs.some((p) => p.source === "generated") && (
+        <Card className="flex items-center gap-3" aria-label={t.makeProgram}>
+          <IconWell tone="accent" size={44}><Sparkles className="w-5 h-5" strokeWidth={2} /></IconWell>
+          <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+            <span className="text-[15px] font-bold leading-snug text-ink">{t.makeProgram}</span>
+            <span className="text-[13px] leading-snug text-muted">{t.makeProgramHint}</span>
+          </div>
+          <Button tone="ink" size="sm" className="shrink-0" onClick={() => setGenerating(true)}>{t.makeShort}</Button>
+        </Card>
+      )}
+
       {segment === "plan" && (plan ? (
         <PlanView t={t} n={n} sep={sep} isRtl={isRtl} store={store} plan={plan} programName={programName}
           onStart={startDay} onShare={() => setShare(active)} onImport={() => setImporting(true)}
@@ -176,18 +190,33 @@ export default function WorkoutPage({ isRtl, onOpen, initialSegment = null, onSe
       ) : (
         <Card>
           <Empty icon={<Dumbbell className="w-6 h-6" strokeWidth={2} />} title={t.noActiveTitle} body={t.noActive}
-            action={<Button tone="ink" onClick={() => setSegment("programs")}>{t.browsePrograms}</Button>} />
+            action={(
+              <div className="flex flex-col items-center gap-2">
+                <Button tone="ink" icon={<Sparkles className="w-[18px] h-[18px]" strokeWidth={2} />} onClick={() => setGenerating(true)}>{t.makeProgram}</Button>
+                <Button tone="soft" size="sm" onClick={() => setSegment("programs")}>{t.browsePrograms}</Button>
+              </div>
+            )} />
         </Card>
       ))}
 
       {segment === "programs" && (
         <>
+          <Card tone="hero" className="flex flex-col gap-3" aria-label={t.makeProgram}>
+            <div className="flex items-start gap-3">
+              <IconWell tone="accent" size={44}><Sparkles className="w-5 h-5" strokeWidth={2} /></IconWell>
+              <div className="flex-1 min-w-0 flex flex-col gap-1">
+                <h2 className="m-0 text-[18px] font-bold leading-snug">{t.makeProgram}</h2>
+                <p className="m-0 text-[13px] leading-relaxed text-hero-muted">{t.makeProgramHint}</p>
+              </div>
+            </div>
+            <CtaButton tone="accent" isRtl={isRtl} onClick={() => setGenerating(true)}>{t.makeProgram}</CtaButton>
+          </Card>
           <div className="grid grid-cols-2 gap-2.5">
             <Button tone="ink" icon={<Plus className="w-[18px] h-[18px]" strokeWidth={2.2} />} onClick={() => setBuilder(null)}>{t.newProgram}</Button>
             <Button tone="card" icon={<Download className="w-[18px] h-[18px]" strokeWidth={2} />} onClick={() => setImporting(true)}>{t.importShort}</Button>
           </div>
 
-          {[["mine", t.myPrograms], ["imported", t.imported], ["builtin", t.builtin]].map(([source, title]) => {
+          {[["generated", t.madeForYou], ["mine", t.myPrograms], ["imported", t.imported], ["builtin", t.builtin]].map(([source, title]) => {
             const list = store.programs.filter((p) => p.source === source);
             if (!list.length) return null;
             return (
@@ -249,6 +278,13 @@ export default function WorkoutPage({ isRtl, onOpen, initialSegment = null, onSe
               setBuilder(undefined);
             }}
             onClose={() => setBuilder(undefined)} />
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {generating && (
+          <ProgramGeneratorSheet isRtl={isRtl} t={t} programs={store.programs}
+            onUse={(input) => { store.generateAndUseProgram(input); setGenerating(false); setSegment("plan"); flash(t.genMade); }}
+            onClose={() => setGenerating(false)} />
         )}
       </AnimatePresence>
       <AnimatePresence>
@@ -448,7 +484,7 @@ function PlanView({ t, n, sep, isRtl, store, plan, programName, onStart, onShare
                   {isToday && <span className="h-[22px] px-2 rounded-full bg-accent text-on-accent inline-flex items-center text-[11px] font-bold">{t.today}</span>}
                 </span>
               )}
-              subtitle={`${n(day.exercises.length * 8)} ${t.min}${sep}${n(day.exercises.length)} ${t.exercisesLc}`} />
+              subtitle={`${n(program.generator?.minutes || day.exercises.length * 8)} ${t.min}${sep}${n(day.exercises.length)} ${t.exercisesLc}`} />
           );
         })}
       </List>
