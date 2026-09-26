@@ -1,8 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Award, BarChart3, Camera, Check as CheckIcon, Crown, Dumbbell, FileText, Loader2, Trash2, Flame, GraduationCap, Languages, LogOut, Moon,
-  Settings, ShieldCheck, Sun, Trophy, Users, Wallet, Watch,
+  LifeBuoy, Settings, ShieldCheck, Sun, Trophy, Users, Wallet, Watch,
 } from "lucide-react";
+import { AnimatePresence } from "framer-motion";
+import FeedbackSheet from "../../components/FeedbackSheet";
 import { Avatar, Card, IconButton, IconWell, Label, List, Row, Screen, Segmented, Sheet, Toast, TopBar, cx, num } from "../../components/ui/kit";
 import { useTheme } from "../../lib/theme";
 import { ACCENTS, useAccent } from "../../lib/accent";
@@ -74,6 +76,7 @@ export default function ProfilePage({ onNavigate, onBack, isRtl }) {
   const [photo, setPhoto] = useState(session.avatarUrl || null);
   const [photoBusy, setPhotoBusy] = useState(false);
   const [photoSheet, setPhotoSheet] = useState(false);
+  const [feedback, setFeedback] = useState(false);
   const [toast, setToast] = useState("");
   const fileRef = useRef(null);
   useEffect(() => { if (!toast) return undefined; const id = setTimeout(() => setToast(""), 2200); return () => clearTimeout(id); }, [toast]);
@@ -301,6 +304,10 @@ export default function ProfilePage({ onNavigate, onBack, isRtl }) {
         </List>
 
         <List>
+          {backendOn && (
+            <Row isRtl={isRtl} chevron icon={icon(LifeBuoy)} title={isRtl ? "راهنما و بازخورد" : "Help & feedback"}
+              subtitle={isRtl ? "به تیم فیت‌کلاب بنویس" : "Write to the FitClub team"} onClick={() => setFeedback(true)} />
+          )}
           <Row isRtl={isRtl} chevron icon={icon(ShieldCheck)} title={c.privacy} onClick={() => go("privacy")} />
           <Row isRtl={isRtl} chevron icon={icon(FileText)} title={c.terms} onClick={() => go("terms")} />
         </List>
@@ -317,6 +324,9 @@ export default function ProfilePage({ onNavigate, onBack, isRtl }) {
             title={c.removePhoto} onClick={dropPhoto} />
         </List>
       </Sheet>
+      <AnimatePresence>
+        {feedback && <FeedbackSheet isRtl={isRtl} onClose={() => setFeedback(false)} onSent={(msg) => { setFeedback(false); setToast(msg); }} />}
+      </AnimatePresence>
       {toast && <Toast check={false}>{toast}</Toast>}
     </Screen>
   );

@@ -27,6 +27,7 @@ export const LEGAL = {
             "What you share with others: messages and photos you send in chats, the groups and channels you are in, shared checklists and your ticks in them, when you were last online, and for the leaderboards a daily count of your workouts, records, perfect checklist days and days with food logged, with your streak.",
             "Error reports: when the app hits an error it didn't expect, it sends the error message, the page, your browser and the app version, with your account ID if you are signed in. Email addresses and sign-in links are removed first, and reports are deleted after 30 days.",
             "Notifications, if you turn them on: your phone's push address with your language and time zone, used only to send you new-message alerts and the evening reminder. Your browser's push service (Google, Apple or Mozilla) delivers them; turning notifications off deletes the address.",
+            "Messages you send us from Help & feedback, with the page, app version and browser they came from, so we can answer them by email.",
           ],
         },
         {
@@ -94,6 +95,7 @@ export const LEGAL = {
             "چیزهایی که با دیگران به اشتراک می‌گذاری: پیام‌ها و عکس‌هایی که در چت‌ها می‌فرستی، گروه‌ها و کانال‌هایی که عضوشان هستی، چک‌لیست‌های مشترک و تیک‌هایت در آن‌ها، آخرین زمانی که آنلاین بوده‌ای، و برای جدول رتبه‌بندی شمار روزانه‌ی تمرین‌ها، رکوردها، روزهای کامل چک‌لیست و روزهای ثبت غذا به همراه استریکت.",
             "گزارش خطا: وقتی اپ به خطای پیش‌بینی‌نشده‌ای بخورد، متن خطا، صفحه، مرورگر و نسخه‌ی اپ را می‌فرستد و اگر وارد حساب شده باشی شناسه‌ی حسابت را. نشانی‌های ایمیل و لینک‌های ورود پیش از فرستادن پاک می‌شوند و گزارش‌ها بعد از ۳۰ روز حذف می‌شوند.",
             "اعلان‌ها، اگر روشنشان کنی: نشانی اعلان گوشی‌ات با زبان و منطقه‌ی زمانی‌ات، فقط برای فرستادن خبر پیام‌های تازه و یادآوری عصر. سرویس اعلان مرورگرت (گوگل، اپل یا موزیلا) آن‌ها را می‌رساند؛ با خاموش کردن اعلان‌ها این نشانی پاک می‌شود.",
+            "پیام‌هایی که از «راهنما و بازخورد» برای ما می‌فرستی، با صفحه، نسخه‌ی اپ و مرورگری که از آن آمده‌اند، تا بتوانیم با ایمیل جوابشان را بدهیم.",
           ],
         },
         {
