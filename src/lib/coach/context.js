@@ -7,7 +7,7 @@ import { findFood } from "../nutrition/foods";
 import { targetsFor } from "../nutrition/profile";
 import { exerciseName, findExercise } from "../training/exercises";
 import { bestSetIn, e1rm, sessionSetsDone, sessionVolume, weeklyVolume } from "../training/programModel";
-import { progressOf } from "../checklistModel";
+import { localized, progressOf } from "../checklistModel";
 
 export const DEFAULT_INCLUDE = { nutrition: true, training: true, habits: true };
 
@@ -169,16 +169,16 @@ function trainingSection({ training, now, isRtl }) {
   };
 }
 
-function habitsSection({ lists }) {
+function habitsSection({ lists, isRtl }) {
   const active = (lists || []).filter((l) => !l.archived);
   return {
     lists: active.map((l) => {
       const p = progressOf(l);
       return {
-        name: l.name || l.nameEn || "",
+        name: localized(l, isRtl),
         type: l.type, reset: l.reset?.mode || "none",
         done: p.done, total: p.total, streak: l.streak || 0, best: l.bestStreak || 0,
-        open: l.items.filter((i) => !Object.keys(i.doneBy || {}).length).map((i) => i.text || i.textEn || "").filter(Boolean).slice(0, 8),
+        open: l.items.filter((i) => !Object.keys(i.doneBy || {}).length).map((i) => localized(i, isRtl, "text")).filter(Boolean).slice(0, 8),
       };
     }),
     streak: active.reduce((m, l) => Math.max(m, l.streak || 0), 0),
@@ -201,7 +201,7 @@ export function buildCoachSnapshot({
       ? nutritionSection({ profile: nutrition.profile, day, diary: nutrition.diary, estimate: nutrition.estimate, trend: nutrition.trend, now })
       : null,
     training: include.training ? trainingSection({ training, now, isRtl }) : null,
-    habits: include.habits ? habitsSection({ lists }) : null,
+    habits: include.habits ? habitsSection({ lists, isRtl }) : null,
   };
 }
 
@@ -313,7 +313,8 @@ export function suggestionChips(snap, isRtl) {
     if (open) chips.push(fa ? `${open.open.length} کار از «${open.name}» مانده؛ کدام مهم‌تر است؟` : `${open.open.length} items left in "${open.name}" — which matter most?`);
   }
   chips.push(fa ? `وضعیت این هفته‌ام را در سه خط بگو` : `Sum up my week in three lines`);
-  return chips.slice(0, 5);
+  // Persian reads Persian digits.
+  return chips.slice(0, 5).map((c) => (fa ? c.replace(/[0-9]/g, (d) => "۰۱۲۳۴۵۶۷۸۹"[d]) : c));
 }
 
 /* ──────────────────────────── offline coach ──────────────────────────── */

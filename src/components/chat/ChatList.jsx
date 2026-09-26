@@ -368,7 +368,7 @@ export default function ChatList({ store, isRtl, t, onOpen, onOpenAt, onMenu, on
                   <StoryStack faces={faces} label={t.showStories} onClick={openStories} />
                 )}
                 <span className="font-display font-extrabold text-[26px] leading-none tracking-[-0.035em] text-ink truncate">{t.chats}</span>
-                <NameBadges premium size={17} />
+                {DEMO_WORLD && <NameBadges premium size={17} />}
               </>
             )}
           </h1>
