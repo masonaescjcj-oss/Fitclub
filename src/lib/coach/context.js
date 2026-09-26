@@ -8,6 +8,7 @@ import { targetsFor } from "../nutrition/profile";
 import { exerciseName, findExercise } from "../training/exercises";
 import { bestSetIn, e1rm, sessionSetsDone, sessionVolume, weeklyVolume } from "../training/programModel";
 import { localized, progressOf } from "../checklistModel";
+import { ACTION_RULES, plannableFoods } from "./actions";
 
 export const DEFAULT_INCLUDE = { nutrition: true, training: true, habits: true };
 
@@ -151,6 +152,7 @@ function trainingSection({ training, now, isRtl }) {
     program: program
       ? {
           name: (isRtl && program.nameFa) || program.name, weeks: program.weeks,
+          generator: program.generator ? Object.entries(program.generator).filter(([k, v]) => k !== "seed" && k !== "focus" && v !== undefined).map(([k, v]) => `${k} ${Array.isArray(v) ? v.join("+") || "none" : v}`).join(", ") : null,
           author: program.author?.name ? `${program.author.name}${program.author.role === "coach" ? " (coach)" : ""}` : null,
           days: program.days.map((d) => (d.type === "rest" ? "Rest" : `${d.title}: ${d.exercises.map((e) => `${exerciseName(e.exerciseId, false)} ${e.sets}×${e.reps}`).join(", ")}`)),
         }
@@ -185,6 +187,23 @@ function habitsSection({ lists, isRtl }) {
   };
 }
 
+/** The meal plan FitClub built: its settings, today's planned meals and what the week uses. */
+function planSection({ plan, now, isRtl }) {
+  if (!plan?.week) return null;
+  const today = dayKey(now);
+  const day = plan.week.days.find((d) => d.date === today);
+  const counts = {};
+  for (const d of plan.week.days) if (d.date >= today) for (const m of d.meals) for (const it of m.items) counts[it.foodId] = (counts[it.foodId] || 0) + 1;
+  return {
+    budget: plan.settings.budget, meals: plan.settings.meals,
+    dislikes: plan.settings.dislikes || [], allergies: plan.settings.allergies || [],
+    rules: (plan.rules || []).map((r) => `${r.from}→${r.to}`),
+    today: day ? day.meals.map((m) => `${m.id}: ${m.items.map((it) => `${it.foodId} ${it.grams} g`).join(", ")}${m.status ? ` (${m.status})` : ""}`) : [],
+    weekFoods: Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([id, k]) => `${id} ×${k}`),
+    foods: plannableFoods(isRtl),
+  };
+}
+
 /**
  * Everything the coach may look at, as plain data. `include` lets the athlete
  * keep a whole area private; the prompt then says so rather than guessing.
@@ -200,6 +219,7 @@ export function buildCoachSnapshot({
     nutrition: include.nutrition
       ? nutritionSection({ profile: nutrition.profile, day, diary: nutrition.diary, estimate: nutrition.estimate, trend: nutrition.trend, now })
       : null,
+    plan: include.nutrition ? planSection({ plan: nutrition.mealPlan, now, isRtl }) : null,
     training: include.training ? trainingSection({ training, now, isRtl }) : null,
     habits: include.habits ? habitsSection({ lists, isRtl }) : null,
   };
@@ -215,7 +235,9 @@ How to coach:
 - Respect the athlete's own targets and program. Suggest changes as changes ("you could…"), and flag anything risky: eating below roughly the resting burn, big weekly weight swings, training the same muscles on consecutive days, pain.
 - You are not a doctor. For injury, illness, medication, pregnancy, eating-disorder signs or anything medical, say plainly that a clinician should look at it, then help with what is safe.
 - Reply in the athlete's language (see "language" in the data: "fa" means Persian, written naturally in Persian; "en" means English). Keep units metric: kg, g, kcal, ml.
-- Keep responses focused, brief, and concise. Lead with the answer; use short paragraphs or a compact bulleted list when listing steps or food options. No headings unless the answer really has sections. No closing pep talk.`;
+- Keep responses focused, brief, and concise. Lead with the answer; use short paragraphs or a compact bulleted list when listing steps or food options. No headings unless the answer really has sections. No closing pep talk.
+
+${ACTION_RULES}`;
 
 /** Compact, line-oriented text the model reads fast. */
 export function snapshotToText(snap) {
@@ -242,11 +264,20 @@ export function snapshotToText(snap) {
     }
   } else out.push("", "## Nutrition", "(the athlete chose not to share nutrition data)");
 
+  if (snap.plan) {
+    const p = snap.plan;
+    out.push("", "## Meal plan (built by FitClub's planner)", `budget ${p.budget} · ${p.meals} meals a day${p.dislikes.length ? ` · left out: ${p.dislikes.join(", ")}` : ""}${p.allergies.length ? ` · allergies: ${p.allergies.join(", ")}` : ""}${p.rules.length ? ` · always swapped: ${p.rules.join(", ")}` : ""}`);
+    if (p.today.length) out.push("today:", ...p.today.map((l) => `- ${l}`));
+    out.push(`foods in the days ahead: ${p.weekFoods.join(", ")}`);
+    out.push("", "## Plannable foods (id = name)", p.foods.join("; "));
+  } else if (snap.nutrition) out.push("", "## Meal plan", "none yet (the athlete can make one in Fuel)");
+
   if (snap.training) {
     const tr = snap.training;
     out.push("", "## Training");
     if (tr.program) {
       out.push(`program: ${tr.program.name} (${tr.program.weeks} weeks${tr.program.author ? `, by ${tr.program.author}` : ""})`);
+      if (tr.program.generator) out.push(`made by the planner from: ${tr.program.generator}`);
       tr.program.days.forEach((d, i) => out.push(`  day ${i + 1} — ${d}`));
     } else out.push("no active program");
     if (tr.next) out.push(`next up: ${tr.next.title} → ${tr.next.exercises.join(", ")}`);
@@ -345,7 +376,22 @@ const topic = (q) => {
  * A grounded reply with no network: the same numbers the model would see,
  * turned into plain coaching. Used until the athlete adds an API key.
  */
+/**
+ * The offline coach's changes: a few plain requests answered with an action
+ * block, the way the live coach answers them (lib/coach/actions.js).
+ */
+const DEMO_CHANGES = [
+  [/گوشت قرمز|red meat|no beef|گوشت نمی/i, { fa: "باشد؛ گوشت قرمز را از برنامه برمی‌دارم و به‌جایش مرغ می‌گذارم، با همان مقدار پروتئین.", en: "Sure: red meat comes out of the plan and chicken goes in, with the same protein." },
+    [{ type: "swap_food", from: "beef_lean", to: "chicken_breast", scope: "always" }, { type: "meal_settings", dislike: ["lamb"] }]],
+  [/اقتصادی|ارزان|budget|cheaper/i, { fa: "برنامه را اقتصادی می‌کنم: اول تخم‌مرغ، حبوبات، لبنیات و مرغ.", en: "I'll make the plan economy: eggs, legumes, dairy and chicken first." },
+    [{ type: "meal_settings", budget: "economy" }]],
+  [/(۳|3) ?روز|three days|3 days/i, { fa: "برنامه‌ی تمرینت را سه‌روزه می‌کنم: فول بادی، سه جلسه در هفته.", en: "I'll make your program three days: full body, three sessions a week." },
+    [{ type: "program", days: 3 }]],
+];
+
 export function demoReply(question, snap, isRtl) {
+  const change = DEMO_CHANGES.find(([re]) => re.test(question || ""));
+  if (change) return `${change[1][isRtl ? "fa" : "en"]}\n\n\`\`\`fitclub-action\n${JSON.stringify(change[2])}\n\`\`\``;
   const fa = isRtl;
   const n = snap.nutrition;
   const t = snap.training;

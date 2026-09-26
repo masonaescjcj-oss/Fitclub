@@ -121,6 +121,30 @@ export default function useCoach(isRtl) {
     [state.messages]
   );
 
+  /**
+   * The athlete tapped Apply on a reply's changes (cards from
+   * lib/coach/actions.js previewActions): the meal side in one store update,
+   * the training side through the planner; the reply remembers what it changed.
+   */
+  const applyActions = useCallback((id, cards) => {
+    const ok = cards.filter((c) => c.ok);
+    const profile = {};
+    let settings = null;
+    const swaps = [];
+    for (const { action: a, ...card } of ok) {
+      if (a.type === "swap_food") swaps.push(a);
+      else if (a.type === "meal_settings") settings = { ...(settings || {}), ...card.settings };
+      else if (["diet", "pace", "calories"].includes(a.type)) Object.assign(profile, card.profile);
+      else if (a.type === "program") training.generateAndUseProgram(card.input);
+      else if (a.type === "swap_exercise") training.replaceProgramExercise(a.from, a.to);
+    }
+    if (Object.keys(profile).length || settings || swaps.length) {
+      nutrition.applyPlanChanges({ profile: Object.keys(profile).length ? profile : null, settings, swaps });
+    }
+    patchMessage(id, (m) => ({ ...m, actionState: "applied", actionCards: ok.map(({ title, before, after }) => ({ title, before, after })) }));
+  }, [nutrition, training, patchMessage]);
+  const dismissActions = useCallback((id) => patchMessage(id, (m) => ({ ...m, actionState: "dismissed" })), [patchMessage]);
+
   const api = useMemo(() => ({
     setApiKey: (apiKey) => setState((s) => ({ ...s, apiKey: (apiKey || "").trim() })),
     setInclude: (patch) => setState((s) => ({ ...s, include: { ...s.include, ...patch } })),
@@ -131,6 +155,6 @@ export default function useCoach(isRtl) {
   return {
     messages: state.messages, apiKey: state.apiKey, include: state.include,
     snapshot, chips, live, mode, viaProxy: mode === "proxy", proxyAvailable, proxyForced, streaming, error, name, servedModel,
-    send, stop, ...api,
+    send, stop, applyActions, dismissActions, ...api,
   };
 }

@@ -7,9 +7,30 @@ import { loadProfile, saveProfile, targetsFor, tdee } from "../lib/nutrition/pro
 import { DEFAULT_VIEW, loadView, saveView } from "../lib/nutrition/viewPrefs";
 import { registerFoods } from "../lib/nutrition/foods";
 import { buildWeek, loadMealPlan, saveMealPlan } from "../lib/nutrition/mealPlanStore";
-import { applySwap, retargetDay } from "../lib/nutrition/planEngine";
+import { applySwap, retargetDay, swapOptions } from "../lib/nutrition/planEngine";
+import { foodMeta } from "../lib/nutrition/foodMeta";
+import { findFood } from "../lib/nutrition/foods";
 
 const RECENT_LIMIT = 12;
+
+/** A plan with one food replaced wherever it is still ahead (meals not ticked), each day re-balanced. */
+function replaceFoodIn(plan, { from, to, scope = "week" }, { dietType, today }) {
+  const rules = scope === "always" ? [...plan.rules.filter((r) => r.from !== from), { from, to }] : plan.rules;
+  if (!plan.week) return { ...plan, rules };
+  const pool = [{ id: to, food: findFood(to), meta: foodMeta(to) }];
+  const budget = plan.settings.budget;
+  const days = plan.week.days.map((d) => {
+    if (d.date < today) return d;
+    let out = d;
+    d.meals.forEach((m, mi) => m.items.forEach((it, ii) => {
+      if (it.foodId !== from || m.status) return;
+      const grams = swapOptions(it, { pool, slot: m.id[0], limit: 1 })[0]?.grams ?? it.grams;
+      out = applySwap(out, { mealIndex: mi, itemIndex: ii, foodId: to, grams, budget, dietType });
+    }));
+    return out;
+  });
+  return { ...plan, rules, week: { ...plan.week, days } };
+}
 
 /** Owns the diary and the athlete profile, and keeps both in localStorage. */
 export default function useNutrition() {
@@ -87,6 +108,26 @@ export default function useNutrition() {
       setMealPlan((plan) => {
         const next = { ...plan, preset: preset.id, settings: { ...plan.settings, budget: preset.budget, meals: preset.meals } };
         return { ...next, week: buildWeek({ plan: next, profile: nextProfile, targetFor: () => t, start: dayKey() }) };
+      });
+    },
+    /**
+     * The coach's approved changes in one go (lib/coach/actions.js): a
+     * profile patch (diet, pace, calorie shift) and planner settings rebuild
+     * the week on the new targets; then each food swap replaces the food
+     * wherever it is still ahead, by the amount that matches its key
+     * nutrient ("always" also keeps the rule).
+     */
+    applyPlanChanges: ({ profile: patch = null, settings = null, swaps = [] }) => {
+      const nextProfile = patch ? { ...profile, ...patch } : profile;
+      if (patch) setProfile((p) => ({ ...p, ...patch }));
+      const t = targetsFor(nextProfile, { estimatedTdee: profile.useAdaptive ? estimate?.tdee ?? null : null });
+      const today = dayKey();
+      const dietType = nextProfile.dietType || "standard";
+      setMealPlan((plan) => {
+        let next = settings ? { ...plan, settings: { ...plan.settings, ...settings } } : plan;
+        if (next.week && (patch || settings)) next = { ...next, week: buildWeek({ plan: next, profile: nextProfile, targetFor: () => t, start: today }) };
+        for (const sw of swaps) next = replaceFoodIn(next, sw, { dietType, today });
+        return next;
       });
     },
     updateMealPlanSettings: (patch) => setMealPlan((plan) => ({ ...plan, settings: { ...plan.settings, ...patch } })),

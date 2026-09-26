@@ -44,8 +44,11 @@ export function saveCoach(state) {
 export function toApiMessages(messages, limit = 20) {
   const out = [];
   for (const m of messages.slice(-limit)) {
-    const text = (m.text || "").trim();
+    let text = (m.text || "").trim();
     if (!text) continue;
+    // The coach should know which of its proposals were taken.
+    if (m.actionState === "applied") text += "\n\n[The athlete applied the changes above.]";
+    else if (m.actionState === "dismissed") text += "\n\n[The athlete chose not to apply the changes above.]";
     const last = out[out.length - 1];
     if (last && last.role === m.role) last.content += `\n\n${text}`;
     else out.push({ role: m.role, content: text });

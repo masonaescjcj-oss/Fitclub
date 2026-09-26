@@ -45,6 +45,15 @@ export default function useTraining() {
       return program;
     },
 
+    /** An exercise replaced by another everywhere in the active program (sets, reps and rest kept). */
+    replaceProgramExercise: (from, to) => setState((s) => ({
+      ...s,
+      programs: s.programs.map((p) => (p.id !== s.activeProgramId ? p : {
+        ...p,
+        days: p.days.map((d) => ({ ...d, exercises: d.exercises.map((e) => (e.exerciseId === from ? { ...e, exerciseId: to, weight: null } : e)) })),
+      })),
+    })),
+
     /** One exercise of the workout in progress swapped for another: its sets start again from the planned reps. */
     swapDraftExercise: (index, exerciseId) => setState((s) => {
       if (!s.draft) return s;

@@ -1,8 +1,8 @@
-import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
 import {
-  AlertTriangle, ArrowUp, ChevronLeft, ChevronRight, Eye, EyeOff, KeyRound, ListChecks, ShieldCheck, SlidersHorizontal, Square, Trash2, X,
+  AlertTriangle, ArrowUp, Check as CheckIcon, ChevronLeft, ChevronRight, Eye, EyeOff, KeyRound, ListChecks, ShieldCheck, SlidersHorizontal, Square, Trash2, Wand2, X,
 } from "lucide-react";
 import {
   Button, Card, IconButton, IconWell, Label, List, Row, Screen, Sheet, Toggle, Field, cx, num,
@@ -12,6 +12,10 @@ import { useCoachStore } from "../../lib/coach/coachContext";
 import { useCoachT } from "../../lib/coach/coachI18n";
 import { COACH_MODEL, looksLikeKey } from "../../lib/coach/claudeClient";
 import useBackGesture from "../../hooks/useBackGesture";
+import { parseActions, previewActions } from "../../lib/coach/actions";
+import { useNutritionStore } from "../../lib/nutrition/nutritionContext";
+import { useTrainingStore } from "../../lib/training/trainingContext";
+import { dayKey } from "../../lib/nutrition/diaryStore";
 
 // Coach: a lilac avatar header, the facts the coach is reading right now,
 // the conversation (coach in lilac, the athlete in ink), and a composer
@@ -86,7 +90,9 @@ const liveTag = (model, t) => (!model ? null : model.startsWith("claude") ? t.po
 function Bubble({ msg, isRtl, t, streaming }) {
   const isAi = msg.role === "assistant";
   const empty = !msg.text.trim();
-  const body = msg.refused ? t.refused : msg.text + (msg.truncated ? `\n${t.truncated}` : "");
+  // The action block is for the app, not the athlete: the card below the bubble shows it.
+  const shown = isAi ? parseActions(msg.text).text : msg.text;
+  const body = msg.refused ? t.refused : shown + (msg.truncated ? `\n${t.truncated}` : "");
   const tag = isAi && msg.source === "demo" ? t.demoTag : isAi && msg.source === "live" ? liveTag(msg.model, t) : null;
   return (
     <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, ease: "easeOut" }}
@@ -113,6 +119,63 @@ function Bubble({ msg, isRtl, t, streaming }) {
         <span dir="ltr">{timeOf(msg.at, isRtl)}</span>
       </div>
     </motion.div>
+  );
+}
+
+/**
+ * The changes a reply proposes, checked against the planners: what is now and
+ * what it becomes, and one tap to apply them all. Once answered, the card
+ * keeps what was changed.
+ */
+function ActionCards({ msg, isRtl, t, onApply, onDismiss }) {
+  const nutrition = useNutritionStore();
+  const training = useTrainingStore();
+  const { actions } = useMemo(() => parseActions(msg.text), [msg.text]);
+  const answered = !!msg.actionState;
+  const cards = useMemo(() => (answered || !actions.length ? [] : previewActions(actions, {
+    profile: nutrition.profile, plan: nutrition.mealPlan, program: training.activeProgram,
+    generator: training.activeProgram?.generator, today: dayKey(), isRtl,
+  })), [answered, actions, nutrition.profile, nutrition.mealPlan, training.activeProgram, isRtl]);
+  if (!actions.length) return null;
+  const list = answered ? msg.actionCards || [] : cards;
+  const usable = cards.filter((c) => c.ok);
+  if (!answered && !list.length) return null;
+  return (
+    <section aria-label={t.changesTitle} className="self-start w-full max-w-[88%] rounded-[22px] bg-card text-ink p-3.5 flex flex-col gap-3">
+      <div className="flex items-center gap-2">
+        <IconWell tone="coach" size={28}><Wand2 className="w-3.5 h-3.5" strokeWidth={2.2} /></IconWell>
+        <span className="text-[13px] font-semibold">{t.changesTitle}</span>
+        {answered && (
+          <span className={cx("ms-auto h-6 px-2.5 rounded-full inline-flex items-center gap-1 text-[12px] font-semibold",
+            msg.actionState === "applied" ? "bg-accent text-on-accent" : "bg-sunk text-muted")}>
+            {msg.actionState === "applied" && <CheckIcon className="w-3.5 h-3.5" strokeWidth={2.4} />}
+            {msg.actionState === "applied" ? t.applied : t.dismissed}
+          </span>
+        )}
+      </div>
+      <ul className="m-0 p-0 list-none flex flex-col gap-2.5">
+        {list.map((c, i) => (
+          <li key={i} className="rounded-2xl bg-sunk px-3 py-2.5 flex flex-col gap-1">
+            {c.ok === false ? (
+              <span className="text-[13px] text-muted">{t.cantDo}</span>
+            ) : (
+              <>
+                <span className="text-[12px] font-semibold text-muted">{c.title}</span>
+                <span className="text-[13px] leading-snug text-muted"><span className="font-semibold">{t.now}:</span> {c.before}</span>
+                <span className="text-[13px] leading-snug text-ink font-medium"><span className="font-semibold">{t.then}:</span> {c.after}</span>
+                {c.note && <span className="text-[12px] text-muted">{c.note}</span>}
+              </>
+            )}
+          </li>
+        ))}
+      </ul>
+      {!answered && usable.length > 0 && (
+        <div className="flex items-center gap-2">
+          <Button tone="ink" size="sm" onClick={() => onApply(msg.id, cards)}>{t.applyChanges}</Button>
+          <Button tone="soft" size="sm" onClick={() => onDismiss(msg.id)}>{t.notNow}</Button>
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -442,9 +505,17 @@ export default function AiCoachPage({ isRtl, onClose }) {
 
       <div role="log" aria-label={t.conversation} aria-live="polite" className="mt-1 flex flex-col gap-2.5">
         <Bubble isRtl={isRtl} t={t} msg={welcome} />
-        {coach.messages.map((m, i) => (
-          <Bubble key={m.id} msg={m} isRtl={isRtl} t={t} streaming={coach.streaming && i === coach.messages.length - 1} />
-        ))}
+        {coach.messages.map((m, i) => {
+          const live = coach.streaming && i === coach.messages.length - 1;
+          return (
+            <React.Fragment key={m.id}>
+              <Bubble msg={m} isRtl={isRtl} t={t} streaming={live} />
+              {m.role === "assistant" && !live && (
+                <ActionCards msg={m} isRtl={isRtl} t={t} onApply={coach.applyActions} onDismiss={coach.dismissActions} />
+              )}
+            </React.Fragment>
+          );
+        })}
       </div>
 
       {errorText && (
