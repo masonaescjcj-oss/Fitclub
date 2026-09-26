@@ -25,6 +25,7 @@ import {
 import { useTrainingT } from "../../lib/training/trainingI18n";
 import { useTrainingStore } from "../../lib/training/trainingContext";
 import { useNutritionStore } from "../../lib/nutrition/nutritionContext";
+import { applyMealPlan } from "../../lib/nutrition/mealPlan";
 import { loadSession } from "../../lib/session";
 
 // Train: the week's volume, the sessions coming up in the active split, the
@@ -298,16 +299,8 @@ export default function WorkoutPage({ isRtl, onOpen }) {
   );
 }
 
-/** Applies a shared nutrition plan: targets plus its saved meals. */
-export function applyMealPlan(nutrition, meal) {
-  const { kcal, protein, carbs, fat } = meal.targets;
-  nutrition.setCustomTargets({
-    kcal, protein, carbs, fat,
-    fiber: Math.round((kcal / 1000) * 14),
-    water: Math.round((nutrition.profile?.weight || 70) * 35),
-  });
-  for (const m of meal.meals) nutrition.saveMeal(m.name, m.items);
-}
+// Lives in lib so the app shell can apply a shared plan without loading this page.
+export { applyMealPlan };
 
 /* ─────────────────────────────── charts ─────────────────────────────── */
 

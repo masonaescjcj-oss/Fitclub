@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { Suspense, lazy, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChecklistProvider, useChecklistStore } from "../lib/checklistContext";
 import { NutritionProvider } from "../lib/nutrition/nutritionContext";
@@ -14,34 +14,67 @@ import { backendOn } from "../lib/backend/supabase";
 import { loadSession } from "../lib/session";
 import { clearShareFromLocation, readShareFromLocation } from "../lib/training/programModel";
 import { clearJoinFromLocation, readJoinFromLocation } from "../lib/chat/search";
-import { ImportSheet } from "../components/training/TrainingSheets";
-import { applyMealPlan } from "./main/WorkoutPage";
+import { applyMealPlan } from "../lib/nutrition/mealPlan";
 import BottomNavBar from "../components/BottomNavBar";
 import { Toast } from "../components/ui/kit";
 
-// Main 5 Pages
+// Today opens first, so it ships with the shell. Every other screen loads
+// when it's first opened, and all of them are fetched quietly once the app
+// is up, so switching stays instant and the installed app works offline.
 import TodayPage from "./main/TodayPage";
-import WorkoutPage from "./main/WorkoutPage";
-import DietPage from "./main/DietPage";
-import AiCoachPage from "./main/AiCoachPage";
-import CommunityPage from "./main/CommunityPage";
-import LegalPage from "./LegalPage";
-import ChecklistPage from "./main/ChecklistPage";
 
-// Sub-Pages
-import ProfilePage from "./sub/ProfilePage";
-import DevicesPage from "./sub/DevicesPage";
-import StreakDetailPage from "./sub/StreakDetailPage";
-import MyRankPage from "./sub/MyRankPage";
-import HistoryPage from "./sub/HistoryPage";
-import TutorialsPage from "./sub/TutorialsPage";
-import NotificationsPage from "./sub/NotificationsPage";
-import WorkoutReportPage from "./sub/WorkoutReportPage";
-import TeamPage from "./sub/TeamPage";
-import WalletPage from "./sub/WalletPage";
-import SubscriptionPage from "./sub/SubscriptionPage";
-import RecipeExplorePage from "./sub/RecipeExplorePage";
-import DietGuidePage from "./sub/DietGuidePage";
+const SCREENS = {
+  WorkoutPage: () => import("./main/WorkoutPage"),
+  DietPage: () => import("./main/DietPage"),
+  AiCoachPage: () => import("./main/AiCoachPage"),
+  CommunityPage: () => import("./main/CommunityPage"),
+  ChecklistPage: () => import("./main/ChecklistPage"),
+  LegalPage: () => import("./LegalPage"),
+  ProfilePage: () => import("./sub/ProfilePage"),
+  DevicesPage: () => import("./sub/DevicesPage"),
+  StreakDetailPage: () => import("./sub/StreakDetailPage"),
+  MyRankPage: () => import("./sub/MyRankPage"),
+  HistoryPage: () => import("./sub/HistoryPage"),
+  TutorialsPage: () => import("./sub/TutorialsPage"),
+  NotificationsPage: () => import("./sub/NotificationsPage"),
+  WorkoutReportPage: () => import("./sub/WorkoutReportPage"),
+  TeamPage: () => import("./sub/TeamPage"),
+  WalletPage: () => import("./sub/WalletPage"),
+  SubscriptionPage: () => import("./sub/SubscriptionPage"),
+  RecipeExplorePage: () => import("./sub/RecipeExplorePage"),
+  DietGuidePage: () => import("./sub/DietGuidePage"),
+  ImportSheet: () => import("../components/training/TrainingSheets").then((m) => ({ default: m.ImportSheet })),
+};
+const WorkoutPage = lazy(SCREENS.WorkoutPage);
+const DietPage = lazy(SCREENS.DietPage);
+const AiCoachPage = lazy(SCREENS.AiCoachPage);
+const CommunityPage = lazy(SCREENS.CommunityPage);
+const ChecklistPage = lazy(SCREENS.ChecklistPage);
+const LegalPage = lazy(SCREENS.LegalPage);
+const ProfilePage = lazy(SCREENS.ProfilePage);
+const DevicesPage = lazy(SCREENS.DevicesPage);
+const StreakDetailPage = lazy(SCREENS.StreakDetailPage);
+const MyRankPage = lazy(SCREENS.MyRankPage);
+const HistoryPage = lazy(SCREENS.HistoryPage);
+const TutorialsPage = lazy(SCREENS.TutorialsPage);
+const NotificationsPage = lazy(SCREENS.NotificationsPage);
+const WorkoutReportPage = lazy(SCREENS.WorkoutReportPage);
+const TeamPage = lazy(SCREENS.TeamPage);
+const WalletPage = lazy(SCREENS.WalletPage);
+const SubscriptionPage = lazy(SCREENS.SubscriptionPage);
+const RecipeExplorePage = lazy(SCREENS.RecipeExplorePage);
+const DietGuidePage = lazy(SCREENS.DietGuidePage);
+const ImportSheet = lazy(SCREENS.ImportSheet);
+
+/** Fetches every screen in the background once the app is idle. */
+function prefetchScreens() {
+  const run = () => Object.values(SCREENS).forEach((load) => load().catch(() => {}));
+  if (typeof window.requestIdleCallback === "function") window.requestIdleCallback(run, { timeout: 4000 });
+  else setTimeout(run, 2500);
+}
+
+/** While a screen's code arrives (the first time only): the canvas, nothing else. */
+const ScreenFallback = () => <div className="min-h-[100dvh] bg-canvas" aria-busy="true" />;
 
 
 // Tabs that open full screen, without the shell's tab bar.
@@ -81,6 +114,7 @@ function MainAppShell({ onNavigate }) {
   const tt = useTrainingT((localStorage.getItem("language") || "en") === "fa");
   const [flash, setFlash] = useState("");
   useEffect(() => { if (shareCode) clearShareFromLocation(); }, [shareCode]);
+  useEffect(() => { prefetchScreens(); }, []);
 
   // The leaderboards read each account's daily activity: sent a few seconds
   // after the log changes, and only when it did (supabase/migrations/0006).
@@ -164,6 +198,7 @@ function MainAppShell({ onNavigate }) {
           transition={{ duration: 0.12, ease: "easeOut" }}
           className="w-full flex-grow"
         >
+          <Suspense fallback={<ScreenFallback />}>
           {/* Sub Pages */}
           {subPage === "profile" && <ProfilePage onNavigate={handleSubNavigate} onBack={() => setSubPage(null)} isRtl={isRtl} />}
           {subPage === "devices" && <DevicesPage onBack={() => setSubPage("profile")} isRtl={isRtl} />}
@@ -194,6 +229,7 @@ function MainAppShell({ onNavigate }) {
                 openTarget={openTarget} onOpenHandled={() => setOpenTarget(null)} />}
             </>
           )}
+          </Suspense>
         </motion.div>
       </AnimatePresence>
 
@@ -212,10 +248,12 @@ function MainAppShell({ onNavigate }) {
 
       {/* A shared plan opened from a link */}
       {shareCode && (
-        <ImportSheet initialCode={shareCode} isRtl={isRtl} t={tt}
-          onImportProgram={(compact) => { const p = training.importProgram(compact); training.setActiveProgram(p.id); setActiveTab("train"); setSubPage(null); setShareCode(null); setFlash(tt.importedOk); }}
-          onApplyMeal={(meal) => { applyMealPlan(nutrition, meal); setActiveTab("fuel"); setSubPage(null); setShareCode(null); setFlash(tt.appliedOk); }}
-          onClose={() => setShareCode(null)} />
+        <Suspense fallback={null}>
+          <ImportSheet initialCode={shareCode} isRtl={isRtl} t={tt}
+            onImportProgram={(compact) => { const p = training.importProgram(compact); training.setActiveProgram(p.id); setActiveTab("train"); setSubPage(null); setShareCode(null); setFlash(tt.importedOk); }}
+            onApplyMeal={(meal) => { applyMealPlan(nutrition, meal); setActiveTab("fuel"); setSubPage(null); setShareCode(null); setFlash(tt.appliedOk); }}
+            onClose={() => setShareCode(null)} />
+        </Suspense>
       )}
       {flash && <Toast>{flash}</Toast>}
     </div>

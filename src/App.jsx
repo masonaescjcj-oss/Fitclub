@@ -1,21 +1,24 @@
-import React, { useEffect, useState } from 'react';
+import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import WelcomePage from './pages/WelcomePage';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
-import ForgotPasswordPage from './pages/ForgotPasswordPage';
-import OtpPage from './pages/OtpPage';
-import ProfileSetupPage from './pages/ProfileSetupPage';
-import IntroHeroPage from './pages/IntroHeroPage';
-import OnboardingWizard from './pages/OnboardingWizard';
-import AiPlanSummaryPage from './pages/AiPlanSummaryPage';
 import MainAppLayout from './pages/MainAppLayout';
-import ResetPasswordPage from './pages/ResetPasswordPage';
-import LegalPage from './pages/LegalPage';
 import { legalFromPath } from './lib/legal';
 import { initialPage, loadSession, saveSession } from './lib/session';
 import { backendOn } from './lib/backend/supabase';
 import { boot, landingFor, onPasswordRecovery, saveProfile, signOut } from './lib/backend/account';
+
+// Screens someone passes through once (sign-up, onboarding, a password
+// reset) load only when they're reached, so everyone else's first load is lighter.
+const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'));
+const OtpPage = lazy(() => import('./pages/OtpPage'));
+const ProfileSetupPage = lazy(() => import('./pages/ProfileSetupPage'));
+const IntroHeroPage = lazy(() => import('./pages/IntroHeroPage'));
+const OnboardingWizard = lazy(() => import('./pages/OnboardingWizard'));
+const AiPlanSummaryPage = lazy(() => import('./pages/AiPlanSummaryPage'));
+const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'));
+const LegalPage = lazy(() => import('./pages/LegalPage'));
 
 // Pages that only make sense before or during sign-up.
 const AUTH_PAGES = ['welcome', 'login', 'signup', 'forgot-password', 'otp'];
@@ -84,7 +87,9 @@ export default function App() {
   if (legal) {
     return (
       <div className="w-full h-full min-h-[100dvh] bg-canvas font-ui antialiased overflow-x-clip">
-        <LegalPage kind={legal} isRtl={(localStorage.getItem('language') || 'en') === 'fa'} onBack={closeLegal} />
+        <Suspense fallback={<Splash />}>
+          <LegalPage kind={legal} isRtl={(localStorage.getItem('language') || 'en') === 'fa'} onBack={closeLegal} />
+        </Suspense>
       </div>
     );
   }
@@ -93,6 +98,7 @@ export default function App() {
 
   return (
     <div className="w-full h-full min-h-[100dvh] bg-canvas font-ui antialiased overflow-x-clip">
+      <Suspense fallback={<Splash />}>
       <AnimatePresence mode="wait">
         {currentPage === 'welcome' && (
           <WelcomePage key="welcome" onNavigate={navigate} />
@@ -169,6 +175,7 @@ export default function App() {
           />
         )}
       </AnimatePresence>
+      </Suspense>
     </div>
   );
 }
