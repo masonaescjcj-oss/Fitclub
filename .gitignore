@@ -26,3 +26,6 @@ yarn-error.log*
 # local env and Vercel
 .env
 .vercel
+
+# Working files of the liftmanual import (scripts/crawl-liftmanual.mjs): downloads and converted media, hosted elsewhere
+/data/liftmanual/

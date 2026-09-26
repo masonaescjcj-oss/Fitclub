@@ -21,7 +21,7 @@ const sample = join(root, "scripts", "sample-exercises.csv");
 const scratch = mkdtempSync(join(tmpdir(), "fitclub-import-test-"));
 
 // ── taxonomy ──
-check("25 muscles, 19 equipment, 5 types", LM_MUSCLES.length === 25 && LM_EQUIPMENT.length === 19 && LM_TYPES.length === 5);
+check("33 muscles, 28 equipment (the site's 27 and one it used to list), 5 types", LM_MUSCLES.length === 33 && LM_EQUIPMENT.length === 28 && LM_TYPES.length === 5);
 const unique = (list) => new Set(list.map((x) => x.slug)).size === list.length;
 check("taxonomy slugs are unique and kebab-case", unique(LM_MUSCLES) && unique(LM_EQUIPMENT) && [...LM_MUSCLES, ...LM_EQUIPMENT].every((x) => SLUG_RE.test(x.slug)));
 check("every entry has an English and a Persian label", [...LM_MUSCLES, ...LM_EQUIPMENT, ...LM_TYPES].every((x) => x.en && /[؀-ۿ]/.test(x.fa)));
@@ -39,7 +39,9 @@ const cases = [["GLUTES", "glutes"], ["glute", "glutes"], ["Front Deltoid", "fro
   ["Lats", "latissimus-dorsi"], ["Quads", "quadriceps"], ["calf", "calves"], ["  Hamstrings ", "hamstrings"], ["Rear Delts", "rear-deltoid"]];
 check("muscle names match case- and spacing-insensitively", cases.every(([n, s]) => muscleSlug(n) === s), cases.map(([n]) => muscleSlug(n)));
 const gear = [["Dumbbells", "dumbbell"], ["EZ Curl Bar", "ez-curl-bar"], ["ez bar", "ez-curl-bar"], ["Body Weight", "bodyweight"], ["TRX", "suspension-trainer"],
-  ["Weights", "weight-plate"], ["Stick", "stick-pvc"], ["Suspension", "suspension-trainer"], ["battle ropes", "battle-ropes"], ["Machine", "leverage-machine"], ["Resistance Bands", "resistance-band"]];
+  ["Weights", "weight-plate"], ["Stick", "stick-pvc"], ["Suspension", "suspension-trainer"], ["battle ropes", "battle-ropes"], ["Machine", "machine"], ["Lever machine", "leverage-machine"], ["Pull-Up Bar", "pull-up-bar"],
+  ["Resistance Bands", "resistance-band"]];
+check("the site's newer muscle groups have their own categories", [["Core", "core"], ["Hip Flexors", "hip-flexors"], ["Lower Back", "lower-back"], ["Adductors", "adductors"], ["Upper Back", "upper-back"], ["Rhomboids", "rhomboids"], ["Plyometrics", "plyometrics"], ["Spine", "spine"]].every(([n, s]) => muscleSlug(n) === s));
 check("equipment names (and the site's own labels) match", gear.every(([n, s]) => equipmentSlug(n) === s), gear.map(([n]) => equipmentSlug(n)));
 check("unknown names give null", muscleSlug("elbows") === null && equipmentSlug("sled") === null && muscleSlug("") === null);
 check("type labels", typeSlug("Strength Workouts") === "strength" && typeSlug("Stretches") === "stretching" && typeSlug("Cardio Exercises") === "cardio" && typeSlug("Guides") === "guides");

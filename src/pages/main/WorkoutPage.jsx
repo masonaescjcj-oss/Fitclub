@@ -18,7 +18,7 @@ import {
 import {
   LM_EQUIPMENT, LM_MUSCLES, findEquipment, findMuscle, liftmanualSearchUrl, liftmanualUrl, lmLabel, slugify,
 } from "../../lib/training/liftmanual";
-import { useExerciseCatalog } from "../../lib/training/useExerciseCatalog";
+import { useExerciseCatalog, useExerciseDetails } from "../../lib/training/useExerciseCatalog";
 import {
   bestSetIn, compactProgram, exerciseBests, exerciseTrend, lastPerformance, sessionSetsDone, sessionVolume,
 } from "../../lib/training/programModel";
@@ -560,7 +560,8 @@ function pickLang(loc, isRtl) {
 const humanize = (slug) => slug.replace(/-/g, " ").replace(/^./, (c) => c.toUpperCase());
 
 function TrendSheet({ exerciseId, sessions, isRtl, t, n, sep, onClose, onOpenExercise }) {
-  const ex = findExercise(exerciseId);
+  // A big library keeps each exercise's steps apart; they arrive when it's opened.
+  const ex = useExerciseDetails(exerciseId);
   const points = exerciseTrend(sessions, exerciseId);
   const best = exerciseBests(sessions, exerciseId);
   const last = lastPerformance(sessions, exerciseId);

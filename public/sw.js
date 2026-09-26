@@ -30,7 +30,8 @@ const cacheFirst = async (request) => {
   const cached = await caches.match(request);
   if (cached) return cached;
   const response = await fetch(request);
-  if (response.ok) (await caches.open(VERSION)).put(request, response.clone());
+  // Whole responses only: a video's partial (206) answer can't be stored.
+  if (response.status === 200) (await caches.open(VERSION)).put(request, response.clone()).catch(() => {});
   return response;
 };
 
@@ -66,10 +67,17 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // The exercise library: the catalog refreshes in the background, and a GIF
-  // once seen stays available offline.
-  if (url.origin === self.location.origin && url.pathname === "/exercises/catalog.json") {
+  // The exercise library: the list and each exercise's text refresh in the
+  // background, so a rebuilt library reaches installed apps; a GIF once seen
+  // stays available offline.
+  if (url.origin === self.location.origin && (url.pathname === "/exercises/catalog.json" || url.pathname.startsWith("/exercises/details/"))) {
     event.respondWith(staleWhileRevalidate(request));
+    return;
+  }
+  // The library's stills on the FitClub media server (supabase/migrations/0013)
+  // stay once seen; the animations stream (videos ask in ranges, which aren't stored).
+  if (url.pathname.includes("/storage/v1/object/public/fitclub-exercises/") && url.pathname.endsWith(".webp")) {
+    event.respondWith(cacheFirst(request));
     return;
   }
   if (url.origin === self.location.origin && url.pathname.startsWith("/exercises/")) {

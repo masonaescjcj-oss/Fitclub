@@ -18,8 +18,10 @@
  *  - Invalid records and repeated slugs are skipped.
  */
 
-import { EXERCISES, setExerciseRegistry } from "./exercises";
-import { findEquipment, groupOfMuscles, normalizeExercise } from "./liftmanual";
+import { EXERCISES, findExercise, setExerciseRegistry, touchExercises } from "./exercises";
+import { detailShard, findEquipment, groupOfMuscles, normalizeExercise } from "./liftmanual";
+
+export { detailShard };
 
 // CRA replaces process.env.PUBLIC_URL at build time; plain Node (the tests) has no such variable.
 let PUBLIC_URL = "";
@@ -115,6 +117,52 @@ export const catalogRecords = (data) =>
 
 let loading = null;
 
+/*
+ * A big library ships its list lean: catalog.json names each exercise with
+ * its muscles, equipment and media, and the long text (description, steps,
+ * benefits, muscles worked, variations) sits in "detailShards" files under
+ * "detailsBase", each exercise in the shard its slug hashes to. The text of
+ * an exercise loads when it is first opened (loadExerciseDetails).
+ */
+let detailsBase = null;
+let detailShards = 0;
+const shardLoads = new Map();
+
+const DETAIL_KEYS = ["description", "steps", "benefits", "musclesWorked", "variations"];
+
+/**
+ * Loads one exercise's long text when the catalog keeps it apart, and
+ * resolves to the exercise with it. Each shard is fetched once; a failed
+ * fetch is tried again next time. Never throws.
+ */
+export async function loadExerciseDetails(id, { fetch: fetchImpl } = {}) {
+  const ex = findExercise(id);
+  if (!ex || ex.detailsLoaded || !detailsBase || !detailShards || !ex.slug) return ex;
+  const get = fetchImpl || (typeof fetch === "function" ? fetch : null);
+  if (!get) return ex;
+  const n = detailShard(ex.slug, detailShards);
+  if (!shardLoads.has(n)) {
+    const url = mediaUrlFrom(detailsBase, `${String(n).padStart(2, "0")}.json`);
+    shardLoads.set(n, Promise.resolve(get(url)).then((res) => (res && res.ok ? res.json() : Promise.reject(new Error("unavailable"))))
+      .catch(() => { shardLoads.delete(n); return null; }));
+  }
+  const shard = await shardLoads.get(n);
+  const text = shard && shard[ex.slug];
+  if (!shard) return ex;
+  if (text && typeof text === "object") {
+    for (const k of DETAIL_KEYS) if (text[k] !== undefined) ex[k] = text[k];
+  }
+  ex.detailsLoaded = true;
+  touchExercises();
+  return ex;
+}
+
+// Like mediaUrl, against a base of its own.
+function mediaUrlFrom(base, path) {
+  const root = /^https?:\/\//i.test(base) ? base : `${PUBLIC_URL}/${base.replace(/^\/+/, "")}`;
+  return `${root.replace(/\/*$/, "/")}${path}`;
+}
+
 /**
  * Fetches and merges the catalog, once. Resolves to the merge summary, or
  * null when there is no usable catalog. Never throws.
@@ -133,6 +181,8 @@ export function loadExerciseCatalog({ fetch: fetchImpl, url, force = false } = {
       const records = catalogRecords(data);
       if (!records.length) return null;
       mediaBase = typeof data?.mediaBase === "string" && data.mediaBase ? data.mediaBase : DEFAULT_MEDIA_BASE;
+      detailsBase = typeof data?.detailsBase === "string" && data.detailsBase ? data.detailsBase : null;
+      detailShards = Number.isInteger(data?.detailShards) && data.detailShards > 0 && data.detailShards <= 4096 ? data.detailShards : 0;
       const merged = mergeCatalog(EXERCISES, records);
       if (!merged.enriched && !merged.added) return null;
       setExerciseRegistry(merged.list);

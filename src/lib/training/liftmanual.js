@@ -48,11 +48,15 @@ export const LIFTMANUAL_URL = "https://liftmanual.com";
 
 /* ───────────────────────────── taxonomy ───────────────────────────── */
 
-/** The 25 muscle categories, in body order (the site lists them A–Z). `group` is the app's coarse group. */
+/** The site's 33 muscle categories, in body order (the site lists them A–Z). `group` is the app's coarse group. */
 export const LM_MUSCLES = [
   { slug: "chest", en: "Chest", fa: "سینه", group: "chest" },
   { slug: "back", en: "Back", fa: "پشت", group: "back" },
+  { slug: "upper-back", en: "Upper Back", fa: "بالای پشت", group: "back" },
   { slug: "latissimus-dorsi", en: "Latissimus Dorsi", fa: "زیربغل", group: "back" },
+  { slug: "rhomboids", en: "Rhomboids", fa: "عضلات بین کتف", group: "back" },
+  { slug: "lower-back", en: "Lower Back", fa: "پایین کمر", group: "back" },
+  { slug: "spine", en: "Spine", fa: "ستون فقرات", group: "back" },
   { slug: "traps", en: "Traps", fa: "کول و ذوزنقه", group: "back" },
   { slug: "neck", en: "Neck", fa: "گردن", group: "back" },
   { slug: "shoulders", en: "Shoulders", fa: "سرشانه", group: "shoulders" },
@@ -64,41 +68,55 @@ export const LM_MUSCLES = [
   { slug: "upper-arms", en: "Upper Arms", fa: "بازو", group: "arms" },
   { slug: "forearms", en: "Forearms", fa: "ساعد", group: "arms" },
   { slug: "wrist", en: "Wrist", fa: "مچ دست", group: "arms" },
+  { slug: "core", en: "Core", fa: "عضلات مرکزی", group: "core" },
   { slug: "abs", en: "Abs", fa: "شکم", group: "core" },
   { slug: "obliques", en: "Obliques", fa: "پهلو", group: "core" },
   { slug: "waist", en: "Waist", fa: "دور کمر", group: "core" },
   { slug: "glutes", en: "Glutes", fa: "باسن", group: "legs" },
   { slug: "hips", en: "Hips", fa: "لگن", group: "legs" },
+  { slug: "hip-flexors", en: "Hip Flexors", fa: "خم‌کننده‌های لگن", group: "legs" },
+  { slug: "adductors", en: "Adductors", fa: "داخل ران", group: "legs" },
   { slug: "quadriceps", en: "Quadriceps", fa: "جلو ران", group: "legs" },
   { slug: "hamstrings", en: "Hamstrings", fa: "پشت ران", group: "legs" },
   { slug: "thighs", en: "Thighs", fa: "ران", group: "legs" },
   { slug: "calves", en: "Calves", fa: "ساق پا", group: "legs" },
+  // Jumps and bounds: explosive leg work.
+  { slug: "plyometrics", en: "Plyometrics", fa: "پلایومتریک", group: "legs" },
   { slug: "cardio", en: "Cardio", fa: "هوازی", group: "cardio" },
   // Poses and mobility have no coarse group of their own; they sit with core work.
   { slug: "yoga", en: "Yoga", fa: "یوگا", group: "core" },
 ];
 
-/** The 19 equipment categories, as the site lists them. */
+/** The site's equipment categories (27), and one it used to have that the built-ins still name. */
 export const LM_EQUIPMENT = [
   { slug: "resistance-band", en: "Resistance Band", fa: "کش مقاومتی" },
   { slug: "barbell", en: "Barbell", fa: "هالتر" },
   { slug: "battle-ropes", en: "Battle Ropes", fa: "طناب بتل" },
+  { slug: "bench", en: "Bench", fa: "نیمکت" },
   { slug: "bodyweight", en: "Bodyweight", fa: "وزن بدن" },
   { slug: "bosu-ball", en: "Bosu Ball", fa: "توپ بوسو" },
+  { slug: "bottle", en: "Bottle", fa: "بطری" },
   { slug: "cable", en: "Cable", fa: "سیم‌کش" },
   { slug: "dumbbell", en: "Dumbbell", fa: "دمبل" },
   { slug: "ez-curl-bar", en: "EZ Curl Bar", fa: "هالتر زیگزاگ" },
   { slug: "kettlebell", en: "Kettlebell", fa: "کتل‌بل" },
-  { slug: "leverage-machine", en: "Leverage Machine", fa: "دستگاه" },
+  { slug: "landmine", en: "Landmine", fa: "لندماین" },
+  { slug: "machine", en: "Machine", fa: "دستگاه" },
+  { slug: "leverage-machine", en: "Leverage Machine", fa: "دستگاه اهرمی" },
+  { slug: "massage-ball", en: "Massage Ball", fa: "توپ ماساژ" },
+  { slug: "massage-stick", en: "Massage Stick", fa: "چوب ماساژ" },
   { slug: "medicine-ball", en: "Medicine Ball", fa: "مدیسین بال" },
   { slug: "foam-roller", en: "Foam Roller", fa: "فوم رولر" },
+  { slug: "pull-up-bar", en: "Pull-Up Bar", fa: "میله بارفیکس" },
   { slug: "smith-machine", en: "Smith Machine", fa: "دستگاه اسمیت" },
   { slug: "stability-ball", en: "Stability Ball", fa: "توپ تعادلی" },
   { slug: "stick-pvc", en: "Stick / PVC", fa: "چوب تمرینی" },
   { slug: "suspension-trainer", en: "Suspension Trainer", fa: "بند تعلیقی" },
+  { slug: "towel", en: "Towel", fa: "حوله" },
   { slug: "trap-bar", en: "Trap Bar", fa: "هالتر شش‌ضلعی" },
   { slug: "weight-plate", en: "Weight Plate", fa: "صفحه وزنه" },
   { slug: "wheel-roller", en: "Wheel Roller", fa: "چرخ شکم" },
+  { slug: "other", en: "Other", fa: "سایر" },
 ];
 
 /** The site's five sections. Only the first three hold single exercises. */
@@ -152,8 +170,12 @@ const singular = (k) => (k.length > 3 && k.endsWith("s") && !k.endsWith("ss") ? 
 
 // Other names people (and spreadsheets) use for the same category.
 const MUSCLE_ALIASES = {
-  abs: ["abdominals", "abdominal", "ab", "core", "rectus abdominis", "six pack"],
-  back: ["upper back", "lower back", "middle back", "mid back", "erector spinae", "spinal erectors"],
+  abs: ["abdominals", "abdominal", "ab", "rectus abdominis", "six pack"],
+  back: ["middle back", "mid back"],
+  "lower-back": ["erector spinae", "spinal erectors", "lumbar"],
+  "upper-back": ["mid traps"],
+  "hip-flexors": ["hip flexor", "iliopsoas", "psoas"],
+  adductors: ["adductor", "inner thigh"],
   "latissimus-dorsi": ["lats", "lat", "latissimus"],
   traps: ["trapezius", "trap"],
   shoulders: ["shoulder", "delts", "deltoids", "deltoid"],
@@ -167,10 +189,11 @@ const MUSCLE_ALIASES = {
   wrist: ["wrists"],
   obliques: ["oblique"],
   glutes: ["glute", "gluteus", "gluteus maximus", "buttocks", "butt"],
-  hips: ["hip", "hip flexors", "hip flexor", "abductors", "abductor"],
+  hips: ["hip", "abductors", "abductor"],
   quadriceps: ["quads", "quad", "quadricep"],
   hamstrings: ["hamstring", "hams"],
-  thighs: ["thigh", "adductors", "adductor", "inner thigh", "outer thigh"],
+  thighs: ["thigh", "outer thigh"],
+  plyometrics: ["plyometric", "plyo", "jumps"],
   calves: ["calf", "gastrocnemius", "soleus"],
   cardio: ["cardiovascular", "conditioning", "aerobic"],
 };
@@ -184,7 +207,10 @@ const EQUIPMENT_ALIASES = {
   dumbbell: ["db"],
   "ez-curl-bar": ["ez bar", "ez curl", "curl bar", "ez barbell"],
   kettlebell: ["kb", "kettle bell"],
-  "leverage-machine": ["machine", "lever machine", "lever", "leverage", "plate loaded machine", "selectorized machine"],
+  "leverage-machine": ["lever machine", "lever", "leverage", "plate loaded machine"],
+  machine: ["machines", "selectorized machine", "gym machine"],
+  "pull-up-bar": ["pullup bar", "chin up bar", "chin-up bar", "pull up bar"],
+  "massage-ball": ["lacrosse ball", "massage balls"],
   "medicine-ball": ["med ball", "medball"],
   "foam-roller": ["foam roll"],
   "smith-machine": ["smith"],
@@ -461,4 +487,18 @@ export function normalizeExercise(raw) {
   };
   const ok = errors.length === 0;
   return { ok, value: ok ? value : null, errors, warnings, slug };
+}
+
+/**
+ * The file an exercise's long text is in when a big catalog keeps it apart
+ * (scripts/build-liftmanual.mjs writes them, src/lib/training/catalog.js
+ * reads them): FNV-1a of the slug, modulo the number of files.
+ */
+export function detailShard(slug, count) {
+  let h = 0x811c9dc5;
+  for (const ch of String(slug)) {
+    h ^= ch.codePointAt(0);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return count > 0 ? h % count : 0;
 }

@@ -127,3 +127,31 @@ node scripts/import-exercises.mjs ~/liftmanual/exercises.csv --media ~/liftmanua
 - بقیه‌ی حرکات با شناسه‌ای برابر slug اضافه می‌شوند.
 
 </div>
+
+## The whole liftmanual.com library
+
+The app's library is liftmanual.com itself: every strength, cardio and stretching exercise on the site (3,432 in September 2026), with its animation, steps, benefits, muscles worked and alternatives, and a Persian name for each. Refreshing it after the site changes takes four steps:
+
+```sh
+# 1. Read the site (the REST API for the list, each page for its text). Resumable.
+node scripts/crawl-liftmanual.mjs data/liftmanual
+
+# 2. Turn each animation into a small MP4 and a still poster (needs sharp and ffmpeg)
+npm i --no-save sharp
+FFMPEG=/path/to/ffmpeg node scripts/liftmanual-media.mjs data/liftmanual/exercises.json --out data/liftmanual
+
+# 3. Upload data/liftmanual/media/ to the public fitclub-exercises bucket
+#    (supabase/migrations/0013). Only an account listed in fitclub_media_uploaders may
+#    upload; add the import account there for the upload and take it off afterwards.
+
+# 4. Build the app's catalog from it
+node scripts/build-liftmanual.mjs data/liftmanual/exercises.json --media data/liftmanual/media \
+  --media-base https://<project>.supabase.co/storage/v1/object/public/fitclub-exercises/ \
+  --names-fa scripts/data/liftmanual-names-fa.json
+```
+
+Step 4 writes `public/exercises/catalog.json`, the list the app loads at start-up (about 75 KB compressed), and `public/exercises/details/00.json` to `63.json`, the long text, which the app fetches only when an exercise is opened. Commit both and deploy. `data/liftmanual/` stays out of git.
+
+An animated WebP of about 180 KB becomes an MP4 of about 25 KB that looks the same, so the whole library's media is about 90 MB.
+
+`scripts/data/liftmanual-names-fa.json` holds the Persian names, by slug. A new exercise on the site shows its English name until it gets a line there.

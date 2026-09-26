@@ -216,6 +216,14 @@ export function subscribeExercises(fn) {
   return () => { listeners.delete(fn); };
 }
 
+/** Tells the screens that an exercise changed in place (its text arrived). */
+export function touchExercises() {
+  version += 1;
+  for (const fn of [...listeners]) {
+    try { fn(); } catch { /* one screen failing to refresh must not stop the rest */ }
+  }
+}
+
 /** Bumps each time the list changes (for useSyncExternalStore). */
 export const exercisesVersion = () => version;
 
