@@ -96,7 +96,9 @@ function rolePool(pool, role, kind, ctx = {}) {
   switch (role) {
     case "main": return at.filter((f) => (f.meta.group === "protein" && f.meta.sub !== "egg") || f.meta.group === "legume"
       || (ctx.eggMain && f.meta.sub === "egg" && f.id === "egg"));
-    case "dish": return at.filter((f) => f.meta.group === "dish");
+    // On a cut, only dishes with a fair share of their energy as protein (a kuku or kashk-bademjan waits).
+    case "dish": return at.filter((f) => f.meta.group === "dish"
+      && (ctx.goal !== "Weight Loss" || (f.food.per100.protein * 4) / Math.max(f.food.per100.kcal, 1) >= 0.2));
     case "starch": return at.filter((f) => f.meta.group === "starch" && f.meta.sub !== "oats"
       && (!ctx.pair || (ctx.pair === "rice" ? f.meta.sub === "rice" : f.meta.sub === "bread")));
     case "bstarch": return at.filter((f) => f.meta.group === "starch");
@@ -182,7 +184,7 @@ function pick(pool, role, ctx) {
 function buildMeal(kind, pool, ctx) {
   const items = [];
   const add = (role, c = {}) => {
-    const e = pick(rolePool(pool, role, kind, c), role, { ...ctx, kind });
+    const e = pick(rolePool(pool, role, kind, { ...c, goal: ctx.goal }), role, { ...ctx, kind });
     if (e) { items.push({ foodId: e.id, role }); ctx.today.add(e.id); }
     return e;
   };
@@ -199,11 +201,14 @@ function buildMeal(kind, pool, ctx) {
     add("sprotein");
     if (keto) add("bfat");
   } else {
-    const dishFirst = !keto && ctx.random() < (kind === "l" ? 0.35 : 0.2);
+    // Iranian home cooking: a khoresh, polo or ash at about half the lunches, some dinners.
+    const dishFirst = !keto && ctx.random() < (kind === "l" ? 0.4 : 0.25);
     const dish = dishFirst ? add("dish") : null;
-    if (!dish) add("main", { eggMain: kind === "d" });
+    const main = dish ? null : add("main", { eggMain: kind === "d" });
     const pair = dish?.meta.pair;
-    if (!keto && pair !== "none") add("starch", { pair: dish ? pair : null });
+    // On a cut, lentils or beans are the meal's starch too: no bread or pasta beside them.
+    const legumeCut = ctx.goal === "Weight Loss" && main?.meta.group === "legume";
+    if (!keto && pair !== "none" && !legumeCut) add("starch", { pair: dish ? pair : null });
     add("veg", { salad: !!dish });
     if (keto) add("veg");
     if (!dish) add("fat");
@@ -429,7 +434,9 @@ export function generateWeek({ start, targetFor, settings = DEFAULT_SETTINGS, di
       const day = solveDay({ date, target, meals }, { budget: s.budget, layout, dietType });
       const err = dayError(day);
       const cost = dayTotals(day).cost;
-      const score = err + (COST_WEIGHT[s.budget] ?? 0.5) * 0.02 * (cost / DAILY_COST_REF);
+      // A day with a home-cooked dish is worth a point of error over one without (at most one counts).
+      const dishes = day.meals.some((m) => m.items.some((it) => it.role === "dish")) ? 1 : 0;
+      const score = err + (COST_WEIGHT[s.budget] ?? 0.5) * 0.02 * (cost / DAILY_COST_REF) - 0.008 * dishes;
       if (!best || score < best.score) best = { day, score, err };
       if (err < 0.03 && t >= 2) break;
     }
